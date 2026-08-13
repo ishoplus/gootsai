@@ -1230,7 +1230,7 @@ let S=null;
 function newState(){
   return {
     name:'', org:'greed', age:16, year:0, idx:0,
-    ab:{}, nav:0, peak:0, prevNav:0, mood:60, life:70,
+    ab:{}, peakAb:{}, nav:0, peak:0, prevNav:0, mood:60, life:70,
     career:'none', school:null, traits:{}, honors:[], log:[], navHist:[], drawn:[],
     market:[], lastPos:'zero', lastRet:0, lastMkt:0,
     lossStreak:0, underPerf:0, blowups:0, boldWin:0, boldFail:0,
@@ -1238,7 +1238,7 @@ function newState(){
     tmpBoost:0, tmpRisk:0, hype:0, income:0, totalIncome:0,
     famYears:0, restYears:0, moonlight:0, ghost:null, fame:0,
     fast:false, plan:'safe', stance:'norm', habit:{}, panic:null, rebound:0, missRebound:0, quietYears:0,
-    peers:[], tsmRet:[], bIdx:0, bTsm:0, bIdxH:[], bTsmH:[],
+    peers:[], tsmRet:[], bIdx:0, bTsm:0, bIdxH:[], bTsmH:[], decayTold:0,
     tier:0, aum:0, trust:50, badYears:0, redeemed:0, feeTotal:0, window:0, peakAum:0,
     taxPaid:0, divTotal:0, prevMult:0, lockedIn:0, lockWarned:0,
     cls:0, peakCls:0, demoted:0,
@@ -1263,18 +1263,26 @@ function ovr(){ return Math.round(ABK.reduce((s,k)=>s+S.ab[k],0)/ABK.length); }
    曲線刻意調到「一輩子只點得滿三項」——25 年擲骰總點數約 370，
    而單項從 6 點推到 80 要燒掉約 120 點。你必須放棄某些東西。 */
 function addAb(k,amt){
-  if(amt<=0){ const v=clamp(S.ab[k]+amt,1,CAP); const d=v-S.ab[k]; S.ab[k]=v; return d; }
+  if(!S.peakAb) S.peakAb={};
+  if(amt<=0){
+    const v=clamp(S.ab[k]+amt,1,CAP); const d=v-S.ab[k]; S.ab[k]=v; return d;
+  }
   let got=0;
   for(let i=0;i<amt;i++){
     const cur=S.ab[k];
     if(cur>=CAP) break;
     let step=1;
-    if(cur>=72) step=chance(25)?1:0;
-    else if(cur>=62) step=chance(45)?1:0;
-    else if(cur>=50) step=chance(75)?1:0;
+    /* 回到曾經到過的高度不打折——你只是生疏了，不是沒學過。
+       沒有這條，年齡衰退在 72 以上會變成回不去的下坡，後段就沒有攻防可言。 */
+    if(cur >= (S.peakAb[k]||0)){
+      if(cur>=72) step=chance(25)?1:0;
+      else if(cur>=62) step=chance(45)?1:0;
+      else if(cur>=50) step=chance(75)?1:0;
+    }
     S.ab[k]=clamp(cur+step,1,CAP);
     got+=step;
   }
+  if(S.ab[k]>(S.peakAb[k]||0)) S.peakAb[k]=S.ab[k];
   return got;
 }
 function addMood(v){
@@ -1642,6 +1650,7 @@ function quietYear(m){
         const cr=CAREER[S.career], inc=cr.inc();
         S.income=inc; S.totalIncome+=inc; S.nav+=inc;
         addLife(3+cr.life+(S.traits.zen?3:0)+(S.traits.influ?-2:0)); addMood(2);
+        ageDecay();
         const r=R(); let n=(r<0.34?3:r<0.74?4:r<0.94?5:6)+CAREER[S.career].dice;
         if(S.age<=21)n+=1; else if(S.age>=33)n=Math.max(2,n-1);
         for(let i=0;i<n;i++) habitPlace(ri(1,6));
@@ -1676,8 +1685,36 @@ function phaseIncome(m){
   phaseDice(m);
 }
 
+/* ---- 年齡衰退 ----
+   能力只會上升的話，build 蓋完之後剩下的骰子就沒地方去了——後段等於沒有決策。
+   反應類的東西本來就會還回去：盤感鈍了、消息網疏了、人會慢慢走散。
+   但心性、紀律、研究不減——那是經驗，經驗只會累積。
+   於是後段的骰子有了真正的工作：決定補回哪些、放掉哪些。 */
+function ageDecay(){
+  if(S.age<34) return;
+  const hard = S.age>=38;
+  const d = 2;
+  const lost=[];
+  [['sense',d],['info',d],['net',hard?2:1]].forEach(([k,v])=>{
+    const got=addAb(k,-v);
+    if(got) lost.push(ABL[k]+' <b class="dn">'+got+'</b>');
+  });
+  if(!lost.length) return;
+  if(!S.decayTold){
+    S.decayTold=1;
+    card('bad','跟不上了',
+      '你發現自己看盤的時候會漏掉東西，而群組裡在講的那幾檔，你已經不知道是在做什麼的了。<br>'+
+      '<b class="dn">盤感、情報、人脈開始每年往回走</b>——但心性、紀律、研究不會。'+
+      '<span style="color:var(--dim)">那些是經驗，只會累積。</span>'+
+      '<div class="tbl">'+lost.join('　')+'</div>','DECAY');
+  } else {
+    card('info','又還回去一些','<div class="tbl">'+lost.join('　')+'</div>','DECAY');
+  }
+}
+
 /* --- 階段二：擲精力骰、加點 --- */
 function phaseDice(m){
+  ageDecay();
   const r=R();
   let n = r<0.34 ? 3 : r<0.74 ? 4 : r<0.94 ? 5 : 6;
   n += CAREER[S.career].dice;
