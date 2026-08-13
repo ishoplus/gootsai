@@ -928,6 +928,10 @@ const TIERS=[
 ];
 const FEE_MGMT=1.5, FEE_PERF=15;   /* 管理費 % ／ 績效費 % */
 
+/* 各流派一年的基礎換手次數。台股賣出課證交稅 0.3%，
+   所以換手率是直接從報酬裡扣的——當沖派每年被抽掉的比多數人一整年的α還多。 */
+const TURNOVER={none:1.2, hold:0.15, swing:2.6, day:9.5, arb:4.2, long:0.3};
+
 function aumStep(gross){
   if(S.tier<=0 || S.aum<=0) return null;
   const before=S.aum;
@@ -1104,6 +1108,7 @@ function newState(){
     fast:false, plan:'safe', stance:'norm', habit:{}, panic:null, rebound:0, missRebound:0, quietYears:0,
     peers:[], tsmRet:[], bIdx:0, bTsm:0, bIdxH:[], bTsmH:[],
     tier:0, aum:0, trust:50, badYears:0, redeemed:0, feeTotal:0, window:0, peakAum:0,
+    taxPaid:0, divTotal:0, prevMult:0, lockedIn:0, lockWarned:0,
     cls:0, peakCls:0, demoted:0,
     over:false, ending:null
   };
@@ -1659,14 +1664,26 @@ function resolveEvent(ev,mode,done){
 /* --- 階段四：選部位 --- */
 function phasePosition(m){
   const acc=hintAcc();
-  const hint = S.ab.info>=30
-    ? '你聽到的風向是<b class="hl">'+peekHint(m)+'</b>　<span style="color:var(--dim)">（情報 '+
-      S.ab.info+'｜這個判斷的準確率 '+acc+'%）</span>'
-    : '（情報 '+S.ab.info+'，太低了。你完全看不出下一年是什麼方向。）';
+  let hint;
+  if(S.ab.info>=30){
+    const pk=peekHint(m);
+    hint='<b class="hl">'+pk.tag+'</b>　'+pk.flow+
+      '<br><span style="color:var(--dim)">情報 '+S.ab.info+'｜這個判斷的準確率 '+acc+'%</span>';
+  } else {
+    hint='（情報 '+S.ab.info+'，太低了。盤後那些數字你看得懂字，看不懂意思。）';
+  }
   card('mkt','年初：你要押多少？','賬上有 <b class="hl">'+fmtM(S.nav)+'</b>。'+hint,'POSITION');
   board(1);
 
   const shut=windowShut();
+  if(!S.lockWarned && S.idx>=3){
+    S.lockWarned=1;
+    card('info','台股的規矩',
+      '每日漲跌幅 <b class="hl">±10%</b>。這代表崩的時候不是價格瞬間到位，'+
+      '而是一路跌停鎖死——<b class="dn">你想賣，但掛在跌停價的單子排在幾萬張後面</b>。<br>'+
+      '<span style="color:var(--dim)">盤感與情報越高，愈有機會在鎖死之前跑掉。</span>','RULE');
+    board(1);
+  }
   const opts=POSN.filter(p=>{
     if(S.traits.burnt && p.risk) return false;
     if(p.risk===2 && S.nav<20) return false;
@@ -1695,11 +1712,17 @@ function phasePosition(m){
 function hintAcc(){
   return Math.round(clamp(20+S.ab.info*0.62+(S.school==='swing'?15:0),20,87));
 }
+/* 台股散戶真正在看的不是「偏多偏空」，是三大法人的買賣超 */
+const FLOW={
+  '偏多':['外資連續買超，投信同步加碼','三大法人同買，融資餘額回升','外資期貨留倉翻多'],
+  '偏空':['外資連續賣超，融券餘額墊高','三大法人同賣，融資追繳簡訊開始發','外資期貨空單創新高'],
+  '不明朗':['法人多空互見，量能萎縮','外資買超但投信賣超，方向不明','成交量掉到近年低點']
+};
 function peekHint(m){
   const truth = (m.rg==='boom'||m.rg==='bull') ? '偏多'
               : (m.rg==='bear'||m.rg==='crash') ? '偏空' : '不明朗';
-  if(chance(hintAcc())) return truth;
-  return pick(['偏多','偏空','不明朗'].filter(x=>x!==truth));
+  const guess = chance(hintAcc()) ? truth : pick(['偏多','偏空','不明朗'].filter(x=>x!==truth));
+  return {tag:guess, flow:pick(FLOW[guess])};
 }
 
 /* 崩盤年的盤中決策：一年只有兩三次，但這是整局最該被記住的時刻。
@@ -1715,8 +1738,23 @@ function crashPanic(m,p,cont){
   ])+'　你的部位是<b class="hl">'+p.n+'</b>。手機通知一直響，你關掉又打開。','PANIC');
   board(1);
   choose('現在，你要做什麼？',[
-    {t:'全部砍掉',warn:true,s:'虧損停在這裡（只承受 55%），但接下來的反彈與你無關',
-      f:()=>{ S.panic='cut'; addAb('disc',1); cont(); }},
+    {t:'全部砍掉',warn:true,s:'虧損停在這裡（只承受 55%）｜台股有跌停板，賣不賣得掉是另一回事',
+      f:()=>{
+        /* 台股每日漲跌幅 ±10%。真正的崩盤是跌停鎖死——
+           委賣單掛在那裡一整天，一張都不會成交。
+           想跑跑不掉，這是美股沒有的處境，也是台股最有辨識度的一件事。 */
+        const escape = clamp(38 + S.ab.sense*0.42 + S.ab.info*0.28, 38, 88);
+        if(chance(escape)){ S.panic='cut'; addAb('disc',1); cont(); return; }
+        S.panic='locked'; S.lockedIn++;
+        card('bad','跌停鎖死', pick([
+          '你的委賣單掛在跌停價，排在後面幾萬張。一整天，一張都沒成交。',
+          '連續第三根跌停。想賣的人排成一條看不到底的隊伍，你在很後面。',
+          '你把價格一路往下掛到跌停，成交回報始終沒有出現。'
+        ])+'　<b class="dn">你跑不掉，只能整年扛著。</b>');
+        addMood(-14); addAb('mind',2);
+        board(1);
+        choose('',[{t:'繼續 ▸',main:true,f:cont}]);
+      }},
     {t:'什麼都不做',main:true,s:'完整承受這一年，也完整參與明年的反彈。心性 +2',
       f:()=>{ S.panic='hold'; addAb('mind',2); cont(); }},
     {t:'加碼攤平',s:'這年的虧損放大 1.35 倍。如果撐得過去，明年 alpha +18%',
@@ -1759,7 +1797,17 @@ function settle(m,p){
   if(sc==='hold'){
     if(mkt<0){ mkt=mkt*0.55; tw.push('存股抗跌'); }
     else { alpha-=Math.abs(mkt)*0.18; tw.push('存股跑輸'); }
-    divid=S.nav*0.025;                        /* 現金股利：不受部位影響，照領 */
+    /* 除息當天股價直接扣掉股利，帳面一毛沒賺；要「填息」才算真的到手。
+       台股散戶最痛的一課，存股派尤其。 */
+    const gross_div=S.nav*0.042;
+    const nhi = gross_div>2 ? gross_div*0.0211 : 0;   /* 二代健保補充保費 */
+    /* 兩種情況都領得到現金，差別在股價有沒有填回來：
+       填息＝淨賺股利；貼息＝現金入袋但股價回不去，等於左手換右手，淨值接近打平。
+       （先前把貼息寫成淨損失是重複扣了一次，模型錯誤。） */
+    divid=gross_div-nhi;
+    if(chance(S.school==='hold'?70:58)) tw.push('填息');
+    else { alpha-=4.2; tw.push('貼息'); }
+    S.divTotal+=divid;
   }
   if(sc==='long'){
     if(S.idx<10){ alpha-=6; tw.push('長線蟄伏'); }
@@ -1773,7 +1821,16 @@ function settle(m,p){
   } else {
     gross = (mkt + alpha + discPen + moodPen) * p.mult;
     gross -= p.rate * (p.mult - 1);           /* 融資利息只算借來的那部分 */
-    if(sc==='day'){ gross -= 4; tw.push('當沖手續費'); }
+    /* 台股是賣出課稅：不管賺賠，賣掉就抽 0.3% 證交稅（現股當沖減半），
+       再加手續費。所以真正吃掉報酬的是「換手率」，不是賺賠——
+       這是台股跟資本利得制最根本的差別，也是這款想講的事。 */
+    const turn = TURNOVER[sc||'none'] + Math.abs(p.mult-(S.prevMult||p.mult));
+    const stt  = turn * (sc==='day' ? 0.15 : 0.30) / 100;   /* 證交稅 */
+    const fee  = turn * 0.0855 / 100;                        /* 手續費，六折後來回 */
+    const cost = (stt+fee)*100;
+    gross -= cost;
+    S.taxPaid += S.nav*cost/100;
+    if(cost>=1) tw.push('稅費 −'+cost.toFixed(1)+'%（換手 '+turn.toFixed(1)+' 次）');
   }
   if(sc==='arb'){ gross = clamp(gross+5,-12,22); tw.push('套利壓縮'); }
 
@@ -1782,6 +1839,7 @@ function settle(m,p){
   if(S.missRebound){ gross-=10*p.mult; tw.push('錯過反彈'); S.missRebound=0; }
 
   if(S.panic==='cut'){ gross=gross<0?gross*0.55:gross; tw.push('砍在半途'); S.missRebound=1; }
+  else if(S.panic==='locked'){ gross=gross<0?gross*1.12:gross; tw.push('跌停鎖死'); }
   else if(S.panic==='add'){ gross=gross<0?gross*1.35:gross*1.2; tw.push('加碼攤平'); S.rebound=18; }
   S.panic=null;
 
@@ -1798,6 +1856,7 @@ function settle(m,p){
     gross = -92;
   }
   if(divid>0) after+=divid;                   /* 股利在斷頭之後才入帳，所以爆倉那年也還有 */
+  S.prevMult=p.mult;
   S.nav=Math.max(0.1,after);
   benchStep(S.income||0);
   S.lastRet=gross;
@@ -2034,6 +2093,7 @@ const ENDING_IDS=[
   {id:'oracle',r:'ORACLE END',t:'兩次你都躲過了'},
   {id:'truevalue',r:'TRUE END',t:'你只是買了，然後沒有賣'},
   {id:'pro',r:'PRO END',t:'沒有名片的人'},
+  {id:'taxed',r:'TAX END',t:'你幫政府賺得比幫自己多'},
   {id:'hype',r:'BAD END',t:'每次都以為是自己的實力'},
   {id:'legend',r:'LEGEND END',t:'他們後來叫你老師，你沒有開課'},
   {id:'rich',r:'RICH END',t:'數字很大，人很空'},
@@ -2102,6 +2162,10 @@ function pickEnding(reason,nav,mood,life,cagr){
   {id:'pro', c:S.career==='pro' && nav>=6000, r:'PRO END', t:'沒有名片的人',
    x:'你沒有職稱、沒有公司、沒有可以填在表格上的東西。'+
      '海關問你職業的時候你會頓一下。但帳戶裡是 '+fmtM(nav)+'，這大概就是答案。'},
+  {id:'taxed', c:S.taxPaid>=nav*0.55 && S.taxPaid>=300, r:'TAX END', t:'你幫政府賺得比幫自己多',
+   x:'二十四年，證交稅加手續費繳出去 '+fmtM(S.taxPaid)+'，自己剩 '+fmtM(nav)+'。'+
+     '台股是賣出就課稅的，不管你賺還賠——你每一次「這次不一樣」的換股，'+
+     '都先付了千分之三給國庫。那些錢加起來，比你任何一年的獲利都大。'},
   {id:'hype', c:S.hype>=5 && nav<2000, r:'BAD END', t:'每次都以為是自己的實力',
    x:'你有過 '+S.hype+' 個賺很多的年份，每一次你都加碼，每一次都在下一年還回去。'+
      '牛市把你教成了一個很有自信的人，然後市場再把那份自信一次收走。'},
@@ -2169,6 +2233,9 @@ function endGame(reason){
       st('空手年數',S.zeroYears+' 年')+
       st('膨脹年數',S.hype+' 年')+
       st('累計薪水',fmtM(S.totalIncome))+
+      st('繳出的稅費',fmtM(S.taxPaid))+
+      st('領到的股利',fmtM(S.divTotal))+
+      st('跌停鎖死',S.lockedIn+' 次')+
       st('心態',Math.round(mood))+
       st('生活',Math.round(life))+
     '</div>'+
