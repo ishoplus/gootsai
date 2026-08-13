@@ -193,7 +193,11 @@ body[data-theme="terminal"] #act,body[data-theme="neon"] #act{box-shadow:0 -10px
 .ab.sink{border-style:dashed}
 .ab.sink .n{color:var(--warn);width:5.2em;white-space:nowrap}
 .ab .sd{flex:1;font-family:var(--mono);font-size:11.5px;color:var(--dim)}
-.cue{font-family:var(--mono);font-size:11px;color:var(--dim);margin:8px 0 4px}
+.cue{font-family:var(--mono);font-size:11px;color:var(--dim);margin:8px 0 6px;
+  font-variant-numeric:tabular-nums}
+.cue b{color:var(--ink)}
+.cue .rule{display:block;font-size:10px;opacity:.72;margin-top:3px;letter-spacing:.02em}
+.seprow .rule{display:none}
 
 /* ================= 結局 ================= */
 #fin{padding:8px 0 40px}
@@ -316,6 +320,28 @@ body[data-theme="terminal"] #act,body[data-theme="neon"] #act{box-shadow:0 -10px
     border-right:1px solid var(--edge);padding-right:18px}
   #tl-list{min-height:0}
 }
+
+/* ---- 分配骰子的整頁覆蓋層（窄螢幕）---- */
+#af{position:fixed;inset:0;z-index:80;background:var(--bg);background-image:var(--grain);
+  display:flex;flex-direction:column;animation:fi .16s ease-out}
+.af-in{display:flex;flex-direction:column;min-height:0;flex:1;
+  max-width:560px;width:100%;margin:0 auto;padding:0 14px}
+.af-head{flex:none;padding:calc(10px + env(safe-area-inset-top)) 0 9px;
+  border-bottom:3px double var(--edge);background:var(--bg)}
+.af-t{font-family:var(--serif);font-size:17px;font-weight:700;line-height:1.4;margin-bottom:7px}
+.af-stat{display:flex;gap:16px;font-family:var(--mono);font-size:11px;color:var(--dim);
+  letter-spacing:.06em;font-variant-numeric:tabular-nums}
+.af-stat b{color:var(--ink);font-size:12.5px}
+.af-stat b.up{color:var(--up)} .af-stat b.dn{color:var(--dn)}
+.af-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;padding:12px 0 calc(16px + env(safe-area-inset-bottom))}
+#af #dice{position:sticky;top:0;z-index:2;background:var(--bg);padding:2px 0 10px;margin-bottom:2px}
+#af .abgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+#af .sinkgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+#af .ab{padding:9px 9px}
+#af .ab.sink{flex-direction:column;align-items:flex-start;gap:2px}
+#af .ab.sink .n{width:auto}
+#af .btn{margin-top:10px}
 
 /* ================= 選單疊加層 ================= */
 #mask{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:100;
@@ -1274,10 +1300,36 @@ function autoPlace(pip){
 
 /* ---- 骰子分配 ---- */
 function allocUI(dice,title,done){
-  actClear();
-  const a=ACT(); a.classList.add('alloc');
+  /* 窄螢幕改用整頁覆蓋層：分配是需要全副注意力的時刻，
+     硬塞進黏底面板只會兩邊都擠。覆蓋層自帶一條數值列，
+     因為報頭被蓋住了，而「陪家人／徹底休息」的效果就在那兩個數字上。 */
+  const full = window.innerWidth < 900;
+  let a, overlay=null;
+  if(full){
+    overlay=document.createElement('div');
+    overlay.id='af';
+    overlay.innerHTML='<div class="af-in">'+
+      '<div class="af-head"><div class="af-t"></div><div class="af-stat"></div></div>'+
+      '<div class="af-body"></div></div>';
+    document.body.appendChild(overlay);
+    document.body.style.overflow='hidden';
+    a=overlay.querySelector('.af-body');
+    overlay.querySelector('.af-t').textContent=title;
+  } else {
+    actClear();
+    a=ACT(); a.classList.add('alloc');
+  }
+  const closeFull=()=>{ if(overlay){ overlay.remove(); document.body.style.overflow=''; } };
+  const syncStat=()=>{
+    if(!overlay) return;
+    overlay.querySelector('.af-stat').innerHTML=
+      '<span>淨值 <b>'+fmtM(S.nav)+'</b></span>'+
+      '<span>心態 <b class="'+(S.mood>=50?'up':'dn')+'">'+Math.round(S.mood)+'</b></span>'+
+      '<span>生活 <b class="'+(S.life>=50?'up':'dn')+'">'+Math.round(S.life)+'</b></span>';
+  };
   let idx=0, hist=[];
-  const q=document.createElement('div'); q.className='q'; q.textContent=title; a.appendChild(q);
+  const q=document.createElement('div'); q.className='q'; q.textContent=title;
+  if(!full) a.appendChild(q);
   const dwrap=document.createElement('div'); dwrap.id='dice'; a.appendChild(dwrap);
   const cue=document.createElement('div'); cue.className='cue'; a.appendChild(cue);
   const list=document.createElement('div'); list.className='abgrid'; a.appendChild(list);
@@ -1287,11 +1339,13 @@ function allocUI(dice,title,done){
   const foot=document.createElement('div'); a.appendChild(foot);
 
   function render(){
+    syncStat();
     dwrap.innerHTML=dice.map((v,i)=>
       '<div class="die '+(i<idx?'used':'')+' '+(i===idx?'active':'')+' '+(v===6?'six':'')+'">'+v+'</div>').join('');
-    cue.textContent = idx<dice.length
-      ? '剩餘 '+(dice.length-idx)+' 顆未分配 · 當前這顆 '+dice[idx]+' 點'
-      : '全部分配完畢';
+    cue.innerHTML = (idx<dice.length
+      ? '剩餘 <b>'+(dice.length-idx)+'</b> 顆未分配　·　當前這顆 <b>'+dice[idx]+'</b> 點'
+      : '全部分配完畢')+
+      '<span class="rule">每顆依序套用｜50 以上成長遞減，72 以上幾乎點不動</span>';
     list.innerHTML='';
     const live = idx<dice.length;
     ABK.forEach(k=>{
@@ -1332,11 +1386,12 @@ function allocUI(dice,title,done){
     if(idx>=dice.length){
       const c=document.createElement('button');
       c.className='btn main'; c.textContent='確認 ▸';
-      c.onclick=()=>{ beat(); actClear(); done(); };
+      c.onclick=()=>{ beat(); closeFull(); actClear(); done(); };
       foot.appendChild(c);
     }
   }
   render();
+  if(full){ a.scrollTop=0; }
   /* 純視覺滾動動畫：用 Math.random，絕不碰種子化 RNG */
   if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
     dwrap.querySelectorAll('.die').forEach((el,i)=>{
@@ -1345,7 +1400,7 @@ function allocUI(dice,title,done){
       setTimeout(()=>{ clearInterval(iv); el.classList.remove('rolling'); el.textContent=dice[i]; },240+i*85);
     });
   }
-  scrollBottom();
+  if(!full) scrollBottom();
 }
 
 /* ================= 年度流程 ================= */
@@ -1469,8 +1524,7 @@ function phaseDice(m){
     board(1); checkTraits(); phaseEvent(m); return;
   }
   choose('',[{t:'▸ 分配這 '+n+' 顆骰子',main:true,f:()=>{
-    allocUI(dice,'點選要投入的能力（每顆骰子依序套用｜50 以上成長遞減，72 以上幾乎點不動）',
-      ()=>{ checkTraits(); phaseEvent(m); });
+    allocUI(dice,'分配這一年的時間',()=>{ checkTraits(); phaseEvent(m); });
   }}]);
 }
 
