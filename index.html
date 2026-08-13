@@ -3,6 +3,19 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- 縱深防禦。單檔遊戲全部是 inline，所以 script-src 必須留 'unsafe-inline'，
+     這代表 CSP 擋不住注入的 onerror 之類事件處理器——真正的防線是輸入端的白名單清洗。
+     這裡能擋的是：載入外部腳本、外掛物件、base 標籤劫持、表單外送。
+     frame-ancestors 只有 HTTP 標頭形式有效，meta 版會被忽略，故不列。 -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self' 'unsafe-inline' https://gc.zgo.at;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src https://fonts.gstatic.com;
+  img-src 'self' data: https://*.goatcounter.com;
+  connect-src https://*.goatcounter.com;
+  base-uri 'none';
+  form-action 'none'">
 <title>少年股神 — 一場種子化的韭菜養成</title>
 <meta name="description" content="16 歲用壓歲錢開戶，40 歲結算。24 年牛熊由種子生成，相同種子＋相同選擇＝相同人生。賺錢不難，難的是不變成另一個人。">
 <meta property="og:type" content="website">
@@ -492,9 +505,20 @@ body[data-theme="terminal"] #act,body[data-theme="neon"] #act{box-shadow:0 -10px
    ================================================================ */
 
 /* ================= RNG（種子化：xmur3 + mulberry32）================= */
+/* ---- 輸入清洗 ----
+   種子與對手姓名都會流進 innerHTML，而戰帖連結本來就是設計來給別人點的。
+   所以在「入口」白名單化，而不是在十幾個輸出點各自逃逸——少一處就破功。
+   ishoplus.github.io 是所有 Pages 專案共用的來源，這裡被打，
+   同來源其他專案的 localStorage 也一起賠進去。 */
+const SAFE_RE=/[^\w\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff-]/g;
+function clean(s,max){ return String(s==null?'':s).replace(SAFE_RE,'').slice(0,max||24); }
+function esc(s){ return String(s==null?'':s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
 const _Q = new URLSearchParams(location.search);
-let SEED = _Q.get('seed') || Math.random().toString(36).slice(2,10);
-const VSCODE = _Q.get('vs') || '';
+let SEED = clean(_Q.get('seed'),24) || Math.random().toString(36).slice(2,10);
+const VSCODE = (_Q.get('vs')||'').replace(/[^\w~%.-]/g,'').slice(0,400);
 let CHALLENGE = null;   /* 別人下的戰帖，boot() 時解碼 */
 let _s = 0;
 function seedInit(str){
@@ -2159,7 +2183,7 @@ function endGame(reason){
     const d=(nav/Math.max(gh.nav,0.01)-1)*100;
     fin.insertAdjacentHTML('beforeend',
       '<div class="vs"><div class="k">'+(gh.vs?'戰帖對手':'同一顆種子 · 上一次')+'</div>'+
-      '<b>'+gh.name+'</b>'+(gh.school?'（'+SCHOOL[gh.school].n+'）':'')+
+      '<b>'+esc(gh.name)+'</b>'+(gh.school?'（'+SCHOOL[gh.school].n+'）':'')+
       ' → '+fmtM(gh.nav)+'　「'+gh.title+'」<br>'+
       '你 '+fmtM(nav)+'，相差 <b class="'+(d>=0?'up':'dn')+'">'+sgn(d,0)+'%</b>'+
       (gh.vs ? (d>=0?'　你贏了。回敬一張戰帖吧。':'　這局你輸了。')
@@ -2416,7 +2440,7 @@ function buildShareCard(E,nav,cagr){
   try{ url=out.toDataURL('image/png'); }catch(e){ return; }
   const wrap=document.createElement('div');
   wrap.className='share';
-  wrap.innerHTML='<div class="k">分享圖</div><img src="'+url+'" alt="'+S.name+' 的結局分享圖">'+
+  wrap.innerHTML='<div class="k">分享圖</div><img src="'+url+'" alt="'+esc(S.name)+' 的結局分享圖">'+
     '<div class="hint">長按或按右鍵存圖。圖上有種子碼，朋友輸入就能走同一條路。</div>';
   const fin=$('fin'); if(fin) fin.appendChild(wrap);
 }
@@ -2517,7 +2541,8 @@ function decodeRun(code){
     if(!code || code.charAt(0)!=='1') return null;
     const cut=code.indexOf('~');
     const body=cut<0?code:code.slice(0,cut);
-    const nm=cut<0?'某人':decodeURIComponent(code.slice(cut+1));
+    let nm='某人';
+    if(cut>=0){ try{ nm=clean(decodeURIComponent(code.slice(cut+1)),8)||'某人'; }catch(e){} }
     const si=parseInt(body.charAt(1),36)-1;
     const ei=parseInt(body.slice(2,4),36);
     const hs=body.slice(4), hist=[];
@@ -2528,7 +2553,7 @@ function decodeRun(code){
     }
     if(hist.length<3) return null;
     const E=ENDING_IDS[ei]||{t:'不明的結局',r:''};
-    return {name:(nm||'某人').slice(0,8), school:Object.keys(SCHOOL)[si]||null,
+    return {name:nm, school:Object.keys(SCHOOL)[si]||null,
             hist:hist, nav:hist[hist.length-1], title:E.t, rank:E.r, vs:true};
   }catch(e){ return null; }
 }
@@ -2693,7 +2718,7 @@ function boot(){
     const el=$('vs-line');
     if(el){
       el.style.display='block';
-      el.innerHTML='<b>'+g.name+'</b>'+(g.school?'（'+SCHOOL[g.school].n+'）':'')+
+      el.innerHTML='<b>'+esc(g.name)+'</b>'+(g.school?'（'+SCHOOL[g.school].n+'）':'')+
         ' 向你下了戰帖：這顆種子他走到 <b>'+fmtM(g.nav)+'</b>，結局是「'+g.title+'」。<br>'+
         '<span style="opacity:.7">種子已鎖定。同樣的牛熊，換你走一次。</span>';
     }
@@ -2751,7 +2776,7 @@ function start(){
   seedInit(SEED);
 
   S=newState();
-  S.name=($('in-name').value.trim()||'無名氏').slice(0,8);
+  S.name=clean($('in-name').value.trim(),8)||'無名氏';
   S.org=ORGPICK;
   S.fast=FASTPICK;
 
@@ -2790,7 +2815,7 @@ function start(){
   if(S.ghost){
     const g=S.ghost;
     card('gold', g.vs?'有人向你下戰帖':'這顆種子你走過',
-      (g.vs?'<b class="hl">'+g.name+'</b>':'上次是 <b class="hl">'+g.name+'</b>')+
+      (g.vs?'<b class="hl">'+esc(g.name)+'</b>':'上次是 <b class="hl">'+esc(g.name)+'</b>')+
       (g.school?'（'+SCHOOL[g.school].n+'）':'')+
       ' 在這顆種子上走到 <b class="hl">'+fmtM(g.nav)+'</b>——「'+g.title+'」。<br>'+
       '同樣的二十四年牛熊、同樣幾次崩盤。'+
