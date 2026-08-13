@@ -106,6 +106,11 @@ input:focus{border-color:var(--accent)}
 .seedline b{color:var(--accent)}
 #seed-show{width:130px;display:inline-block;background:var(--panel);color:var(--accent);
   border:1px solid var(--edge);padding:4px 7px;font-family:var(--mono);font-size:12px;vertical-align:middle}
+.byline{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:22px;
+  padding-top:14px;border-top:1px solid var(--edge);letter-spacing:.04em}
+.byline a{color:var(--accent);text-decoration:none;border-bottom:1px solid currentColor}
+.byline a:hover{color:var(--accent2)}
+.byline span{opacity:.5;margin:0 4px}
 .prefline{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:14px}
 .prefline a{color:var(--dim);text-decoration:none;border-bottom:1px dotted var(--dim);margin-right:14px}
 
@@ -464,6 +469,11 @@ body[data-theme="terminal"] #act,body[data-theme="neon"] #act{box-shadow:0 -10px
 
     <p class="vsline" id="vs-line" style="display:none"></p>
     <p class="codexline" id="codex-line"></p>
+
+    <p class="byline">
+      by <a href="https://www.threads.com/@ishoplus" target="_blank" rel="noopener noreferrer">@ishoplus</a>
+      <span>·</span> <a href="https://github.com/ishoplus/gootsai" target="_blank" rel="noopener noreferrer">原始碼</a>
+    </p>
 
     <p class="prefline">
       <a href="#" data-th="terminal">終端綠</a>
@@ -2264,8 +2274,11 @@ function endGame(reason){
       (Object.keys(S.traits).length?Object.keys(S.traits).map(k=>'<i>'+TRAITS[k].n+'</i>').join('、'):'（無）')+
       (S.honors.length?'<br><b>紀錄</b>：'+S.honors.join('、'):'')+
       '<br><b>能力</b>：'+ABK.map(k=>ABL[k]+' '+S.ab[k]).join('　')+
-      '<br><b>種子</b>：<span class="mono" style="color:var(--accent)">'+SEED+'</span>'+
-    '</div>';
+      '<br><b>種子</b>：<span class="mono" style="color:var(--accent)">'+esc(SEED)+'</span>'+
+    '</div>'+
+    '<p class="byline" style="margin-top:22px">《少年股神》 by '+
+      '<a href="https://www.threads.com/@ishoplus" target="_blank" rel="noopener noreferrer">@ishoplus</a>'+
+      '<span>·</span><a href="https://github.com/ishoplus/gootsai" target="_blank" rel="noopener noreferrer">原始碼</a></p>';
   const gh=S.ghost;
   if(gh){
     const d=(nav/Math.max(gh.nav,0.01)-1)*100;
@@ -2510,13 +2523,17 @@ function buildShareCard(E,nav,cagr){
   c.fillText('SEED',P,fy);
   c.fillStyle=AC; c.font='700 28px '+MONO;
   c.fillText(SEED,P+82,fy);
-  c.fillStyle=DIM; c.font='400 20px '+SANS;
+  c.fillStyle=DIM; c.font='400 19px '+SANS;
+  c.fillText('相同種子＋相同選擇＝相同人生',P,fy+30);
   c.textAlign='right';
-  c.fillText('相同種子＋相同選擇＝相同人生',W-P,fy);
+  c.fillStyle=AC; c.font='700 24px '+MONO;
+  c.fillText('@ishoplus',W-P,fy);
+  c.fillStyle=DIM; c.font='400 19px '+SANS;
+  c.fillText('少年股神',W-P,fy+30);
   c.textAlign='left';
 
   /* 裁掉底下沒用到的空白 */
-  const FH=Math.min(H,Math.round(fy+56));
+  const FH=Math.min(H,Math.round(fy+64));
   const out=document.createElement('canvas');
   out.width=W; out.height=FH;
   const o=out.getContext('2d');

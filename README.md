@@ -1,5 +1,7 @@
 # 少年股神 · THE TEENAGE ORACLE
 
+> 玩這裡 → **[ishoplus.github.io/gootsai](https://ishoplus.github.io/gootsai/)**　·　by [@ishoplus](https://www.threads.com/@ishoplus)
+
 > 十六歲，你拿壓歲錢開了戶。二十四年後結算：淨值、心態、還剩幾個朋友。
 > **賺錢不難，難的是不變成另一個人。**
 
@@ -106,6 +108,10 @@ open index.html      # macOS
 ```
 
 不需要 server。若要自架：把 `index.html` 放到任何靜態主機即可。
+
+## 作者
+
+[@ishoplus](https://www.threads.com/@ishoplus)　·　[ishoplus.github.io/gootsai](https://ishoplus.github.io/gootsai/)
 
 ## 授權
 
