@@ -1779,12 +1779,26 @@ function phaseDice(m){
   ageDecay();
   const r=R();
   let n = r<0.34 ? 3 : r<0.74 ? 4 : r<0.94 ? 5 : 6;
-  n += CAREER[S.career].dice;
-  if(S.age<=21) n+=1;                        /* 學生：整個暑假都是你的 */
-  else if(S.age>=33) n=Math.max(2,n-1);      /* 中年：時間開始不是自己的 */
-  if(S.mood<30) n=Math.max(2,n-1);
-  if(S.life<25) n=Math.max(2,n-1);
-  if(S.traits.quant && chance(45)) n++;
+
+  /* 骰子數的加減一律走這裡，並且只記錄「真正生效」的部分。
+     原本每個修正各自 Math.max(2,n-1)，但提示照印——實測 6% 的機率
+     那句「−1 顆」是假的（已經在地板上，扣不動）。
+     另外中年 −1、學生 +1、全職操盤 +1 先前完全沒有提示，骰子變了卻不說為什麼。 */
+  const mods=[];
+  const mod=(delta,label)=>{
+    if(!delta) return;
+    const before=n;
+    n=Math.max(2,n+delta);
+    const real=n-before;
+    if(real) mods.push({d:real,t:label});
+    else if(delta<0) mods.push({d:0,t:label});
+  };
+  mod(CAREER[S.career].dice, CAREER[S.career].n+'，沒有別的事要做');
+  if(S.age<=21) mod(1,'學生，整個暑假都是你的');
+  else if(S.age>=33) mod(-1,'中年，時間開始不是自己的');
+  if(S.mood<30) mod(-1,'心態低迷，有幾個月根本不想開啟軟體');
+  if(S.life<25) mod(-1,'生活一團亂，分不出神');
+  if(S.traits.quant && chance(45)) mod(1,'量化腦');
 
   const dice=[];
   for(let i=0;i<n;i++) dice.push(ri(1,6));
@@ -1793,8 +1807,13 @@ function phaseDice(m){
              : S.career==='pro'  ? '一整年，你沒有別的事要做'
              : '下班後和每個週末';
   let note='今年你把'+when+'的時間投進去，擲出 <b class="hl">'+n+'</b> 顆精力骰。';
-  if(S.mood<30) note+=' <span style="color:var(--dn)">心態低迷，你有幾個月根本不想開啟軟體（−1 顆）。</span>';
-  if(S.life<25) note+=' <span style="color:var(--dn)">生活一團亂，你分不出神（−1 顆）。</span>';
+  if(mods.length){
+    note+='<div class="tbl">'+mods.map(x=>
+      x.d>0 ? '<b class="up">＋'+x.d+'</b>　'+x.t
+    : x.d<0 ? '<b class="dn">−'+(-x.d)+'</b>　'+x.t
+    :         '<span style="color:var(--dim)">±0　'+x.t+'——已經是最低的兩顆了</span>'
+    ).join('<br>')+'</div>';
+  }
   card('info','自主研究',note,'TRAIN');
   if(S.traits.quant){ addAb('edge',1); addAb('disc',1); }
   board(1);
