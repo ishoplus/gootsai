@@ -88,7 +88,13 @@ input:focus{border-color:var(--accent)}
 .btn.main .s{color:rgba(0,0,0,.62)}
 
 /* ================= 遊戲畫面 ================= */
-#game{display:none;max-width:720px;margin:0 auto;padding:0 14px 30px}
+/* 版面骨架（結構參考野球模擬器）：撐滿視窗的直欄，記分板黏頂、行動區黏底。
+   關鍵是行動區有自己的高度上限與內捲——太高就自己捲，永遠不吃掉整個畫面。
+   用 dvh 而非 vh：手機 Safari 的網址列會伸縮，vh 量到的是錯的高度。 */
+#game{display:none;max-width:720px;margin:0 auto;padding:0 14px;
+  min-height:100vh;min-height:100dvh;flex-direction:column}
+#game.on{display:flex}
+#log{flex:1 1 auto;min-height:0;padding-bottom:14px}
 #hud{position:sticky;top:0;z-index:30;background:var(--bg);
   border-bottom:1px solid var(--edge);padding:9px 0 8px;margin-bottom:14px}
 .hudtop{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font-family:var(--mono);font-size:12px}
@@ -97,7 +103,7 @@ input:focus{border-color:var(--accent)}
 .hudtop .idn{font-size:11px;color:var(--dim)}
 .hudtop .nav{margin-left:auto;font-size:17px;font-weight:700}
 .hudtop .chg{font-size:12px}
-.hudbars{display:flex;gap:8px;margin-top:7px}
+.hudbars{display:flex;gap:8px;margin-top:7px;max-width:520px}
 .hb{flex:1;font-family:var(--mono);font-size:10px;color:var(--dim)}
 .hb .bar{height:4px;background:var(--edge);border-radius:2px;overflow:hidden;margin-top:3px}
 .hb .bar i{display:block;height:100%;background:var(--accent)}
@@ -107,7 +113,6 @@ input:focus{border-color:var(--accent)}
   font-size:11px;padding:2px 8px;border-radius:var(--radius);cursor:pointer}
 
 /* ================= 日誌卡 ================= */
-#log{min-height:40vh}
 .c{border-left:2px solid var(--edge);padding:9px 0 9px 13px;margin:14px 0;animation:fi .22s ease-out}
 @keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
 .c .t{font-weight:700;font-size:14.5px;margin-bottom:3px;display:flex;align-items:center;gap:7px}
@@ -126,7 +131,13 @@ input:focus{border-color:var(--accent)}
 .tbl .k{color:var(--dim);display:inline-block;min-width:5.2em}
 
 /* ================= 行動區 ================= */
-#act{margin-top:20px;padding-top:16px;border-top:1px dashed var(--edge)}
+#act{position:sticky;bottom:0;z-index:20;background:var(--bg);
+  border-top:1px solid var(--edge);box-shadow:0 -10px 26px rgba(0,0,0,.5);
+  max-height:52vh;max-height:52dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:12px 0 calc(14px + env(safe-area-inset-bottom));margin-top:16px;overscroll-behavior:contain}
+/* 分配骰子是需要整頁注意力的時刻，讓它長高 */
+#act.alloc{max-height:calc(100vh - 92px);max-height:calc(100dvh - 92px)}
+body[data-theme="paper"] #act{box-shadow:0 -8px 20px rgba(0,0,0,.14)}
 #act .q{font-size:13px;color:var(--dim);margin-bottom:9px;font-family:var(--mono)}
 #dice{display:flex;gap:7px;flex-wrap:nowrap;margin-bottom:12px}
 .die{width:38px;height:38px;flex:0 1 38px;border:1px solid var(--edge);border-radius:var(--radius);
@@ -207,6 +218,23 @@ input:focus{border-color:var(--accent)}
 .cdx b{display:block;font-size:13.5px}
 .cdx span{display:block;font-size:11.5px;color:var(--dim);line-height:1.6}
 
+/* 桌機：雙欄。內容在左、選擇在右，兩欄各自黏住，就不用一直上下捲 */
+@media(min-width:900px){
+  #game{max-width:1080px;display:none;
+    grid-template-columns:minmax(0,1fr) 372px;
+    grid-template-areas:"hud hud" "log act";
+    column-gap:28px;align-items:start}
+  #game.on{display:grid}
+  #hud{grid-area:hud}
+  #log{grid-area:log;padding-bottom:40px}
+  #act{grid-area:act;position:sticky;top:132px;bottom:auto;
+    max-height:calc(100dvh - 152px);border-top:none;
+    border-left:1px solid var(--edge);box-shadow:none;
+    padding:0 0 0 22px;margin-top:0}
+  #act.alloc{max-height:calc(100dvh - 152px)}
+  #fin{grid-area:log}
+}
+
 /* ================= 選單疊加層 ================= */
 #mask{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:100;
   display:flex;align-items:center;justify-content:center;padding:20px}
@@ -227,8 +255,8 @@ input:focus{border-color:var(--accent)}
   .hudbars{margin-top:4px}
   #spark{height:18px;margin-top:4px}
   #menubtn{padding:1px 6px;font-size:10px}
-  /* #act 在骰子分配時高達 555px，黏底會把敘事卡永久蓋掉——讓它回到正常流 */
-  #act{margin-top:14px;padding-top:12px}
+  #act{max-height:50dvh;padding-top:10px;margin-top:12px}
+  #act.alloc{max-height:calc(100dvh - 84px)}
   .die{width:31px;height:31px;flex:0 1 31px;font-size:14px}
   .abgrid{display:grid;grid-template-columns:1fr 1fr;gap:4px}
   .sinkgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:4px}
@@ -1027,7 +1055,7 @@ function board(scroll){
     : '第 '+(S.idx+1)+' 年 · '+S.age+' 歲 · '+CAREER[S.career].n;
   const idn=$('h-idn');
   if(idn){
-    idn.textContent = narrow ? '' : idText;
+    idn.textContent = narrow ? '' : '· '+idText;
     idn.style.color = S.tier>0 && S.trust<35 ? 'var(--dn)' : 'var(--dim)';
   }
   $('h-year').style.color = (S.tier>0 && S.trust<35) ? 'var(--dn)' : '';
@@ -1069,7 +1097,7 @@ function drawSpark(){
     '" stroke-width="1.5" vector-effect="non-scaling-stroke"/>';
 }
 
-function actClear(){ ACT().innerHTML=''; }
+function actClear(){ const a=ACT(); a.classList.remove('alloc'); a.innerHTML=''; }
 /* 標記新回合的起點。只能由玩家的實際操作觸發——
    choose() 內部也會呼叫 actClear() 重繪，若在那裡標記會把錨點推到新內容之後。 */
 function beat(){ const l=LOG(); if(l) BEAT_MARK=l.children.length; }
@@ -1118,7 +1146,7 @@ function autoPlace(pip){
 /* ---- 骰子分配 ---- */
 function allocUI(dice,title,done){
   actClear();
-  const a=ACT();
+  const a=ACT(); a.classList.add('alloc');
   let idx=0, hist=[];
   const q=document.createElement('div'); q.className='q'; q.textContent=title; a.appendChild(q);
   const dwrap=document.createElement('div'); dwrap.id='dice'; a.appendChild(dwrap);
@@ -2016,7 +2044,7 @@ function restart(keepSeed){
   if(!keepSeed) SEED=Math.random().toString(36).slice(2,10);
   S=null;
   LOG().innerHTML=''; actClear();
-  $('game').style.display='none';
+  $('game').classList.remove('on');
   $('start').style.display='flex';
   $('ver').style.display='';
   $('seed-show').value=SEED;
@@ -2511,7 +2539,7 @@ function start(){
   S.ghost=CHALLENGE||loadGhost();   /* 戰帖優先；否則用同種子的上一次。都會畫成灰線 */
 
   $('start').style.display='none';
-  $('game').style.display='block';
+  $('game').classList.add('on');
   $('ver').style.display='none';
 
   card('info','開戶',
