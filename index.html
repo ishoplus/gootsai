@@ -5,8 +5,21 @@
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>少年股神 — 一場種子化的韭菜養成</title>
 <meta name="description" content="16 歲用壓歲錢開戶，40 歲結算。24 年牛熊由種子生成，相同種子＋相同選擇＝相同人生。賺錢不難，難的是不變成另一個人。">
-<meta property="og:title" content="少年股神">
-<meta property="og:description" content="16 歲用壓歲錢開戶，40 歲結算。相同種子＋相同選擇＝相同人生。">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="少年股神">
+<meta property="og:title" content="少年股神 — 一場種子化的韭菜養成">
+<meta property="og:description" content="16 歲用壓歲錢開戶，40 歲結算：淨值、心態、還剩幾個朋友。相同種子＋相同選擇＝相同人生。">
+<meta property="og:url" content="https://ishoplus.github.io/gootsai/">
+<meta property="og:image" content="https://ishoplus.github.io/gootsai/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="少年股神：淨值曲線與大盤、台積電的對照">
+<meta property="og:locale" content="zh_TW">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="少年股神 — 一場種子化的韭菜養成">
+<meta name="twitter:description" content="16 歲用壓歲錢開戶，40 歲結算。賺錢不難，難的是不變成另一個人。">
+<meta name="twitter:image" content="https://ishoplus.github.io/gootsai/og.png">
+<meta name="theme-color" content="#e8e4da">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 fill=%22%23e8e4da%22/%3E%3Cpath d=%22M3 24 L10 16 L15 20 L22 8 L29 12%22 stroke=%22%238c2f2f%22 stroke-width=%222.5%22 fill=%22none%22 stroke-linejoin=%22round%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
@@ -1866,6 +1879,7 @@ function postSettle(m){
       t:SCHOOL[k].n, s:SCHOOL[k].d+'<br>'+SCHOOL[k].fx,
       main:k==='hold',
       f:()=>{ S.school=k;
+        track('school-'+k,'流派：'+SCHOOL[k].n);
         card('gold','流派確立：'+SCHOOL[k].n, SCHOOL[k].fx);
         if(k==='day') addAb('sense',3);
         if(k==='arb') addAb('disc',3);
@@ -2152,6 +2166,8 @@ function endGame(reason){
              : (d>=0?'　你贏過了上一個自己。':'　上一個自己走得比你好。'))+'</div>');
   }
   recordRun(E,nav);
+  track('end-'+E.id,'結局：'+E.title);
+  track('cls-'+S.peakCls,'最高階級：'+CLASSES[S.peakCls].n);
   /* 兩條軸的成績單：站到哪一層，以及有沒有人要你 */
   fin.insertAdjacentHTML('beforeend',
     '<div class="vs"><div class="k">你走到哪一層</div>'+
@@ -2213,6 +2229,7 @@ function endGame(reason){
   choose('',[
     {t:'複製戰帖連結',main:true,s:'對方會拿到同一顆種子，而且你的淨值曲線會變成他的灰線',f:()=>{
       const url=challengeURL(E);
+      track('share-challenge','複製戰帖');
       copy(url);
       card('good','戰帖已複製',
         '傳給朋友。他會走同樣的二十四年牛熊，畫面上一直有一條你的灰線。<br>'+
@@ -2521,6 +2538,27 @@ function challengeURL(E){
   return base+'?seed='+encodeURIComponent(SEED)+'&vs='+encodeRun(E);
 }
 
+/* ================= 數據 =================
+   GoatCounter：免費、不放 cookie、不需要同意橫幅，一行設定就啟用。
+   把 GC_CODE 換成你註冊的代碼（例如註冊 gootsai.goatcounter.com 就填 'gootsai'）。
+   留空則整段不做任何事，也不會發出任何請求。
+   Artifact 版的 CSP 會擋掉外部腳本，所以數據只會來自 GitHub Pages 那個網址。 */
+const GC_CODE = '';
+let _gcReady=false;
+function analyticsInit(){
+  if(!GC_CODE || location.protocol==='file:') return;
+  window.goatcounter={no_onload:true};
+  const s=document.createElement('script');
+  s.async=true; s.dataset.goatcounter='https://'+GC_CODE+'.goatcounter.com/count';
+  s.src='https://gc.zgo.at/count.js';
+  s.onload=()=>{ _gcReady=true; track('/'); };   /* 種子與戰帖碼一律歸到首頁，免得路徑爆炸 */
+  document.head.appendChild(s);
+}
+function track(path,title){
+  if(!_gcReady || !window.goatcounter || !goatcounter.count) return;
+  try{ goatcounter.count({path:path, title:title||path, event:path.charAt(0)!=='/'}); }catch(e){}
+}
+
 /* ================= 本機存檔：圖鑑與種子歷史 =================
    全部包在 try/catch 裡——sandbox iframe 與隱私模式可能整個沒有 localStorage，
    那時遊戲照常能玩，只是少了鬼影與圖鑑。 */
@@ -2647,8 +2685,10 @@ function boot(){
   });
   $('big-t').onclick=e=>{ e.preventDefault(); applyBig(!document.body.classList.contains('big')); };
   $('menubtn').onclick=openMenu;
+  analyticsInit();
   CHALLENGE=decodeRun(VSCODE);
   if(CHALLENGE){
+    track('arrive-challenge','收到戰帖');
     const g=CHALLENGE;
     const el=$('vs-line');
     if(el){
@@ -2734,6 +2774,7 @@ function start(){
 
   $('start').style.display='none';
   $('game').classList.add('on');
+  track('start-'+ORGPICK+(S.fast?'-fast':'-full'),'開局');
   $('ver').style.display='none';
 
   card('info','開戶',

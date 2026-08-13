@@ -50,6 +50,30 @@
 - **行情**：markov 鏈生成，校準到稳態算術年均約 11.9%、**幾何年化約 7.8%**。幾何遠低於算術是刻意的——波動本身就在吃掉報酬，那是這款想講的第一件事。
 - **儲存**：localStorage 只放 UI 偏好、圖鑑與種子歷史，全部包在 try/catch 裡。沒有 localStorage 時遊戲照常能玩。
 
+## 要看有多少人玩
+
+內建 [GoatCounter](https://www.goatcounter.com/) 埋點：免費、不放 cookie、不需要同意橫幅。
+
+1. 到 goatcounter.com 註冊一個站台代碼（例如 `gootsai`）
+2. 打開 `index.html`，把 `const GC_CODE = ''` 改成 `const GC_CODE = 'gootsai'`
+3. `git push`，一分鐘後就開始收數據
+
+**留空則整段完全不動作，不會發出任何請求。**
+
+除了瀏覽數，這些事件已經接好：
+
+| 事件 | 意義 |
+|---|---|
+| `start-<動機>-<full\|fast>` | 有人真的按下開戶，以及選了哪種節奏 |
+| `school-<流派>` | 十九歲選了哪一派 |
+| `end-<結局id>` | 玩到最後，拿到哪個結局（24 種） |
+| `cls-<0..3>` | 最高爬到哪個資本階級 |
+| `share-challenge` | 有人複製戰帖連結 |
+| `arrive-challenge` | 有人是從別人的戰帖連結進來的 |
+
+`start` 對 `end` 的比值就是完成率；`share-challenge` 對 `arrive-challenge` 是傳播係數。
+種子與戰帖碼一律歸到首頁路徑，免得每個連結都變成一筆新頁面。
+
 ## 本機執行
 
 ```bash
