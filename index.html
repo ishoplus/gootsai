@@ -601,14 +601,26 @@ const HEADLINE={
 };
 
 /* ---- 部位 ---- */
+/* ---- 今年買什麼 ----
+   原本這裡是「押多少」——三成倉／半倉／滿倉。那是一個抽象的曝險刻度，不是股票市場：
+   真實的散戶不會想「我要 62% 曝險」，他想的是「我要買 0050 還是台積電還是航運」。
+   改成標的之後，配息、換手（證交稅）、波動、流動性都自然跟著標的走，
+   不必再靠流派另外補規則——同時更像那件事，也更少東西要記。 */
 const POSN=[
-  {k:'zero', n:'空手',      mult:0,    rate:0,    s:'不進場。存款利息 1.5%，但你會一直想「早知道」'},
-  {k:'light',n:'三成倉',        mult:0.35, rate:0,    s:'留大把現金。跌了睡得著，漲了會捶胸'},
-  {k:'half', n:'半倉',          mult:0.62, rate:0,    s:'進可攻退可守。也叫兩邊都不討好'},
-  {k:'full', n:'滿倉',          mult:1.00, rate:0,    s:'資金全部到位。市場怎麼走，你就怎麼走'},
-  {k:'marg', n:'融資 1.6 倍',   mult:1.60, rate:6.5,  s:'借券商的錢。年息 6.5%，跌太多會被斷頭', risk:1},
-  {k:'yolo', n:'全押 2.6 倍',   mult:2.60, rate:9.5,  s:'開到滿。年息 9.5%，一次崩盤就歸零', risk:2}
+  {k:'zero', n:'空手，先看看',  mult:0,    div:0,   turn:0,   vol:0,   rate:0,
+   s:'錢放定存，一年 1.5%。以及一整年的「早知道」'},
+  {k:'div',  n:'高股息 ETF',    mult:0.72, div:5.4, turn:0.2, vol:0.72, rate:0,
+   s:'每季配息，存股族的最愛。漲得慢，但錢會一直進來'},
+  {k:'wide', n:'市值型 ETF',    mult:1.00, div:2.8, turn:0.15,vol:1.0,  rate:0,
+   s:'跟著大盤走，不用選股。無聊——這是它最大的優點'},
+  {k:'tsmc', n:'權值龍頭',      mult:1.25, div:1.8, turn:0.4, vol:1.18, rate:0,
+   s:'把身家押在那一檔護國神山。它漲你就漲，它咳嗽全市場感冒'},
+  {k:'theme',n:'今年的題材股',  mult:1.75, div:0,   turn:4.5, vol:1.85, rate:0,
+   s:'現在誰都在講這個。上車要快，下車更要快'},
+  {k:'lev',  n:'融資追題材',    mult:2.55, div:0,   turn:6.0, vol:2.6,  rate:7.5, risk:2,
+   s:'借券商的錢去追。維持率跌破 130% 就是斷頭'}
 ];
+const THEMES=['航運','AI 伺服器','生技','軍工','重電','記憶體','觀光','綠能'];
 
 /* ---- 特質 ---- */
 const TRAITS={
@@ -1618,11 +1630,11 @@ function drawEvents(n,done){
   /* 招牌卡用自己的說法；機制一樣，但不必連讀三十五次同樣的三顆按鈕 */
   const A=ev.alt||['保守迴避','照常處理','全力一搏'];
   choose('你要怎麼應對？',[
-    {t:A[2],warn:true,s:'成功率 '+od.bold+'%｜幅度 ×3'+(S.traits.gambler?'（賭狗：懲罰較輕）':''),
+    {t:A[2],warn:true,s:'賭大的　'+od.bold+'% 會成'+(S.traits.gambler?'　（你這種人，失手也摔得輕）':''),
       f:()=>resolveEvent(ev,'bold',()=>drawEvents(n-1,done))},
-    {t:A[1],main:true,s:'成功率 '+od.norm+'%｜幅度 ×2',
+    {t:A[1],main:true,s:'照平常來　'+od.norm+'% 會成',
       f:()=>resolveEvent(ev,'norm',()=>drawEvents(n-1,done))},
-    {t:A[0],s:'成功率 '+od.safe+'%｜幅度 ×1',
+    {t:A[0],s:'求穩　'+od.safe+'% 會成，但也就那樣',
       f:()=>resolveEvent(ev,'safe',()=>drawEvents(n-1,done))}
   ]);
 }
@@ -1672,7 +1684,9 @@ function phasePosition(m){
   } else {
     hint='（情報 '+S.ab.info+'，太低了。盤後那些數字你看得懂字，看不懂意思。）';
   }
-  card('mkt','年初：你要押多少？','賬上有 <b class="hl">'+fmtM(S.nav)+'</b>。'+hint,'POSITION');
+  const theme=THEMES[(S.idx*7+SEED.length)%THEMES.length];   /* 純呈現：不消耗種子化亂數 */
+  card('mkt','年初：今年買什麼？',
+    '帳上有 <b class="hl">'+fmtM(S.nav)+'</b>。今年市場在講的是<b class="hl">'+theme+'</b>。<br>'+hint,'POSITION');
   board(1);
 
   const shut=windowShut();
@@ -1693,8 +1707,12 @@ function phasePosition(m){
     let s=p.s;
     /* 膨脹時，減碼的選項在心理上按不下去。原本寫「很難說服自己空手」，
        接在「空手」這個選項後面會自我矛盾。 */
-    if(S.mood>85 && p.mult<0.6) s+='｜心態 '+Math.round(S.mood)+'，這個你現在按不太下去';
-    return {t:p.n, s:s, main:p.k==='half', warn:!!p.risk,
+    if(S.mood>85 && p.mult<0.6) s+='　（你現在正在興頭上，這個按不太下去）';
+    const label = p.k==='theme' ? theme+'概念股'
+                : p.k==='lev'   ? '融資追'+theme
+                : p.n;
+    return {t:label, s:s,
+      main:p.k==='wide', warn:!!p.risk,
       f:()=>{ S.lastPos=p.k; crashPanic(m,p,()=>settle(m,p)); }};
   });
   if(shut && !S.shutTold){
@@ -1705,7 +1723,7 @@ function phasePosition(m){
       '一次歸零你沒有第二個二十年可以重來。<b class="dn">融資與全押的選項不再出現。</b>');
     board(1);
   }
-  choose('決定今年的部位',opts);
+  choose('今年這筆錢放哪裡',opts);
 }
 /* 情報只給三檔方向，而且封頂 72%——報出體制名等於直接給答案，那就沒得玩了。
    猜錯時給的是另外兩檔之一，所以高情報也會被結結實實騙一次。 */
@@ -1738,7 +1756,7 @@ function crashPanic(m,p,cont){
   ])+'　你的部位是<b class="hl">'+p.n+'</b>。手機通知一直響，你關掉又打開。','PANIC');
   board(1);
   choose('現在，你要做什麼？',[
-    {t:'全部砍掉',warn:true,s:'虧損停在這裡（只承受 55%）｜台股有跌停板，賣不賣得掉是另一回事',
+    {t:'全部砍掉',warn:true,s:'停在這裡就好。但台股有跌停板，賣不賣得掉是另一回事',
       f:()=>{
         /* 台股每日漲跌幅 ±10%。真正的崩盤是跌停鎖死——
            委賣單掛在那裡一整天，一張都不會成交。
@@ -1755,9 +1773,9 @@ function crashPanic(m,p,cont){
         board(1);
         choose('',[{t:'繼續 ▸',main:true,f:cont}]);
       }},
-    {t:'什麼都不做',main:true,s:'完整承受這一年，也完整參與明年的反彈。心性 +2',
+    {t:'什麼都不做',main:true,s:'這一年整碗端走，明年的反彈也整碗端回來',
       f:()=>{ S.panic='hold'; addAb('mind',2); cont(); }},
-    {t:'加碼攤平',s:'這年的虧損放大 1.35 倍。如果撐得過去，明年 alpha +18%',
+    {t:'加碼攤平',s:'今年痛一倍多。撐得過去，明年就是你的',
       f:()=>{ S.panic='add'; cont(); }}
   ]);
 }
@@ -1770,7 +1788,7 @@ function settle(m,p){
 
   /* alpha：能力帶來的超額報酬 */
   let alpha = (S.ab.sense*0.42 + S.ab.edge*0.34 + S.ab.info*0.24 - 26) * 0.46;
-  alpha += N0(7);
+  alpha += N0(7 * (p.vol==null?1:p.vol));   /* 買題材股，選股的成敗才會真的放大 */
 
   /* 紀律：虧損年若紀律不足，傷害放大 */
   let discPen=0;
@@ -1795,18 +1813,21 @@ function settle(m,p){
   const sc=S.school;
   let divid=0;
   if(sc==='hold'){
-    if(mkt<0){ mkt=mkt*0.55; tw.push('存股抗跌'); }
-    else { alpha-=Math.abs(mkt)*0.18; tw.push('存股跑輸'); }
+    if(mkt<0){ mkt=mkt*0.62; tw.push('存股抗跌'); }
+    else { alpha-=Math.abs(mkt)*0.14; tw.push('存股跑輸'); }
     /* 除息當天股價直接扣掉股利，帳面一毛沒賺；要「填息」才算真的到手。
-       台股散戶最痛的一課，存股派尤其。 */
-    const gross_div=S.nav*0.042;
+       配息率由「你買了什麼」決定——高股息 ETF 5.4%、市值型 2.8%、題材股 0。 */
+    const gross_div=S.nav*(p.div||0)/100;
     const nhi = gross_div>2 ? gross_div*0.0211 : 0;   /* 二代健保補充保費 */
+    if(gross_div<=0){ divid=0; }
+    else {
     /* 兩種情況都領得到現金，差別在股價有沒有填回來：
        填息＝淨賺股利；貼息＝現金入袋但股價回不去，等於左手換右手，淨值接近打平。
        （先前把貼息寫成淨損失是重複扣了一次，模型錯誤。） */
     divid=gross_div-nhi;
-    if(chance(S.school==='hold'?70:58)) tw.push('填息');
-    else { alpha-=4.2; tw.push('貼息'); }
+    if(chance(S.school==='hold'?72:60)) tw.push('填息');
+    else { alpha-=(p.div||0); tw.push('貼息'); }
+    }
     S.divTotal+=divid;
   }
   if(sc==='long'){
@@ -1824,7 +1845,7 @@ function settle(m,p){
     /* 台股是賣出課稅：不管賺賠，賣掉就抽 0.3% 證交稅（現股當沖減半），
        再加手續費。所以真正吃掉報酬的是「換手率」，不是賺賠——
        這是台股跟資本利得制最根本的差別，也是這款想講的事。 */
-    const turn = TURNOVER[sc||'none'] + Math.abs(p.mult-(S.prevMult||p.mult));
+    const turn = (p.turn||0) + TURNOVER[sc||'none']*0.4 + Math.abs(p.mult-(S.prevMult||p.mult))*0.5;
     const stt  = turn * (sc==='day' ? 0.15 : 0.30) / 100;   /* 證交稅 */
     const fee  = turn * 0.0855 / 100;                        /* 手續費，六折後來回 */
     const cost = (stt+fee)*100;
