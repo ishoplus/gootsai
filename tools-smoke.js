@@ -22,13 +22,16 @@ catch(e){ console.error('✗ 載入期就炸了：'+e.message); process.exit(1);
 const q=expr=>vm.runInContext(expr,s);
 const checks=[
  ['S 已宣告',            'typeof S!=="undefined"'],
- ['EVENTS 81 張',        'EVENTS.length===81'],
- ['每張卡的 if 可呼叫',   'EVENTS.every(e=>!e.if||typeof e.if==="function")'],
- ['專屬選項卡 15 張',     'EVENTS.filter(e=>e.o).length===15'],
- ['沒得選的卡 5 張',      'EVENTS.filter(e=>e.auto).length===5'],
- ['沒得選的卡有效果與文案','EVENTS.filter(e=>e.auto).every(e=>e.auto.t&&e.auto.g)'],
- ['專屬選項各有結果',     'EVENTS.filter(e=>e.o).every(e=>e.o.every(o=>o.t&&o.g&&o.gt))'],
- ['結局規則與圖鑑對齊',   'ENDING_IDS.length>0'],
+ ['習慣 10 個',          'Object.keys(HABITS).length===10'],
+ ['事件 30 張以上',      'EVENTS.length>=30'],
+ ['每張都有專屬選項',     'EVENTS.every(e=>Array.isArray(e.o)&&e.o.length>=2)'],
+ ['選項都有標題與成功文', 'EVENTS.every(e=>e.o.every(o=>o.t&&o.g&&o.gt))'],
+ ['有機率的都有失敗文',   'EVENTS.every(e=>e.o.every(o=>o.p==null||(o.b&&o.bt)))'],
+ ['need 指向真的習慣',    'EVENTS.every(e=>e.o.every(o=>!o.need||HABITS[o.need]))'],
+ ['block 指向真的習慣',   'EVENTS.every(e=>!e.block||HABITS[e.block])'],
+ ['效果只用合法欄位',     'EVENTS.every(e=>e.o.every(o=>[o.g,o.b].every(f=>!f||Object.keys(f).every(k=>[\'nav\',\'mood\',\'life\',\'trust\',\'hab\'].includes(k)))))'],
+ ['hab 指向真的習慣',     'EVENTS.every(e=>e.o.every(o=>[o.g,o.b].every(f=>!f||!f.hab||Object.keys(f.hab).every(k=>HABITS[k]))))'],
+ ['槽位 2/3/4',          'slotsAt(20)===2&&slotsAt(28)===3&&slotsAt(35)===4'],
  ['標的表 6 檔',          'POSN.length===6'],
  ['流派 5 派',            'Object.keys(SCHOOL).length===5'],
 ];
