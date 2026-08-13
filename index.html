@@ -1302,7 +1302,7 @@ function newState(){
     fast:false, plan:'safe', stance:'norm', habit:{}, panic:null, rebound:0, missRebound:0, quietYears:0,
     peers:[], tsmRet:[], bIdx:0, bTsm:0, bIdxH:[], bTsmH:[], decayTold:0,
     tier:0, aum:0, trust:50, badYears:0, redeemed:0, feeTotal:0, window:0, peakAum:0,
-    taxPaid:0, divTotal:0, prevMult:0, lockedIn:0, lockWarned:0,
+    taxPaid:0, divTotal:0, prevMult:0, lockedIn:0,
     cls:0, peakCls:0, demoted:0,
     over:false, ending:null
   };
@@ -1977,14 +1977,6 @@ function phasePosition(m){
   board(1);
 
   const shut=windowShut();
-  if(!S.lockWarned && S.idx>=3){
-    S.lockWarned=1;
-    card('info','台股的規矩',
-      '每日漲跌幅 <b class="hl">±10%</b>。這代表崩的時候不是價格瞬間到位，'+
-      '而是一路跌停鎖死——<b class="dn">你想賣，但掛在跌停價的單子排在幾萬張後面</b>。<br>'+
-      '<span style="color:var(--dim)">盤感與情報越高，愈有機會在鎖死之前跑掉。</span>','RULE');
-    board(1);
-  }
   const opts=POSN.filter(p=>{
     if(S.traits.burnt && p.risk) return false;
     if(p.risk===2 && S.nav<20) return false;
@@ -2055,7 +2047,10 @@ function crashPanic(m,p,cont){
           '你的委賣單掛在跌停價，排在後面幾萬張。一整天，一張都沒成交。',
           '連續第三根跌停。想賣的人排成一條看不到底的隊伍，你在很後面。',
           '你把價格一路往下掛到跌停，成交回報始終沒有出現。'
-        ])+'　<b class="dn">你跑不掉，只能整年扛著。</b>');
+        ])+'　<b class="dn">你跑不掉，只能整年扛著。</b>'+
+        '<div style="margin-top:6px;font-size:12.5px;color:var(--dim);line-height:1.7">'+
+        '台股每日漲跌幅 ±10%，所以崩盤不是價格一次到位，是一路鎖死。'+
+        '盤感與情報越高，愈有機會在鎖死之前跑掉——你剛才的機率是 '+Math.round(escape)+'%。</div>');
         addMood(-14); addAb('mind',2);
         board(1);
         choose('',[{t:'繼續 ▸',main:true,f:cont}]);
