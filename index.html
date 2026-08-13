@@ -7,26 +7,28 @@
 <meta name="description" content="16 歲用壓歲錢開戶，40 歲結算。24 年牛熊由種子生成，相同種子＋相同選擇＝相同人生。賺錢不難，難的是不變成另一個人。">
 <meta property="og:title" content="少年股神">
 <meta property="og:description" content="16 歲用壓歲錢開戶，40 歲結算。相同種子＋相同選擇＝相同人生。">
-<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 fill=%22%230a0e0c%22/%3E%3Cpath d=%22M3 24 L10 16 L15 20 L22 8 L29 12%22 stroke=%22%2334d17e%22 stroke-width=%222.5%22 fill=%22none%22 stroke-linejoin=%22round%22/%3E%3C/svg%3E">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 fill=%22%23e8e4da%22/%3E%3Cpath d=%22M3 24 L10 16 L15 20 L22 8 L29 12%22 stroke=%22%238c2f2f%22 stroke-width=%222.5%22 fill=%22none%22 stroke-linejoin=%22round%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@600;900&display=swap" rel="stylesheet">
 <style>
-/* ================= 主題變數 ================= */
+/* ================= 主題變數 =================
+   財經報是預設，所以整套調色盤直接放在 :root——就算 JS 完全沒跑，
+   拿到的仍然是正確的一套顏色，而不是某個佈景的殘骸。 */
 :root{
-  --bg:#080c0a; --panel:#0e1512; --panel2:#131c18; --edge:#1e2c25;
-  --ink:#d8e6de; --dim:#6f8579; --accent:#34d17e; --accent2:#7de8b0;
-  --up:#3ddc84; --dn:#ff5c5c; --warn:#ffc043; --gold:#ffd166;
+  --bg:#e8e4da; --panel:#f6f3ec; --panel2:#eeeae0; --edge:#c9c2b3;
+  --ink:#1d1a15; --dim:#6b6355; --accent:#8c2f2f; --accent2:#b04545;
+  --up:#1d6b3a; --dn:#a51e1e; --warn:#8a5a0c; --gold:#7d5f18;
   --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
   --sans:'Noto Sans TC',system-ui,-apple-system,sans-serif;
   --serif:'Noto Serif TC',Georgia,serif;
-  --radius:4px; --shadow:0 2px 0 rgba(0,0,0,.4);
-}
-body[data-theme="paper"]{
-  --bg:#e8e4da; --panel:#f6f3ec; --panel2:#eeeae0; --edge:#c9c2b3;
-  --ink:#1d1a15; --dim:#7a7264; --accent:#8c2f2f; --accent2:#b04545;
-  --up:#1d6b3a; --dn:#a51e1e; --warn:#a06a12; --gold:#8a6a1f;
   --radius:0px; --shadow:none;
+}
+body[data-theme="terminal"]{
+  --bg:#080c0a; --panel:#0e1512; --panel2:#131c18; --edge:#1e2c25;
+  --ink:#d8e6de; --dim:#6f8579; --accent:#34d17e; --accent2:#7de8b0;
+  --up:#3ddc84; --dn:#ff5c5c; --warn:#ffc043; --gold:#ffd166;
+  --radius:4px; --shadow:0 2px 0 rgba(0,0,0,.4);
 }
 body[data-theme="neon"]{
   --bg:#0a0812; --panel:#140f22; --panel2:#1b1430; --edge:#2e2350;
@@ -37,8 +39,12 @@ body[data-theme="neon"]{
 *{box-sizing:border-box}
 html,body{margin:0;padding:0}
 html{scroll-padding-top:120px}
+/* 紙張紋理：內嵌 SVG 雜訊，只在紙質佈景出現。深色佈景關掉，不然會髒 */
+:root{--grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.045'/%3E%3C/svg%3E")}
+body[data-theme="terminal"],body[data-theme="neon"]{--grain:none}
 body{
-  background:var(--bg); color:var(--ink); font-family:var(--sans);
+  background-color:var(--bg); background-image:var(--grain);
+  color:var(--ink); font-family:var(--sans);
   font-size:15px; line-height:1.65; -webkit-text-size-adjust:100%;
   padding-bottom:env(safe-area-inset-bottom);
 }
@@ -52,14 +58,17 @@ b.up{color:var(--up)} b.dn{color:var(--dn)} b.hl{color:var(--accent)} b.gd{color
 #start .wrap{width:100%;max-width:460px}
 #ver{position:fixed;top:6px;right:10px;font-size:10px;letter-spacing:1px;color:var(--dim);
   opacity:.5;font-family:var(--mono);z-index:50;pointer-events:none}
-h1{font-family:var(--serif);font-size:40px;line-height:1.1;margin:0 0 6px;letter-spacing:2px;font-weight:900}
-h1 em{display:block;font-family:var(--mono);font-style:normal;font-size:12px;letter-spacing:5px;
-  color:var(--accent);margin-top:10px;font-weight:500}
+h1{font-family:var(--serif);font-size:46px;line-height:1.06;margin:0 0 6px;
+  letter-spacing:.06em;font-weight:900}
+h1 em{display:block;font-family:var(--mono);font-style:normal;font-size:10.5px;letter-spacing:.42em;
+  color:var(--accent);margin-top:12px;font-weight:500;
+  padding-top:10px;border-top:1px solid var(--edge)}
 .tape{height:2px;background:linear-gradient(90deg,var(--up),var(--dn),var(--up));opacity:.7;margin:16px 0 20px}
 .sub{color:var(--dim);font-size:13px;line-height:1.8;margin:0 0 26px}
 .field{margin-bottom:18px}
-.field>label{display:block;font-size:11px;letter-spacing:2px;color:var(--dim);
-  font-family:var(--mono);margin-bottom:7px;text-transform:uppercase}
+.field>label{display:block;font-size:9.5px;letter-spacing:.26em;color:var(--dim);
+  font-family:var(--mono);margin-bottom:8px;text-transform:uppercase;
+  border-bottom:1px solid var(--edge);padding-bottom:5px}
 input{width:100%;padding:11px 12px;background:var(--panel);color:var(--ink);
   border:1px solid var(--edge);border-radius:var(--radius);font-size:15px;font-family:var(--sans);outline:none}
 input:focus{border-color:var(--accent)}
@@ -74,18 +83,26 @@ input:focus{border-color:var(--accent)}
 .prefline{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:14px}
 .prefline a{color:var(--dim);text-decoration:none;border-bottom:1px dotted var(--dim);margin-right:14px}
 
-/* ================= 按鈕 ================= */
-.btn{display:block;width:100%;padding:13px 14px;margin-top:9px;background:var(--panel2);
+/* ================= 按鈕 =================
+   次要選項是留白的紙，主要選項是印上去的一塊實心油墨——層級靠明度差，不靠圓角。 */
+.btn{display:block;width:100%;padding:12px 14px;margin-top:8px;background:transparent;
   color:var(--ink);border:1px solid var(--edge);border-radius:var(--radius);
-  font-size:15px;text-align:left;cursor:pointer;font-family:var(--sans);
-  transition:background .12s,border-color .12s;box-shadow:var(--shadow)}
-.btn:hover{background:var(--panel);border-color:var(--accent)}
+  font-size:15px;font-weight:500;text-align:left;cursor:pointer;font-family:var(--sans);
+  transition:background .14s,border-color .14s,transform .06s;box-shadow:var(--shadow);
+  position:relative}
+.btn:hover{background:var(--panel);border-color:var(--ink)}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
 .btn.main{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:700}
 .btn.main:hover{background:var(--accent2);border-color:var(--accent2)}
-.btn.warn{border-color:var(--warn)}
+.btn.warn{border-color:var(--warn);border-left-width:3px}
 .btn.warn:hover{border-color:var(--dn)}
-.btn .s{display:block;font-size:11.5px;color:var(--dim);margin-top:3px;font-family:var(--mono);line-height:1.5}
-.btn.main .s{color:rgba(0,0,0,.62)}
+.btn .s{display:block;font-size:11.5px;color:var(--dim);margin-top:4px;
+  font-family:var(--mono);line-height:1.6;font-variant-numeric:tabular-nums}
+.btn.main .s{color:var(--bg);opacity:.72}
+#act .q{font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;
+  color:var(--dim);margin-bottom:10px;font-family:var(--mono);
+  border-bottom:1px solid var(--edge);padding-bottom:7px}
 
 /* ================= 遊戲畫面 ================= */
 /* 版面骨架（結構參考野球模擬器）：撐滿視窗的直欄，記分板黏頂、行動區黏底。
@@ -95,40 +112,57 @@ input:focus{border-color:var(--accent)}
   min-height:100vh;min-height:100dvh;flex-direction:column}
 #game.on{display:flex}
 #log{flex:1 1 auto;min-height:0;padding-bottom:14px}
+/* 報頭：姓名用襯線體當報名，下方雙細線，數據列比照股市行情表 */
 #hud{position:sticky;top:0;z-index:30;background:var(--bg);
-  border-bottom:1px solid var(--edge);padding:9px 0 8px;margin-bottom:14px}
-.hudtop{display:flex;align-items:baseline;gap:10px;flex-wrap:wrap;font-family:var(--mono);font-size:12px}
-.hudtop .nm{font-family:var(--sans);font-weight:700;font-size:15px}
-.hudtop .yr{color:var(--dim)}
-.hudtop .idn{font-size:11px;color:var(--dim)}
-.hudtop .nav{margin-left:auto;font-size:17px;font-weight:700}
-.hudtop .chg{font-size:12px}
-.hudbars{display:flex;gap:8px;margin-top:7px;max-width:520px}
-.hb{flex:1;font-family:var(--mono);font-size:10px;color:var(--dim)}
-.hb .bar{height:4px;background:var(--edge);border-radius:2px;overflow:hidden;margin-top:3px}
+  border-bottom:3px double var(--edge);padding:10px 0 8px;margin-bottom:16px}
+.hudtop{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums}
+.hudtop .nm{font-family:var(--serif);font-weight:900;font-size:19px;letter-spacing:.04em;
+  padding-right:11px;border-right:1px solid var(--edge)}
+.hudtop .yr{color:var(--dim);letter-spacing:.06em}
+.hudtop .idn{font-size:11px;color:var(--dim);letter-spacing:.06em}
+.hudtop .nav{margin-left:auto;font-size:19px;font-weight:700;letter-spacing:-.01em}
+.hudtop .chg{font-size:12px;font-weight:700}
+.hudbars{display:flex;gap:16px;margin-top:8px;max-width:520px}
+.hb{flex:1;font-family:var(--mono);font-size:9.5px;color:var(--dim);
+  letter-spacing:.18em;text-transform:uppercase}
+.hb .bar{height:3px;background:var(--edge);overflow:hidden;margin-top:4px}
 .hb .bar i{display:block;height:100%;background:var(--accent)}
 .hb.mood .bar i{background:var(--warn)} .hb.life .bar i{background:var(--up)}
 #spark{margin-top:8px;display:block;width:100%;height:34px}
+#spark:empty{display:none}
 #menubtn{background:none;border:1px solid var(--edge);color:var(--dim);font-family:var(--mono);
   font-size:11px;padding:2px 8px;border-radius:var(--radius);cursor:pointer}
 
-/* ================= 日誌卡 ================= */
-.c{border-left:2px solid var(--edge);padding:9px 0 9px 13px;margin:14px 0;animation:fi .22s ease-out}
-@keyframes fi{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:none}}
-.c .t{font-weight:700;font-size:14.5px;margin-bottom:3px;display:flex;align-items:center;gap:7px}
-.c .t .tag{font-family:var(--mono);font-size:9.5px;letter-spacing:1px;padding:1px 5px;
-  border:1px solid currentColor;border-radius:2px;opacity:.85;font-weight:500}
-.c .b{font-size:14px;color:var(--ink);opacity:.92}
-.c.good{border-left-color:var(--up)} .c.good .t{color:var(--up)}
-.c.bad{border-left-color:var(--dn)} .c.bad .t{color:var(--dn)}
-.c.gold{border-left-color:var(--gold)} .c.gold .t{color:var(--gold)}
-.c.info{border-left-color:var(--edge)} .c.info .t{color:var(--dim)}
-.c.mkt{border-left-color:var(--accent)} .c.mkt .t{color:var(--accent)}
-.hr{height:1px;background:var(--edge);margin:22px 0;position:relative}
-.hr span{position:absolute;left:0;top:-9px;background:var(--bg);padding-right:10px;
-  font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--dim)}
-.tbl{font-family:var(--mono);font-size:12.5px;margin-top:7px;line-height:1.85}
-.tbl .k{color:var(--dim);display:inline-block;min-width:5.2em}
+/* ================= 日誌卡（報紙結構）=================
+   眉標 → 襯線標題 → 內文，用細線分節。左側色條是深色 UI 的習慣，
+   在報紙版面上讀起來像錯誤；語意改由眉標的顏色與符號承擔。 */
+.c{border-top:1px solid var(--edge);padding:11px 0 3px;margin:15px 0 0;animation:fi .22s ease-out}
+@keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.c .kick{font-family:var(--mono);font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;
+  color:var(--dim);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.c .kick::before{content:'';width:14px;height:1px;background:currentColor;flex:none;opacity:.7}
+.c .t{font-family:var(--serif);font-size:18px;font-weight:700;line-height:1.4;
+  margin-bottom:4px;text-wrap:balance;letter-spacing:.01em}
+.c .b{font-size:14.5px;line-height:1.8;color:var(--ink);opacity:.9}
+.c.good .kick{color:var(--up)}   .c.good .kick::before{width:0}
+.c.good .kick::after{content:'▲';font-size:8px;order:-1}
+.c.bad  .kick{color:var(--dn)}   .c.bad .kick::before{width:0}
+.c.bad  .kick::after{content:'▼';font-size:8px;order:-1}
+.c.gold .kick{color:var(--gold)} .c.gold .kick::before{width:0}
+.c.gold .kick::after{content:'★';font-size:9px;order:-1}
+.c.mkt  .kick{color:var(--accent)}
+.c.mkt  .t{font-size:20px}
+.c.info .kick{color:var(--dim)}
+/* 年份分節：報紙的雙細線 */
+.hr{height:0;border-top:3px double var(--edge);margin:26px 0 4px;position:relative}
+.hr span{position:absolute;left:0;top:-8px;background:var(--bg);padding-right:12px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.28em;color:var(--dim)}
+/* 數據列：股票表的對齊感 */
+.tbl{font-family:var(--mono);font-size:12.5px;margin-top:8px;line-height:1.9;
+  font-variant-numeric:tabular-nums}
+.tbl .k{color:var(--dim);display:inline-block;min-width:5.2em;
+  font-size:10.5px;letter-spacing:.1em}
 
 /* ================= 行動區 ================= */
 #act{position:sticky;bottom:0;z-index:20;background:var(--bg);
@@ -137,19 +171,20 @@ input:focus{border-color:var(--accent)}
   padding:12px 0 calc(14px + env(safe-area-inset-bottom));margin-top:16px;overscroll-behavior:contain}
 /* 分配骰子是需要整頁注意力的時刻，讓它長高 */
 #act.alloc{max-height:calc(100vh - 92px);max-height:calc(100dvh - 92px)}
-body[data-theme="paper"] #act{box-shadow:0 -8px 20px rgba(0,0,0,.14)}
-#act .q{font-size:13px;color:var(--dim);margin-bottom:9px;font-family:var(--mono)}
+body[data-theme="terminal"] #act,body[data-theme="neon"] #act{box-shadow:0 -10px 26px rgba(0,0,0,.5)}
 #dice{display:flex;gap:7px;flex-wrap:nowrap;margin-bottom:12px}
-.die{width:38px;height:38px;flex:0 1 38px;border:1px solid var(--edge);border-radius:var(--radius);
-  background:var(--panel);display:flex;align-items:center;justify-content:center;
+.die{width:38px;height:38px;flex:0 1 38px;border:1px solid var(--ink);border-radius:var(--radius);
+  background:transparent;display:flex;align-items:center;justify-content:center;
   font-family:var(--mono);font-size:17px;font-weight:700;color:var(--ink)}
 .die.used{opacity:.22}
-.die.active{border-color:var(--accent);color:var(--accent);box-shadow:0 0 0 2px rgba(52,209,126,.18)}
+.die.active{border-color:var(--accent);color:var(--bg);background:var(--accent)}
 .die.six{color:var(--gold)}
 .die.rolling{opacity:.6}
 .ab{display:flex;align-items:center;gap:9px;padding:7px 9px;border:1px solid var(--edge);
-  border-radius:var(--radius);margin-bottom:5px;cursor:pointer;background:var(--panel)}
-.ab:hover{border-color:var(--accent)}
+  border-radius:var(--radius);margin-bottom:5px;cursor:pointer;background:transparent;
+  transition:background .12s,border-color .12s}
+.ab:hover{border-color:var(--ink);background:var(--panel)}
+.ab .v{font-variant-numeric:tabular-nums}
 .ab.cap{opacity:.4;cursor:not-allowed}
 .ab .n{width:3.5em;font-size:13px;font-weight:500}
 .ab .bar{flex:1;height:6px;background:var(--edge);border-radius:3px;overflow:hidden}
@@ -167,13 +202,23 @@ body[data-theme="paper"] #act{box-shadow:0 -8px 20px rgba(0,0,0,.14)}
 .share .k{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--dim);margin-bottom:8px}
 .share img{width:100%;max-width:520px;display:block;border:1px solid var(--edge);border-radius:var(--radius)}
 .share .hint{font-size:12px;color:var(--dim);margin-top:8px;line-height:1.7;padding-bottom:26px}
-#fin h2{font-family:var(--serif);font-size:30px;margin:6px 0 4px;line-height:1.25}
-#fin .rank{font-family:var(--mono);font-size:11px;letter-spacing:4px;color:var(--gold)}
+#fin h2{font-family:var(--serif);font-size:38px;font-weight:900;margin:8px 0 10px;
+  line-height:1.18;letter-spacing:-.01em;text-wrap:balance}
+#fin .rank{font-family:var(--mono);font-size:10px;letter-spacing:.34em;color:var(--gold);
+  padding-bottom:8px;border-bottom:1px solid var(--edge)}
+#fin>p{font-size:15.5px;line-height:1.85;max-width:60ch}
+@media(max-width:560px){#fin h2{font-size:28px}}
 #chart{width:100%;height:200px;display:block;margin:18px 0;border:1px solid var(--edge);background:var(--panel)}
-.stats{display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:10px;margin:16px 0}
-.st{border:1px solid var(--edge);padding:9px 10px;border-radius:var(--radius);background:var(--panel)}
-.st .k{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:1px}
-.st .v{font-size:18px;font-weight:700;font-family:var(--mono);margin-top:2px}
+/* 結算表：報紙的財務摘要，用虛線 leader 對齊，不用一堆方塊 */
+.stats{margin:18px 0;border-top:1px solid var(--edge);border-bottom:3px double var(--edge);
+  padding:4px 0;columns:2;column-gap:34px}
+.st{display:flex;align-items:baseline;gap:6px;padding:5px 0;break-inside:avoid;
+  border-bottom:1px dotted var(--edge)}
+.st .k{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.14em;
+  text-transform:uppercase;white-space:nowrap}
+.st .v{margin-left:auto;font-size:15px;font-weight:700;font-family:var(--mono);
+  font-variant-numeric:tabular-nums}
+@media(max-width:560px){.stats{columns:1}}
 .hon{font-size:13px;line-height:1.9}
 .hon i{font-style:normal;color:var(--gold)}
 
@@ -218,12 +263,38 @@ body[data-theme="paper"] #act{box-shadow:0 -8px 20px rgba(0,0,0,.14)}
 .cdx b{display:block;font-size:13.5px}
 .cdx span{display:block;font-size:11.5px;color:var(--dim);line-height:1.6}
 
-/* 桌機：雙欄。內容在左、選擇在右，兩欄各自黏住，就不用一直上下捲 */
+/* ---- 生涯時間軸 ---- */
+#tl{display:none}
+.tl-k{font-family:var(--mono);font-size:9.5px;letter-spacing:.28em;text-transform:uppercase;
+  color:var(--dim);padding-bottom:6px;border-bottom:1px solid var(--edge);margin-bottom:2px}
+.tl-hd{display:flex;gap:7px;padding:4px 6px 5px;font-family:var(--mono);font-size:8.5px;
+  letter-spacing:.14em;color:var(--dim);text-transform:uppercase;
+  border-bottom:1px solid var(--edge);margin-bottom:3px}
+.tl-hd .a{width:1.7em} .tl-hd .m{width:1.6em} .tl-hd .r{width:3.4em;text-align:right}
+.tl-hd .n{flex:1;text-align:right}
+#tl-list{display:flex;flex-direction:column;gap:1px;overflow-y:auto;overscroll-behavior:contain}
+.tli{display:flex;align-items:baseline;gap:7px;padding:3px 6px;border-radius:var(--radius);
+  cursor:pointer;font-family:var(--mono);font-size:11.5px;line-height:1.6;
+  border-left:2px solid transparent;font-variant-numeric:tabular-nums;
+  border-bottom:1px dotted transparent}
+.tli:nth-child(even){background:linear-gradient(var(--panel),var(--panel))}
+.tli:hover{background:var(--panel)}
+.tli.on{background:var(--panel);border-left-color:var(--accent)}
+.tli .a{color:var(--dim);width:1.7em}
+.tli .m{width:1.6em;font-size:9px}
+.tli .m.up{color:var(--up)} .tli .m.dn{color:var(--dn)} .tli .m.mid{color:var(--dim)}
+.tli .r{width:3.4em;text-align:right}
+.tli .r.up{color:var(--up)} .tli .r.dn{color:var(--dn)}
+.tli .n{flex:1;text-align:right;color:var(--ink);opacity:.8}
+.tl-empty{font-size:12px;color:var(--dim);line-height:1.7}
+.tlmodal{max-height:60vh;margin-bottom:10px}
+
+/* 桌機雙欄：內容在左、選擇在右，兩欄各自黏住，就不用一直上下捲 */
 @media(min-width:900px){
   #game{max-width:1080px;display:none;
     grid-template-columns:minmax(0,1fr) 372px;
     grid-template-areas:"hud hud" "log act";
-    column-gap:28px;align-items:start}
+    column-gap:28px;align-items:start;align-content:start}
   #game.on{display:grid}
   #hud{grid-area:hud}
   #log{grid-area:log;padding-bottom:40px}
@@ -233,6 +304,17 @@ body[data-theme="paper"] #act{box-shadow:0 -8px 20px rgba(0,0,0,.14)}
     padding:0 0 0 22px;margin-top:0}
   #act.alloc{max-height:calc(100dvh - 152px)}
   #fin{grid-area:log}
+}
+/* 寬螢幕三欄：時間軸常駐在左，隨時看得到自己走過哪些年 */
+@media(min-width:1180px){
+  #game{max-width:1320px;
+    grid-template-columns:196px minmax(0,1fr) 372px;
+    grid-template-areas:"hud hud hud" "tl log act";
+    column-gap:26px}
+  #tl{display:flex;flex-direction:column;grid-area:tl;
+    position:sticky;top:132px;max-height:calc(100dvh - 152px);
+    border-right:1px solid var(--edge);padding-right:18px}
+  #tl-list{min-height:0}
 }
 
 /* ================= 選單疊加層 ================= */
@@ -273,7 +355,7 @@ body[data-theme="paper"] #act{box-shadow:0 -8px 20px rgba(0,0,0,.14)}
 }
 </style>
 </head>
-<body data-theme="terminal">
+<body data-theme="paper">
 
 <div id="ver">v1.0.0</div>
 
@@ -347,6 +429,9 @@ body[data-theme="paper"] #act{box-shadow:0 -8px 20px rgba(0,0,0,.14)}
     </div>
     <svg id="spark" viewBox="0 0 300 34" preserveAspectRatio="none"></svg>
   </div>
+  <aside id="tl"><div class="tl-k">生涯</div>
+    <div class="tl-hd"><span class="a">歲</span><span class="m"></span><span class="r">報酬</span><span class="n">淨值</span></div>
+    <div id="tl-list"></div></aside>
   <div id="log"></div>
   <div id="act"></div>
 </div>
@@ -1019,14 +1104,16 @@ const LOG=()=>$('log'), ACT=()=>$('act');
 function card(type,title,body,tag){
   const d=document.createElement('div');
   d.className='c '+type;
-  d.innerHTML='<div class="t">'+(tag?'<span class="tag">'+tag+'</span>':'')+title+'</div>'+
+  d.innerHTML=(tag?'<div class="kick">'+tag+'</div>':'')+
+              '<div class="t">'+title+'</div>'+
               (body?'<div class="b">'+body+'</div>':'');
   LOG().appendChild(d);
   return d;
 }
-function divider(txt){
+function divider(txt,id){
   const d=document.createElement('div');
-  d.className='hr'; d.innerHTML='<span>'+txt+'</span>';
+  d.className='hr'; if(id) d.id=id;
+  d.innerHTML='<span>'+txt+'</span>';
   LOG().appendChild(d);
 }
 /* 捲到「玩家上次操作之後新增的第一則」並對齊在 HUD 下方。
@@ -1067,6 +1154,7 @@ function board(scroll){
   $('h-mood').style.width=S.mood+'%'; $('h-mood-v').textContent=Math.round(S.mood);
   $('h-life').style.width=S.life+'%'; $('h-life-v').textContent=Math.round(S.life);
   drawSpark();
+  renderTimeline();
   if(scroll) scrollBottom();
 }
 /* 純呈現層：不得呼叫 R() */
@@ -1095,6 +1183,47 @@ function drawSpark(){
   }
   sv.innerHTML=gp+'<polyline points="'+pts+'" fill="none" stroke="'+(up?'var(--up)':'var(--dn)')+
     '" stroke-width="1.5" vector-effect="non-scaling-stroke"/>';
+}
+
+/* 生涯時間軸（純呈現層，不得呼叫 R()）。
+   桌機當第三欄常駐；窄螢幕不佔 HUD 高度，改從選單開。 */
+function renderTimeline(el){
+  el = el || $('tl-list');
+  if(!el||!S) return;
+  if(!S.log.length){ el.innerHTML='<div class="tl-empty">還沒有走完任何一年。</div>'; return; }
+  el.innerHTML=S.log.map((L,i)=>{
+    const rg=REGIME[L.rg], up=L.ret>=0;
+    const pos=(POSN.find(p=>p.k===L.pos)||{}).n||'';
+    return '<div class="tli" data-y="'+i+'" title="'+L.age+' 歲｜'+rg.n+'｜'+pos+'">'+
+      '<span class="a">'+L.age+'</span>'+
+      '<span class="m '+rg.c+'">'+rg.icon+'</span>'+
+      '<span class="r '+(up?'up':'dn')+'">'+sgn(L.ret,0)+'%</span>'+
+      '<span class="n">'+fmtM(L.nav)+'</span></div>';
+  }).join('');
+  el.querySelectorAll('.tli').forEach(x=>{
+    x.onclick=()=>{
+      const t=$('yr'+x.dataset.y); if(!t) return;
+      const hud=$('hud'), hudH=hud?hud.getBoundingClientRect().height:0;
+      const y=window.scrollY+t.getBoundingClientRect().top-hudH-14;
+      window.scrollTo({top:Math.max(0,y),behavior:'smooth'});
+      el.querySelectorAll('.tli').forEach(z=>z.classList.remove('on'));
+      x.classList.add('on');
+      const m=$('mask'); if(m) m.remove();
+    };
+  });
+  el.scrollTop=el.scrollHeight;
+}
+function openTimeline(){
+  if($('mask')) return;
+  const m=document.createElement('div');
+  m.id='mask';
+  m.innerHTML='<div class="sheet"><div class="q">生涯時間軸</div>'+
+    '<div id="tl-modal-list" class="tlmodal"></div>'+
+    '<button class="btn main" id="tl-close">關閉</button></div>';
+  document.body.appendChild(m);
+  renderTimeline($('tl-modal-list'));   /* 不能用 $('tl-list')——側欄也叫這個名字 */
+  m.onclick=e=>{ if(e.target===m) m.remove(); };
+  $('tl-close').onclick=()=>m.remove();
 }
 
 function actClear(){ const a=ACT(); a.classList.remove('alloc'); a.innerHTML=''; }
@@ -1256,7 +1385,7 @@ function nextYear(){
   S.prevNav=S.nav;
   S.age=16+S.idx;
   const m=S.market[S.idx];
-  divider(String(S.age)+' 歲 · 第 '+(S.idx+1)+' 年');
+  divider(String(S.age)+' 歲 · 第 '+(S.idx+1)+' 年','yr'+S.idx);
   if(!S.fast && yearWeight(m)==='quiet' && S.idx>0){ quietYear(m); return; }
   phaseIncome(m);
 }
@@ -2479,6 +2608,7 @@ function openMenu(){
   const m=document.createElement('div');
   m.id='mask';
   m.innerHTML='<div class="sheet"><div class="q">選單</div>'+
+    '<button class="btn" data-a="tl">生涯時間軸</button>'+
     '<button class="btn" data-a="terminal">主題：終端綠</button>'+
     '<button class="btn" data-a="paper">主題：財經報</button>'+
     '<button class="btn" data-a="neon">主題：霓虹夜</button>'+
@@ -2492,6 +2622,7 @@ function openMenu(){
   m.querySelectorAll('button').forEach(b=>{
     b.onclick=()=>{
       const a=b.dataset.a;
+      if(a==='tl'){ close(); openTimeline(); return; }
       if(a==='big') applyBig(!document.body.classList.contains('big'));
       else if(a==='restart'){ close(); restart(false); return; }
       else if(a==='close'){ close(); return; }
