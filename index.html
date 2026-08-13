@@ -258,7 +258,7 @@ body[data-theme="terminal"] #act,body[data-theme="neon"] #act{box-shadow:0 -10px
 .lgd .l1{color:var(--up)} .lgd .l2{color:var(--dim)}
 .lgd .l3{color:var(--warn)} .lgd .l4{color:var(--dim);opacity:.7}
 /* 圖鑑 */
-#mask .sheet.wide{max-width:520px}
+#mask .sheet.wide{max-width:min(540px,100%)}
 .cdxg{max-height:62vh;overflow-y:auto;margin-bottom:10px}
 .cdxg h4{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--dim);
   margin:14px 0 6px;font-weight:500}
@@ -344,11 +344,21 @@ body[data-theme="terminal"] #act,body[data-theme="neon"] #act{box-shadow:0 -10px
 #af .btn{margin-top:10px}
 
 /* ================= 選單疊加層 ================= */
-#mask{position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:100;
-  display:flex;align-items:center;justify-content:center;padding:20px}
-#mask .sheet{width:100%;max-width:340px;background:var(--bg);border:1px solid var(--edge);
-  border-radius:var(--radius);padding:16px}
-#mask .q{font-family:var(--mono);font-size:12px;color:var(--dim);margin-bottom:6px;letter-spacing:2px}
+/* 彈窗要讀起來像「疊在紙上的另一張紙」。
+   原本背景與頁面同色、邊框又用最淺的 --edge，兩側縫隙露出底下的卡片線條，
+   看起來像頁面被切開——分層必須靠底色差、深邊框與投影三者一起做。 */
+#mask{position:fixed;inset:0;background:rgba(24,18,10,.58);z-index:100;
+  display:flex;align-items:center;justify-content:center;
+  padding:20px calc(14px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom))
+          calc(14px + env(safe-area-inset-left));
+  animation:fi .14s ease-out}
+#mask .sheet{width:100%;max-width:min(376px,100%);background:var(--panel);
+  border:1px solid var(--dim);border-radius:var(--radius);padding:16px 16px 14px;
+  box-shadow:0 20px 56px rgba(0,0,0,.42);max-height:calc(100dvh - 40px);
+  overflow-y:auto;overscroll-behavior:contain}
+#mask .q{font-family:var(--mono);font-size:9.5px;color:var(--dim);letter-spacing:.26em;
+  text-transform:uppercase;margin-bottom:10px;padding-bottom:7px;
+  border-bottom:1px solid var(--edge)}
 
 @media(max-width:520px){
   h1{font-size:32px}
