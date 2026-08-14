@@ -77,8 +77,20 @@ input:focus{border-color:var(--accent)}
 @media(max-width:860px){
   .cols{display:flex;flex-direction:column;gap:0}
   .cols>div{display:contents}
-  #b-sig{order:1}  #flash{order:2}  #b-act{order:3}
-  #b-book{order:4} #b-chart{order:5} #b-log{order:6}
+  #b-sig{order:1}  #flash{order:2}
+  #b-book{order:3} #b-chart{order:4} #b-log{order:5}
+
+  /* 選項固定在底部。手機上這一頁的形狀因此變成
+     上面釘住狀態、中間捲動的內容、下面釘住選項——
+     野球模擬器就是這個形狀，而它是對的：
+     「現在要你決定什麼」不該隨著內容長高而跑掉。 */
+  #b-act{position:fixed;left:0;right:0;bottom:0;z-index:50;margin:0;
+    max-height:56vh;overflow:auto;
+    border-left:none;border-right:none;border-bottom:none;
+    box-shadow:0 -8px 24px rgba(20,17,12,.16);
+    padding-bottom:calc(14px + env(safe-area-inset-bottom))}
+  #b-act>h3{position:sticky;top:0;background:var(--panel);z-index:1;margin-top:-2px;padding-top:2px}
+
   /* 紀事是唯一會無限長的東西。關進自己的捲軸，它就推不動別人 */
   #b-log .log{max-height:44vh;overflow:auto}
   /* 手指不是滑鼠 */
@@ -86,7 +98,8 @@ input:focus{border-color:var(--accent)}
   #hud .in{gap:11px 14px;font-size:11.5px}
   #hud .v{font-size:13px}
   #hud .yr{font-size:18px}
-  .wrap{padding-bottom:40px}
+  /* 底部留白改由 dockPad() 依面板實際高度設在 body 上，這裡不要再多墊一份 */
+  .wrap{padding-bottom:8px}
 }
 .box{background:var(--panel);border:1px solid var(--edge);padding:14px 15px;margin-bottom:16px}
 .box>h3{margin:0 0 10px;font-size:9.5px;letter-spacing:.26em;color:var(--dim);
@@ -413,7 +426,7 @@ function render(){
         : '<b'+(i===r.dieAt?' class="now"':'')+'>'+DIE[d]+'</b>').join('')
     : '—';
   renderSignals(); renderBook(); renderChart(); renderActs();
-  focusAct();
+  syncView();
 }
 function renderSignals(){
   $('sigs').innerHTML=g.raw.signals.map(s=>
@@ -462,18 +475,43 @@ function renderChart(){
    moves() 是完整的合法空間，全部攤出來實測平均 42 個選項、最多 58 個——那是報表。
    借野球模擬器的節奏改成 beat()：一次一個處境、2～4 個選項，
    而且每個選項都是那個處境裡你真的能做的事。 */
-/* 出牌面板跑出畫面就捲回來。版面排對了還是要有這道安全網——
-   彈窗關掉、紀事突然長高、或是從結算跳回來，都會讓它落在視窗外。
-   只在手機上做：桌面它一直在右欄，捲動只會讓人暈。 */
-function focusAct(){
+/* ---- 手機：釘在底部的選項，與停在中間的最新內容 ----
+   桌面不做這件事：那邊出牌面板一直在右欄，捲動只會讓人暈。 */
+function isPhone(){
+  return !!(window.matchMedia && window.matchMedia('(max-width:860px)').matches);
+}
+/* 選項浮在底部，內容就得空出它的高度——不然最後一段永遠被蓋住。
+   面板高度會隨選項數量變（兩個到五個差很多），所以每次重畫都要重量一次。 */
+function dockPad(){
+  const el=$('b-act');
+  if(!el || typeof el.getBoundingClientRect!=='function') return 0;
+  if(!isPhone()){ document.body.style.paddingBottom=''; return 0; }
+  const h=el.getBoundingClientRect().height||0;
+  document.body.style.paddingBottom=(h+28)+'px';
+  return h;
+}
+/* 最新的一則停在可視區的中間。可視區＝視窗高度扣掉底部那塊面板——
+   用整個視窗算會把它推到面板底下，那就等於沒捲。 */
+function centerLatest(dock){
+  const t=$('flash');
+  if(!t || t.style.display==='none') return;
+  if(typeof t.getBoundingClientRect!=='function' || typeof window.scrollTo!=='function') return;
+  const avail=(window.innerHeight||0)-dock;
+  if(avail<=0) return;
+  const r=t.getBoundingClientRect();
+  const y=(window.scrollY||0)+r.top-Math.max(12,(avail-r.height)/2);
+  window.scrollTo({top:Math.max(0,y), behavior:'smooth'});
+}
+function syncView(){
   try{
-    if(!window.matchMedia || !window.matchMedia('(max-width:860px)').matches) return;
-    const el=$('b-act');
-    if(!el || typeof el.getBoundingClientRect!=='function') return;
-    const r=el.getBoundingClientRect();
-    if(r.top<0 || r.top>window.innerHeight-120) el.scrollIntoView({block:'start',behavior:'smooth'});
+    const dock=dockPad();
+    if(isPhone()) centerLatest(dock);
   }catch(e){}
 }
+/* 轉向、鍵盤收起、字級改變都會讓面板高度變，留白要跟著重算。
+   假 DOM 沒有 addEventListener，所以要先問過再掛。 */
+if(typeof window.addEventListener==='function')
+  window.addEventListener('resize', function(){ try{ dockPad(); }catch(e){} });
 function renderActs(){
   try{ renderBeat(); }
   catch(err){
