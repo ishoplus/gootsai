@@ -132,7 +132,11 @@ table.book tr:last-child td{border-bottom:none}
   border-radius:6px;margin-left:5px}
 
 /* ---- 剛剛／紀錄 ---- */
-.flash{border-color:var(--accent)}
+/* 前後對照那一行：標籤與箭頭壓淡，「之後」實色粗體——
+   眼睛要找的是那個數字，不是箭頭 */
+.fx{display:block;font-family:var(--mono);font-size:11px;line-height:1.5;
+  color:var(--dim);margin-top:3px}
+.fx b{color:var(--ink);font-weight:700}
 .log .row{border-left:2px solid var(--edge);padding:7px 0 7px 11px;margin-bottom:9px;font-size:13.5px;
   line-height:1.75}
 .log .row:last-child{margin-bottom:0}
@@ -143,8 +147,6 @@ table.book tr:last-child td{border-bottom:none}
 .log .row.auto{border-color:var(--edge);color:var(--dim)}
 .log .row .t{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--dim);
   text-transform:uppercase;display:block;margin-bottom:2px}
-.flash .row{border:none;padding:0 0 8px;margin:0 0 8px;border-bottom:1px dotted var(--edge)}
-.flash .row:last-child{border-bottom:none;padding-bottom:0;margin-bottom:0}
 
 /* ---- 圖 ---- */
 svg.chart{width:100%;height:130px;display:block}
@@ -190,14 +192,26 @@ button{font-family:var(--sans);font-size:14.5px;cursor:pointer;text-align:left;b
 button:last-child{margin-bottom:0}
 button:hover:not(:disabled){border-color:var(--accent)}
 button:disabled{opacity:.4;cursor:default}
+/* 一行之內分主次：數字實色粗體，口氣壓成灰。
+   整行同一個灰的時候，「投入 1.4 萬」會埋在句子裡找不到。 */
 button .s{display:block;font-size:11px;line-height:1.4;color:var(--dim);font-family:var(--mono);
   margin-top:1px}
+button .s b{color:var(--ink);font-weight:700}
+button.main .s b{color:#fff}
+button.warn .s b{color:var(--dn)}
 button.main{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
 button.main .s{color:rgba(255,255,255,.8)}
 button.main:hover:not(:disabled){background:var(--accent2);border-color:var(--accent2)}
 button.warn{border-color:var(--dn);color:var(--dn)}
 button.skipall{background:transparent;color:var(--dim);border-style:dashed;min-height:38px;
   font-size:13px;padding:8px 11px}
+/* 上一步的結果。壓到兩行以內——它是回顧，不能跟「現在要決定什麼」搶位子 */
+.last{background:var(--card2);border-left:2px solid var(--accent);border-radius:8px;
+  padding:6px 9px 7px;margin:0 0 8px;font-size:12px;line-height:1.5;max-height:62px;overflow:hidden}
+.last .t{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--dim);
+  display:inline-block;margin-right:6px}
+.last .fx{margin-top:2px;font-size:10.5px}
+.last br{display:none}
 .q{font-size:15px;line-height:1.6;margin:0 0 6px;padding:0 2px}
 /* 骰子壓成一行。原本是一個有邊框的方塊，光它就吃掉 46px——
    在小螢幕上那 46px 直接換成「最後一個選項看不到」。 */
@@ -268,9 +282,9 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed;min-h
   <!-- 中：顯示面板。一次只看一頁，由下面的分頁列切換 -->
   <div id="stage">
     <div id="p-now">
-      <!-- 剛剛發生了什麼，印在你正在看的地方。
-           丟進「紀錄」分頁等於沒有印——那一頁你不會去翻。 -->
-      <div class="card flash" id="flash" style="display:none"><h3>剛剛</h3><div id="flash-in"></div></div>
+      <!-- 「剛剛」不在這裡：它搬到選項的正上方去了（#last）。
+           留在這裡的話，選項展開時中間只剩三十幾 px，等於印在畫面外，
+           而且跟 dock 上那條講同一件事。這一頁只留這一年的風向。 -->
       <div class="card" id="c-sig"><h3>風向</h3><div id="sigs"></div></div>
     </div>
     <div id="p-book" style="display:none">
@@ -295,7 +309,13 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed;min-h
   <!-- 下：選單。把手可以把它收起來 -->
   <div id="dock">
     <button id="grab"><i class="bar"></i><span class="t" id="act-h">可以做的事</span><span class="c" id="grab-c">▾</span></button>
-    <div id="dock-body"><div id="act"></div></div>
+    <div id="dock-body">
+      <!-- 上一步的結果，就放在下一步的正上方。
+           放在中間那格的話，選項一多它就被擠到畫面外——
+           實測選項展開時中間只剩 94px，結果那行剛好落在切線下面。 -->
+      <div id="last" class="last" style="display:none"></div>
+      <div id="act"></div>
+    </div>
     <div id="tabs">
       <button data-p="now" class="on">現況</button>
       <button data-p="book">持股</button>
@@ -305,7 +325,7 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed;min-h
   </div>
 </div>
 
-<script src="kernel.js?v=12"></script>
+<script src="kernel.js?v=13"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用舊版：呈現層一律禁止呼叫內核的亂數——
@@ -320,7 +340,7 @@ let g=null, benchHist=[], navHist=[];
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源
    （file 文件的 origin 是不透明的），所以直接雙擊打開會載不到內核。
    與其讓畫面停在一片空白，不如講清楚怎麼跑。 */
-const NEED_VERSION=12;
+const NEED_VERSION=13;
 /* GitHub Pages 送的是 cache-control: max-age=600。兩次發布相隔不到十分鐘，
    瀏覽器就會拿新的 play.html 配快取裡的舊 kernel.js——舊內核沒有 beat()，
    renderActs() 一呼叫就丟 TypeError，面板從此空著，而且畫面上什麼都不說。
@@ -437,7 +457,9 @@ function eventModal(){
     s:[o.need?'因為你有「'+KERNEL.HABITS[o.need].n+'」':'', o.gamble?'這個要擲':''].filter(Boolean).join('　'),
     warn:o.gamble,
     f:()=>{
+      const b4=snap();
       const r=g.answerEvent(o.i);
+      nextFx=delta(b4);
       reportEvent(r); render();
       /* 結果留在畫面正中間，不要只丟進紀錄——
          你按完的那一刻眼睛在彈窗上，結果印在別的地方等於沒有印。
@@ -662,9 +684,11 @@ function autoRun(){
   while(g.raw.apLeft>0 && guard++<12){
     if(g.raw.apLeft<=1 && g.beat()) return;   /* 最後一顆，而且有事要問你——留著 */
     const at=g.raw.dieAt;      /* autoTick 跑完 dieAt 就往前了，先記下花掉的是哪一顆 */
+    const b4=snap();
     const say=g.autoTick();
     if(!say) return;
     markDie(say.kind, at);
+    nextFx=delta(b4);
     logRow('auto','', esc(say.text));
   }
 }
@@ -686,7 +710,8 @@ function renderBeat(){
     '<div class="dieline"><span class="die">'+DIE[b.die]+'</span><span>'+
       '<b>第 '+(r.dieAt+1)+'／'+r.dice.length+' 顆・'+b.die+' 點</b>　'+DIETIP[b.die]+'</span></div>'+
     b.opts.map(o=>'<button'+(o.warn?' class="warn"':'')+'>'+esc(o.t)+
-      (o.s?'<span class="s">'+esc(o.s)+'</span>':'')+'</button>').join('')+
+      ((o.n||o.s)?'<span class="s">'+(o.n?'<b>'+esc(o.n)+'</b>':'')+
+        (o.n&&o.s?'　':'')+esc(o.s||'')+'</span>':'')+'</button>').join('')+
     '<button class="skipall">今年就這樣，剩下的 '+r.apLeft+' 點不用了</button>');
   const bs=$('act').querySelectorAll('button');
   b.opts.forEach((o,i)=>{ bs[i].onclick=()=>{
@@ -713,8 +738,9 @@ function doPlay(id,arg){
   const cut=id.indexOf(':');
   const m={id:id, kind:cut<0?id:id.slice(0,cut), inst:cut<0?null:id.slice(cut+1)};
   markDie(m.kind);        /* 標在 play() 之前——之後 dieAt 已經往前一顆了 */
+  const b4=snap();
   const res=g.play(id,arg);
-  if(res) reportPlay(m,res);
+  if(res){ nextFx=delta(b4); reportPlay(m,res); }
   render();
 }
 function reportPlay(m,res){
@@ -742,23 +768,51 @@ function actOnly(list){
 /* 一則紀錄同時寫兩個地方：「紀錄」分頁（完整歷史）
    與「現況」最上面的「剛剛」（你眼睛真正在看的地方）。
    只寫紀錄的話，結果會落在一個你不會去翻的分頁裡——等於沒有寫。 */
-let flashKeep=[];
+
+/* ---- 選完之後，你的數字變成什麼 ----
+   「買了記憶體概念股 1.4 萬」講的是那筆交易，不是你的處境。
+   玩家真正想知道的是「所以我現在剩多少」——那個數字在上面的 HUD 裡
+   換掉了，但沒有人看得到它換之前是多少。所以把前後都印出來。
+
+   nextFx 是一次性的：設了之後下一則紀錄會用掉它。 */
+const DFIELD=[['cash','現金',1],['pos','持股',1],['debt','負債',1],
+              ['life','生活',0],['tilt','心態',0]];
+function snap(){
+  const r=g.raw;
+  return {cash:r.cash, pos:g.assets()-r.cash, debt:r.debt, life:r.life, tilt:r.tilt};
+}
+function delta(a){
+  if(!a) return '';
+  const b=snap(), out=[];
+  DFIELD.forEach(f=>{
+    const x=a[f[0]], y=b[f[0]], mny=f[2];
+    if(Math.abs(y-x) < (mny?0.05:0.5)) return;
+    const fmt = mny ? money : (v=>String(Math.round(v)));
+    out.push(f[1]+' '+fmt(x)+' → <b>'+fmt(y)+'</b>');
+  });
+  return out.join('　');
+}
+let nextFx='';
 function logRow(cls,tag,html){
-  const body=(tag?'<span class="t">'+esc(tag)+'</span>':'')+html;
+  const body=(tag?'<span class="t">'+esc(tag)+'</span>':'')+html+
+    (nextFx?'<span class="fx">'+nextFx+'</span>':'');
+  nextFx='';
   const d=document.createElement('div');
   d.className='row'+(cls?' '+cls:'');
   d.innerHTML=body;
   const L=$('log'); L.insertBefore(d,L.firstChild);
   flash(cls,body);
 }
+/* 最新的一則放在選項正上方，完整的歷史留在「紀錄」分頁。
+   中間那格不再重複印一次——選項展開時它只剩三十幾 px，
+   印在那裡跟印在畫面外沒有差別。 */
 function flash(cls,body){
-  flashKeep.unshift('<div class="row'+(cls?' '+cls:'')+'">'+body+'</div>');
-  flashKeep=flashKeep.slice(0,2);          /* 只留最新兩則，多了就變成第二份紀錄 */
-  const box=$('flash');
-  if(box){ box.style.display=''; $('flash-in').innerHTML=flashKeep.join(''); }
-  showPage('now');                          /* 有事發生就切回現況，不然結果印在別的分頁 */
+  const last=$('last');
+  if(last){ last.style.display=''; last.innerHTML=body; }
 }
-function flashClear(){ flashKeep=[]; const b=$('flash'); if(b) b.style.display='none'; }
+function flashClear(){
+  const l=$('last'); if(l){ l.style.display='none'; l.innerHTML=''; }
+}
 
 /* ---- 彈窗 ---- */
 function modal(title,body,opts,extra){
