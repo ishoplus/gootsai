@@ -57,8 +57,11 @@ input:focus{border-color:var(--accent)}
 #hud .k{color:var(--dim);font-size:9.5px;letter-spacing:.18em;margin-right:5px}
 #hud .v{font-weight:700;font-size:14px}
 #hud .yr{font-family:var(--serif);font-size:20px;font-weight:900;letter-spacing:-.01em}
-.pips{letter-spacing:2px;font-size:15px;color:var(--accent)}
-.pips span.off{color:var(--edge)}
+.dice{letter-spacing:3px;font-size:19px;line-height:1;color:var(--edge)}
+.dice b{color:var(--accent);font-weight:400}
+.dice b.now{color:var(--ink);text-shadow:0 0 0 var(--accent)}
+.die{display:inline-block;font-size:26px;line-height:1;margin-right:9px;
+  vertical-align:-4px;color:var(--accent)}
 
 /* ---- 版面 ---- */
 .cols{display:grid;grid-template-columns:1fr 380px;gap:22px;align-items:start}
@@ -157,7 +160,7 @@ svg.chart{width:100%;height:120px;display:block}
     <span><span class="k">現金</span><span class="v" id="h-cash">—</span></span>
     <span><span class="k">心態</span><span class="v" id="h-tilt">—</span></span>
     <span><span class="k">生活</span><span class="v" id="h-life">—</span></span>
-    <span><span class="k">行動</span><span class="v pips" id="h-ap">—</span></span>
+    <span><span class="k">骰子</span><span class="v dice" id="h-ap">—</span></span>
   </div></div>
 
   <div class="wrap"><div class="cols">
@@ -181,7 +184,7 @@ svg.chart{width:100%;height:120px;display:block}
   </div>
 </div>
 
-<script src="kernel.js?v=2"></script>
+<script src="kernel.js?v=7"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用舊版：呈現層一律禁止呼叫內核的亂數——
@@ -196,7 +199,7 @@ let g=null, benchHist=[], navHist=[];
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源
    （file 文件的 origin 是不透明的），所以直接雙擊打開會載不到內核。
    與其讓畫面停在一片空白，不如講清楚怎麼跑。 */
-const NEED_VERSION=2;
+const NEED_VERSION=7;
 /* GitHub Pages 送的是 cache-control: max-age=600。兩次發布相隔不到十分鐘，
    瀏覽器就會拿新的 play.html 配快取裡的舊 kernel.js——舊內核沒有 beat()，
    renderActs() 一呼叫就丟 TypeError，面板從此空著，而且畫面上什麼都不說。
@@ -223,6 +226,7 @@ if(typeof KERNEL==='undefined'){
   throw new Error('KERNEL not loaded');
 }
 
+const DIE=['','\u2680','\u2681','\u2682','\u2683','\u2684','\u2685'];
 function money(v){
   const a=Math.abs(v);
   if(a>=10000) return (v/10000).toFixed(2)+'億';
@@ -270,6 +274,28 @@ function openYear(){
     (o.income>0?'今年存下 <b class="up">'+money(o.income)+'</b>。':'全職操盤，沒有薪水。'));
   g.raw.notes.forEach(n=>logRow('bad','', esc(n)));
   render();
+  eventModal();
+}
+
+/* ---- 第 2 拍：今年發生在你身上的事 ----
+   事件不花行動點。行動點是你決定要做的事，事件是發生在你身上的事——
+   為了應付它而少做一件自己的事，那是雙重懲罰。 */
+function eventModal(){
+  const e=g.event();
+  if(!e) return false;
+  modal(e.n, e.d, e.opts.map(o=>({
+    t:o.t,
+    s:[o.need?'因為你有「'+KERNEL.HABITS[o.need].n+'」':'', o.gamble?'這個要擲':''].filter(Boolean).join('　'),
+    warn:o.gamble,
+    f:()=>{ reportEvent(g.answerEvent(o.i)); render(); }
+  })));
+  return true;
+}
+function reportEvent(r){
+  if(!r) return;
+  let s='<b class="hl">'+esc(r.opt)+'</b><br>'+esc(r.text);
+  if(r.eff.length) s+='<br><span style="color:var(--dim)">'+r.eff.map(x=>esc(x.t)).join('　')+'</span>';
+  logRow(r.gamble?(r.ok?'good':'bad'):'', r.card, s);
 }
 function endTurn(){
   const w=g.midWindow();
@@ -329,9 +355,11 @@ function render(){
   $('h-tilt').innerHTML=Math.round(r.tilt)+
     (r.tilt>=80?' <b class="dn">手癢</b>':r.tilt<=20?' <b class="dn">不敢</b>':'');
   $('h-life').innerHTML=Math.round(r.life)+(r.life<=30?' <b class="dn">撐不住</b>':'');
-  let pips='';
-  for(let i=0;i<r.ap;i++) pips+=i<r.apLeft?'●':'<span class="off">●</span>';
-  $('h-ap').innerHTML=pips||'—';
+  /* 用完的骰子留在原地變灰——看得到今年擲出什麼、又花掉了哪幾顆 */
+  $('h-ap').innerHTML = r.dice.length
+    ? r.dice.map((d,i)=> i<r.dieAt ? DIE[d]
+        : '<b'+(i===r.dieAt?' class="now"':'')+'>'+DIE[d]+'</b>').join('')
+    : '—';
   renderSignals(); renderBook(); renderChart(); renderActs();
 }
 function renderSignals(){
@@ -393,18 +421,26 @@ function renderActs(){
 }
 function renderBeat(){
   const r=g.raw;
+  /* 卡還沒處理就不能出牌。彈窗被關掉或載入到一半的時候，這裡是唯一的回頭路——
+     不然畫面會給你一顆「結束這一年」，而那張卡就這樣消失了。 */
+  if(r.phase==='event'){
+    $('act-h').textContent='今年發生了一件事';
+    $('act').innerHTML='<button class="main">▸ 看看是什麼</button>';
+    $('act').querySelector('button').onclick=eventModal;
+    return;
+  }
   if(r.apLeft<=0){ doneYear(); return; }
   const b=g.beat();
   if(!b){ doneYear(); return; }
   $('act-h').textContent='還有 '+r.apLeft+' 件事的時間';
-  $('act').innerHTML='<div class="q">'+esc(b.q)+'</div>'+
+  $('act').innerHTML='<div class="q"><span class="die">'+DIE[b.die]+'</span>'+esc(b.q)+'</div>'+
     b.opts.map(o=>'<button'+(o.warn?' class="warn"':'')+'>'+esc(o.t)+
       (o.s?'<span class="s">'+esc(o.s)+'</span>':'')+'</button>').join('')+
     '<button class="skipall">就這樣過完這一年<span class="s">剩下的 '+r.apLeft+
       ' 點不用了</span></button>';
   const bs=$('act').querySelectorAll('button');
   b.opts.forEach((o,i)=>{ bs[i].onclick=()=>{
-    if(o.skip){ g.pass(); render(); return; }
+    if(o.skip){ g.pass(b.id); render(); return; }
     doPlay(o.mv,o.arg);
   };});
   bs[b.opts.length].onclick=()=>{ g.skipRest(); render(); };

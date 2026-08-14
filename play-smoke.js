@@ -48,10 +48,19 @@ const need=['newGame','BY_ID','HABITS','REGIME','slotsAt','INST','SIGNALS','THEM
 ok('KERNEL 匯出頁面要用的東西', need.every(k=>K[k]!=null));
 
 const g=K.newGame('smoke');
-const api=['nav','assets','investable','openYear','moves','play','midWindow','playMid','closeYear','career'];
+const api=['nav','assets','investable','openYear','moves','play','midWindow','playMid','closeYear','career',
+           'event','answerEvent'];
 ok('遊戲物件有頁面要用的方法', api.every(k=>typeof g[k]==='function'));
 
-let years=0, plays=0, mids=0, kinds={};
+/* 第 2 拍：卡沒處理掉，phase 會停在 'event'，moves() 與 beat() 全部回空——
+   頁面是這樣做的，測試也必須這樣做，不然量到的是一個停住的遊戲。 */
+function answerCard(a,pick){
+  const e=a.event();
+  if(!e || !e.opts.length) return null;
+  return a.answerEvent(e.opts[pick%e.opts.length].i);
+}
+
+let years=0, plays=0, mids=0, kinds={}, cards=0;
 let guard=0;
 while(!g.over && guard++<40){
   if(g.raw.year===6) g.career('job');
@@ -61,6 +70,14 @@ while(!g.over && guard++<40){
   /* 頁面讀的欄位 */
   if(!Array.isArray(o.signals)||o.signals.some(s=>!s.t)) { bad++; console.error('  ✗ 訊號牌缺 t'); break; }
   if(!Array.isArray(g.raw.notes)) { bad++; console.error('  ✗ notes 不是陣列'); break; }
+  const ev=g.event();
+  if(ev){
+    cards++;
+    if(!ev.n||!ev.d||!ev.opts.length){ bad++; console.error('  ✗ 事件卡缺欄位'); break; }
+    const r=answerCard(g,years);
+    if(!r||!r.text||!Array.isArray(r.eff)){ bad++; console.error('  ✗ answerEvent 回傳不完整'); break; }
+  }
+  if(g.raw.phase!=='act'){ bad++; console.error('  ✗ 處理完卡之後還卡在 '+g.raw.phase); break; }
 
   let spin=0;
   while(g.raw.apLeft>0 && spin++<20){
@@ -98,6 +115,7 @@ ok('出過牌（'+plays+' 次）', plays>20);
 ok('買、賣、習慣、研究都走到過',
    ['buy','sell','habit','scout'].every(k=>kinds[k]>0));
 ok('遇過年中窗口（'+mids+' 次）', mids>0);
+ok('抽到過事件卡（'+cards+' 張）', cards>=15);
 ok('有結局', !!g.ending && !!g.ending.t);
 ok('結局有頁面要印的欄位',
    g.ending && ['nav','inflow','bench','edge','tax','div','trades','blowups','life'].every(k=>g.ending[k]!=null));
@@ -114,6 +132,7 @@ ok('結局有頁面要印的欄位',
       if(a.raw.year===6) a.career('job');
       if(!a.openYear()) break;
       years++;
+      answerCard(a,i+years);
       let s=0;
       while(a.raw.apLeft>0 && s++<20){
         const b=a.beat();
@@ -126,7 +145,7 @@ ok('結局有頁面要印的欄位',
         if(!b.opts.some(o=>o.skip)) noSkip++;
         const o=b.opts[(i+s)%b.opts.length];
         /* 每個選項都必須真的做得動——否則畫面上就是按了沒反應 */
-        const okPlay = o.skip ? a.pass() : !!a.play(o.mv,o.arg);
+        const okPlay = o.skip ? a.pass(b.id) : !!a.play(o.mv,o.arg);
         if(!okPlay){ badOpt++; break; }
       }
       const w=a.midWindow(); if(w) a.playMid(w.options[0].id);
@@ -151,6 +170,7 @@ function replay(seed){
   while(!a.over && n++<40){
     if(a.raw.year===6) a.career('job');
     if(!a.openYear()) break;
+    answerCard(a,n);
     let s=0;
     while(a.raw.apLeft>0 && s++<20){
       const mv=a.moves(); if(!mv.length) break;

@@ -31,6 +31,19 @@ function expectMkt(signals){
   return e;
 }
 
+/* ---- 事件卡 ----
+   策略不能自己擲骰（會偷走種子流），所以選項是用固定規則挑的：
+   safe 永遠挑第一個（那幾乎都是不賭的那個），bold 永遠挑最後一個（那幾乎都是賭最大的）。
+   這剛好量到兩端：「事件卡從不冒險」與「事件卡每次都梭」各自的下場。 */
+function answerCard(g,mode){
+  const e=g.event();
+  if(!e || !e.opts.length) return;
+  const i = mode==='bold' ? e.opts[e.opts.length-1].i
+          : mode==='mid'  ? e.opts[Math.floor((e.opts.length-1)/2)].i
+          : e.opts[0].i;
+  g.answerEvent(i);
+}
+
 /* ---- 把剩下的行動點花掉：先養習慣、生活撐不住就顧生活，再不然加班 ---- */
 function spendRest(g,plan){
   let guard=0;
@@ -65,16 +78,16 @@ function buyAll(g,id){
 
 /* ================= 策略 ================= */
 const POLICIES={
-  '空手':{plan:['gym','family','read'],career:'job',
+  '空手':{plan:['gym','family','read'],career:'job',ev:'safe',
     act(){}, mid(){ return 'hold'; }},
 
-  '市值型 ETF 抱到底':{plan:['dca','read','gym','family'],career:'job',
+  '市值型 ETF 抱到底':{plan:['dca','read','gym','family'],career:'job',ev:'safe',
     act(g){ buyAll(g,'wide'); }, mid(){ return 'hold'; }},
 
-  '高股息存股':{plan:['dca','gym','family','cash'],career:'job',
+  '高股息存股':{plan:['dca','gym','family','cash'],career:'job',ev:'safe',
     act(g){ buyAll(g,'div'); }, mid(){ return 'hold'; }},
 
-  '每年追當紅題材':{plan:['read','gym','family'],career:'job',
+  '每年追當紅題材':{plan:['read','gym','family'],career:'job',ev:'bold',
     act(g){
       const want='th_'+g.raw.hotGuess;
       const held=Object.keys(g.raw.book);
@@ -83,7 +96,7 @@ const POLICIES={
     },
     mid(w){ return w.kind==='crash'?'cut':'take'; }},
 
-  '融資追題材':{plan:['read','gym'],career:'job',
+  '融資追題材':{plan:['read','gym'],career:'job',ev:'bold',
     act(g){
       const want='th_'+g.raw.hotGuess;
       const held=Object.keys(g.raw.book);
@@ -93,7 +106,7 @@ const POLICIES={
     },
     mid(w){ return w.kind==='crash'?'cut':'hold'; }},
 
-  '讀訊號配置':{plan:['read','stop','gym','family','log'],career:'job',
+  '讀訊號配置':{plan:['read','stop','gym','family','log'],career:'job',ev:'mid',
     act(g){
       const e=expectMkt(g.raw.signals);
       const want = e>=22 ? 'lead' : e>=8 ? 'wide' : e>=0 ? 'div' : 'bond';
@@ -103,7 +116,7 @@ const POLICIES={
     },
     mid(w){ return w.kind==='crash'?'cut':'take'; }},
 
-  '讀訊號＋看對才追題材':{plan:['read','stop','gym','family','log'],career:'job',
+  '讀訊號＋看對才追題材':{plan:['read','stop','gym','family','log'],career:'job',ev:'mid',
     act(g){
       const e=expectMkt(g.raw.signals);
       const want = e>=25 ? 'th_'+g.raw.hotGuess : e>=8 ? 'wide' : e>=0 ? 'div' : 'bond';
@@ -121,6 +134,7 @@ function run(seed,P){
   while(!g.over && guard++<40){
     if(16+g.raw.year===22) g.career(P.career);
     g.openYear();
+    answerCard(g,P.ev);
     P.act(g);
     spendRest(g,P.plan);
     P.act(g);            /* 掃一次剩下的現金——加班賺到的錢不該在帳上躺一整年 */
