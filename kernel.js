@@ -409,6 +409,148 @@ function play(g,moveId,arg){
   return res;
 }
 
+/* ================= 拍子 =================
+   moves() 是完整的合法空間——模擬器要靠它跑遍所有路徑。
+   但直接把它攤在畫面上，實測平均一次 42 個選項、最多 58 個。那是報表，不是人生。
+
+   借野球模擬器的節奏：一次一個問題、2～4 個選項，而且每個選項都是
+   那個處境裡你真的能做的事。這條規矩本來就寫在事件卡的註解裡，
+   只是部位系統沒照做——沒有「保守／照常／全力」這種難度旋鈕。
+
+   加一種處境＝往 BEATS 加一列，核心不動。順序就是優先序：
+   帳上那筆賺了六成的部位，比「今年要不要開始運動」更該先問你。 */
+function held(g){
+  return Object.keys(g.book).map(function(id){
+    const b=g.book[id];
+    return {id:id, n:BY_ID[id].n, val:b.sh*g.price[id], pl:(g.price[id]/b.cost-1)*100};
+  }).sort(function(a,b){ return b.val-a.val; });
+}
+function pctText(v){ return (v>=0?'賺了 ':'跌掉 ')+Math.abs(Math.round(v))+'%'; }
+
+const BEATS=[
+  /* 停利：帳面很好看的時候，賣不賣得下手 */
+  {id:'take', pick:function(g){
+    const h=held(g).filter(function(x){ return x.pl>=45; })[0];
+    if(!h) return null;
+    return {q:h.n+'已經幫你'+pctText(h.pl)+'。你每天打開軟體第一個看的就是它。',
+      opts:[
+        {t:'賣一半，先把本金抽回來', s:'剩下的讓它跑', mv:'sell:'+h.id, arg:{frac:0.5}},
+        {t:'全部落袋', s:'證交稅 0.3%，但你不會再看它了', mv:'sell:'+h.id, arg:{frac:1}},
+        {t:'一張都不賣', s:'會賺的部位不該賣——你是這樣告訴自己的', skip:1}
+      ]};
+  }},
+  /* 停損：套牢的時候，攤平還是認錯 */
+  {id:'cut', pick:function(g){
+    const h=held(g).filter(function(x){ return x.pl<=-28; })[0];
+    if(!h) return null;
+    const can=investable(g)>MIN_TRADE;
+    const o=[{t:'認賠出場', s:'實現虧損，這筆帳就結了', mv:'sell:'+h.id, arg:{frac:1}}];
+    if(can) o.push({t:'往下攤平', s:'成本會被拉低，前提是它真的會回來', mv:'buy:'+h.id, arg:{frac:0.6}});
+    o.push({t:'放著不管', s:'沒賣就不算賠', skip:1});
+    return {q:h.n+'已經'+pctText(h.pl)+'。你打開對帳單的次數變少了。', opts:o};
+  }},
+  /* 生活：撐不住的時候 */
+  {id:'life', pick:function(g){
+    if(g.life>=42) return null;
+    return {q:'你已經很久沒有好好睡過。家裡那幾通電話你都沒回。',
+      opts:[
+        {t:'停一下，把生活過回來', s:'生活 +9', mv:'life'},
+        {t:'撐過去就好', s:'什麼都不做', skip:1}
+      ]};
+  }},
+  /* 錢放哪裡：不攤十三檔，只給三個——今年在講的、穩的、你已經有的 */
+  {id:'put', pick:function(g){
+    const inv=investable(g);
+    if(inv<=MIN_TRADE) return null;
+    const hot='th_'+g.hotGuess, hs=held(g);
+    const o=[];
+    o.push({t:'買'+g.hotGuess+'概念股', s:'現在誰都在講這個。上車要快，下車更要快',
+            mv:'buy:'+hot, arg:{frac:0.6}});
+    const safe = hs.length ? 'div' : 'wide';
+    o.push({t:'買'+BY_ID[safe].n, s: safe==='wide' ? '跟著大盤走，無聊——這是它最大的優點'
+                                                   : '每季配息，漲得慢，但錢會一直進來',
+            mv:'buy:'+safe, arg:{frac:1}});
+    if(hs.length && hs[0].id!==hot)
+      o.push({t:'加碼'+hs[0].n, s:'已經有的部位再壓上去', mv:'buy:'+hs[0].id, arg:{frac:0.6}});
+    /* 融資不是常駐按鈕。只有在你正得意的時候，它才會自己冒出來——那才是它真正的樣子 */
+    if(g.tilt>=70 && g.debt<=0)
+      o.push({t:'融資追'+g.hotGuess, s:'借淨值六成。維持率跌破 130% 就是斷頭',
+              mv:'margin:'+hot, warn:1});
+    o.push({t:'先放著', s:'現金一年 1.5%，以及一整年的「早知道」', skip:1});
+    return {q:'帳上有 '+inv.toFixed(0)+' 萬。今年市場在講的是'+g.hotGuess+'。', opts:o};
+  }},
+  /* 習慣：早年才問，而且一次只給兩個 */
+  {id:'habit', pick:function(g){
+    const act=Object.keys(g.habits);
+    const feed=act.filter(function(k){ return g.habits[k].stage<3 && g.habits[k].fed!==g.year; });
+    const room=act.length<slotsAt(g.age);
+    if(!feed.length && !room) return null;
+    const o=[];
+    feed.slice(0,2).forEach(function(k){
+      o.push({t:'繼續'+HABITS[k].n, s:'第 '+(g.habits[k].streak+1)+' 年。六年就固化，之後不用再花力氣',
+              mv:'habit:'+k});
+    });
+    if(room){
+      const cand=HK.filter(function(k){ return !g.habits[k]; }).slice(0, o.length?1:2);
+      cand.forEach(function(k){ o.push({t:'開始'+HABITS[k].n, s:HABITS[k].fx, mv:'habit:'+k}); });
+    }
+    if(!o.length) return null;
+    o.push({t:'今年沒空', s:'沒餵的習慣會退，退到底就斷了', skip:1});
+    return {q:'今年要固定做點什麼嗎？'+
+      (act.length>=slotsAt(g.age)?'（槽位已經滿了）':'（槽位 '+act.length+'／'+slotsAt(g.age)+'）'), opts:o};
+  }},
+  /* 研究：手上有東西才問 */
+  {id:'scout', pick:function(g){
+    const h=held(g).filter(function(x){ return g.scouted[x.id]==null; })[0];
+    if(!h) return null;
+    return {q:'要不要花幾個晚上，把'+h.n+'的財報從頭讀一遍？',
+      opts:[
+        {t:'讀', s:'換一個「它今年會不會贏大盤」的判斷', mv:'scout:'+h.id},
+        {t:'算了', s:'', skip:1}
+      ]};
+  }},
+  /* 缺錢就加班 */
+  {id:'work', pick:function(g){
+    if(g.cash>30 || g.career==='pro') return null;
+    return {q:'有人問你要不要接個案子。',
+      opts:[
+        {t:'接', s:'進帳一點，但生活 −7', mv:'work'},
+        {t:'不接', s:'', skip:1}
+      ]};
+  }}
+];
+
+/* 回傳一個問題，或 null（沒什麼好問了）。
+   每個選項都先對 moves() 驗過——列出來卻做不動的按鈕，在畫面上就是按了沒反應。 */
+function beat(g){
+  if(g.phase!=='act' || g.apLeft<=0) return null;
+  const legal={}; moves(g).forEach(function(m){ legal[m.id]=1; });
+  /* 光看 moves() 不夠：它驗的是「這檔買得動嗎」，
+     但選項用的是六成、一半。可投入 0.8 萬時六成只有 0.48 萬，成交不了——
+     那顆按鈕在畫面上就是按了沒反應。所以連金額一起驗。 */
+  const doable=function(o){
+    if(o.skip) return true;
+    if(!legal[o.mv]) return false;
+    const cut=o.mv.indexOf(':');
+    const kind=cut<0?o.mv:o.mv.slice(0,cut), id=cut<0?null:o.mv.slice(cut+1);
+    const f=(o.arg&&o.arg.frac!=null)?o.arg.frac:1;
+    if(kind==='buy')  return investable(g)*f > MIN_TRADE;
+    if(kind==='sell') return g.book[id] && g.book[id].sh*g.price[id]*f > MIN_TRADE;
+    return true;
+  };
+  for(let i=0;i<BEATS.length;i++){
+    const b=BEATS[i].pick(g);
+    if(!b) continue;
+    const opts=b.opts.filter(doable);
+    if(opts.length<2) continue;          /* 只剩一個選項就不是選擇了 */
+    return {id:BEATS[i].id, q:b.q, opts:opts};
+  }
+  return null;
+}
+/* 選了「不做」——那也是一個決定，一樣花掉這一點 */
+function pass(g){ if(g.phase==='act'&&g.apLeft>0){ g.apLeft--; return true; } return false; }
+function skipRest(g){ if(g.phase==='act'){ g.apLeft=0; return true; } return false; }
+
 /* 3. 年中窗口：崩盤與狂牛各插播一次免費行動。
    恐懼與貪婪各測一次——而且這是唯一一個「你知道走到一半了」的決策點。 */
 function midWindow(g){
@@ -575,6 +717,9 @@ function wrap(g){
     openYear:function(){ return openYear(g); },
     moves:function(){ return moves(g); },
     play:function(id,arg){ return play(g,id,arg); },
+    beat:function(){ return beat(g); },
+    pass:function(){ return pass(g); },
+    skipRest:function(){ return skipRest(g); },
     midWindow:function(){ return midWindow(g); },
     playMid:function(c){ return playMid(g,c); },
     closeYear:function(){ return closeYear(g); },
@@ -584,5 +729,5 @@ function wrap(g){
 
 return {newGame:newGame, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
-        on:on, fold:fold, hb:hb, slotsAt:slotsAt, nav:nav};
+        BEATS:BEATS, on:on, fold:fold, hb:hb, slotsAt:slotsAt, nav:nav};
 });

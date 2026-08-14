@@ -96,6 +96,9 @@ button.main{background:var(--accent);color:#fff;border-color:var(--accent);font-
 button.main .s{color:rgba(255,255,255,.8)}
 button.main:hover:not(:disabled){background:var(--accent2);border-color:var(--accent2)}
 button.warn{border-color:var(--dn);color:var(--dn)}
+.q{font-size:16px;line-height:1.78;margin:0 0 13px;padding-bottom:12px;
+  border-bottom:1px solid var(--edge)}
+button.skipall{margin-top:10px;background:transparent;color:var(--dim);border-style:dashed}
 .grp{margin-bottom:12px}
 .grp>label{display:block;font-size:9.5px;letter-spacing:.22em;color:var(--dim);
   font-family:var(--mono);margin:0 0 6px;text-transform:uppercase}
@@ -188,7 +191,7 @@ const SAFE=/[^\w㐀-䶿一-鿿぀-ヿ-]/g;
 const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
   .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
 
-let g=null, benchHist=[], navHist=[], pending=null;
+let g=null, benchHist=[], navHist=[];
 
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源
    （file 文件的 origin 是不透明的），所以直接雙擊打開會載不到內核。
@@ -359,67 +362,37 @@ function renderChart(){
   sv.innerHTML=line(benchHist,'var(--dim)',1.2)+line(navHist,'var(--accent)',2);
 }
 
-/* ---- 出牌 ---- */
+/* ---- 出牌：一次一個問題 ----
+   moves() 是完整的合法空間，全部攤出來實測平均 42 個選項、最多 58 個——那是報表。
+   借野球模擬器的節奏改成 beat()：一次一個處境、2～4 個選項，
+   而且每個選項都是那個處境裡你真的能做的事。 */
 function renderActs(){
-  if(pending){ renderPending(); return; }
   const r=g.raw;
-  $('act-h').textContent='可以做的事　剩 '+r.apLeft+' 點';
-  if(r.apLeft<=0){ actOnly([{t:'▸ 結束這一年',main:1,f:endTurn}]); return; }
-  const mv=g.moves();
-  const grp=(label,list)=>list.length?'<div class="grp"><label>'+label+'</label>'+
-    list.map(m=>btn(m)).join('')+'</div>':'';
-  const buys=mv.filter(m=>m.kind==='buy'), sells=mv.filter(m=>m.kind==='sell'),
-        marg=mv.filter(m=>m.kind==='margin'), habs=mv.filter(m=>m.kind==='habit'),
-        scts=mv.filter(m=>m.kind==='scout'),
-        etc=mv.filter(m=>m.kind==='life'||m.kind==='work');
-  const a=$('act');
-  a.innerHTML=grp('買進（可投入 '+money(g.investable())+'）',buys)+
-    grp('賣出',sells)+grp('融資',marg)+
-    grp('習慣　槽位 '+Object.keys(r.habits).length+'／'+KERNEL.slotsAt(r.age),habs)+
-    grp('研究',scts)+grp('生活',etc)+
-    '<button class="main" id="done">▸ 結束這一年<span class="s">剩下的 '+r.apLeft+' 點不用完也可以</span></button>';
-  a.querySelectorAll('button[data-mv]').forEach(b=>{
-    b.onclick=()=>{
-      const m=mv.find(x=>x.id===b.dataset.mv);
-      if(m.fracs){ pending=m; renderPending(); return; }
-      doPlay(m.id);
-    };
-  });
-  $('done').onclick=endTurn;
+  if(r.apLeft<=0){ doneYear(); return; }
+  const b=g.beat();
+  if(!b){ doneYear(); return; }
+  $('act-h').textContent='還有 '+r.apLeft+' 件事的時間';
+  $('act').innerHTML='<div class="q">'+esc(b.q)+'</div>'+
+    b.opts.map(o=>'<button'+(o.warn?' class="warn"':'')+'>'+esc(o.t)+
+      (o.s?'<span class="s">'+esc(o.s)+'</span>':'')+'</button>').join('')+
+    '<button class="skipall">就這樣過完這一年<span class="s">剩下的 '+r.apLeft+
+      ' 點不用了</span></button>';
+  const bs=$('act').querySelectorAll('button');
+  b.opts.forEach((o,i)=>{ bs[i].onclick=()=>{
+    if(o.skip){ g.pass(); render(); return; }
+    doPlay(o.mv,o.arg);
+  };});
+  bs[b.opts.length].onclick=()=>{ g.skipRest(); render(); };
 }
-function btn(m){
-  const habInfo=m.kind==='habit'?KERNEL.HABITS[m.id.slice(6)]:null;
-  const inst=m.inst?KERNEL.BY_ID[m.inst]:null;
-  let s='';
-  if(habInfo) s=habInfo.fx;
-  else if(m.kind==='buy'&&inst) s='β'+inst.beta.toFixed(2)+
-    (inst.div?'　配息 '+inst.div+'%':'')+(inst.liq<0.6?'　流動性差':'');
-  else if(m.kind==='margin') s='借淨值的六成去買。維持率跌破 130% 強制平倉，年息 7.5%';
-  else if(m.kind==='scout') s='換一個「今年會不會贏大盤」的判斷';
-  else if(m.kind==='life') s='生活 +9，心態拉回中間';
-  else if(m.kind==='work') s='拿時間換錢，生活 −7';
-  return '<button data-mv="'+esc(m.id)+'"'+(m.kind==='margin'?' class="warn"':'')+'>'+
-    esc(m.label)+(s?'<span class="s">'+esc(s)+'</span>':'')+'</button>';
-}
-function renderPending(){
-  const m=pending, inv=g.investable();
-  const label=f=>m.kind==='buy'
-    ? (f===1?'全部':f===0.6?'六成':'三成')+'　'+money(inv*f)
-    : (f===1?'全部賣掉':'賣一半');
-  $('act').innerHTML='<div class="grp"><label>'+esc(m.label)+'</label>'+
-    m.fracs.map(f=>'<button data-f="'+f+'">'+esc(label(f))+'</button>').join('')+
-    '<button data-f="x">← 取消</button></div>';
-  $('act').querySelectorAll('button').forEach(b=>{
-    b.onclick=()=>{
-      if(b.dataset.f==='x'){ pending=null; renderActs(); return; }
-      doPlay(m.id,{frac:parseFloat(b.dataset.f)});
-    };
-  });
+function doneYear(){
+  $('act-h').textContent='　';
+  $('act').innerHTML='<button class="main">▸ 結束這一年</button>';
+  $('act').querySelector('button').onclick=endTurn;
 }
 function doPlay(id,arg){
-  const m=g.moves().find(x=>x.id===id);
+  const cut=id.indexOf(':');
+  const m={id:id, kind:cut<0?id:id.slice(0,cut), inst:cut<0?null:id.slice(cut+1)};
   const res=g.play(id,arg);
-  pending=null;
   if(res) reportPlay(m,res);
   render();
 }

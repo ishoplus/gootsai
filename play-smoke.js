@@ -102,7 +102,50 @@ ok('有結局', !!g.ending && !!g.ending.t);
 ok('結局有頁面要印的欄位',
    g.ending && ['nav','inflow','bench','edge','tax','div','trades','blowups','life'].every(k=>g.ending[k]!=null));
 
-/* ---------- 3. 相同種子＋相同選擇＝相同人生 ---------- */
+/* ---------- 3. 頁面真正走的路徑：beat() ----------
+   畫面上不再攤 moves()，而是一次問一個處境。這條路徑必須自己測，
+   不然「頁面能玩」這件事等於沒有驗過。 */
+(function(){
+  let opts=0, asks=0, mx=0, minOpt=99, years=0, ended=0;
+  const seen={}; let badOpt=0, noSkip=0;
+  for(let i=0;i<200;i++){
+    const a=K.newGame('beat-'+i); let guard=0;
+    while(!a.over && guard++<40){
+      if(a.raw.year===6) a.career('job');
+      if(!a.openYear()) break;
+      years++;
+      let s=0;
+      while(a.raw.apLeft>0 && s++<20){
+        const b=a.beat();
+        if(!b){ a.skipRest(); break; }
+        asks++; seen[b.id]=(seen[b.id]||0)+1;
+        opts+=b.opts.length;
+        if(b.opts.length>mx) mx=b.opts.length;
+        if(b.opts.length<minOpt) minOpt=b.opts.length;
+        if(!b.q) badOpt++;
+        if(!b.opts.some(o=>o.skip)) noSkip++;
+        const o=b.opts[(i+s)%b.opts.length];
+        /* 每個選項都必須真的做得動——否則畫面上就是按了沒反應 */
+        const okPlay = o.skip ? a.pass() : !!a.play(o.mv,o.arg);
+        if(!okPlay){ badOpt++; break; }
+      }
+      const w=a.midWindow(); if(w) a.playMid(w.options[0].id);
+      a.closeYear();
+    }
+    if(a.over) ended++;
+  }
+  const avg=opts/asks;
+  ok('beat() 每題平均 '+avg.toFixed(1)+' 個選項（要 ≤5）', avg<=5);
+  ok('最多 '+mx+' 個、最少 '+minOpt+' 個（要 2～5）', mx<=5 && minOpt>=2);
+  ok('每題都有敘述，選項都做得動', badOpt===0);
+  ok('每題都留得下「不做」這個選項', noSkip===0);
+  ok('用 beat() 玩得完（'+ended+'/200 局）', ended===200);
+  ok('處境不只一種（'+Object.keys(seen).length+' 種）', Object.keys(seen).length>=5);
+  console.log('    處境分布：'+Object.keys(seen).sort((x,y)=>seen[y]-seen[x])
+    .map(k=>k+' '+(seen[k]/asks*100).toFixed(0)+'%').join('　'));
+})();
+
+/* ---------- 4. 相同種子＋相同選擇＝相同人生 ---------- */
 function replay(seed){
   const a=K.newGame(seed); let n=0;
   while(!a.over && n++<40){
