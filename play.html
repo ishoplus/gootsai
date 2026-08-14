@@ -19,165 +19,166 @@
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@600;900&display=swap" rel="stylesheet">
 <style>
 :root{
-  --bg:#e8e4da; --panel:#f6f3ec; --panel2:#eeeae0; --edge:#c9c2b3;
-  --ink:#1d1a15; --dim:#6b6355; --accent:#8c2f2f; --accent2:#b04545;
+  --bg:#ddd8cb; --card:#faf8f2; --card2:#f0ece2; --edge:#d8d1c1;
+  --ink:#1d1a15; --dim:#736a5c; --accent:#8c2f2f; --accent2:#b04545;
   --up:#1d6b3a; --dn:#a51e1e; --warn:#8a5a0c; --gold:#7d5f18;
   --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
   --sans:'Noto Sans TC',system-ui,-apple-system,sans-serif;
   --serif:'Noto Serif TC',Georgia,serif;
+  --r:14px;
 }
 *{box-sizing:border-box}
-html,body{margin:0;padding:0}
+html,body{margin:0;padding:0;height:100%}
 body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.7;
-  -webkit-text-size-adjust:100%}
+  -webkit-text-size-adjust:100%;overflow:hidden}
 b.up{color:var(--up)} b.dn{color:var(--dn)} b.hl{color:var(--accent)} b.gd{color:var(--gold)}
 .mono{font-family:var(--mono)}
-.wrap{max-width:1080px;margin:0 auto;padding:0 16px 120px}
+
+/* 一支手機的形狀。桌面不再攤成兩欄儀表板——
+   這款一次只問你一件事，兩欄只會讓那件事變小。 */
+.phone{max-width:460px;margin:0 auto;height:100vh;height:100dvh;
+  display:flex;flex-direction:column;background:var(--card2);
+  box-shadow:0 0 0 1px var(--edge)}
 
 /* ---- 開場 ---- */
-#start{max-width:560px;margin:0 auto;padding:56px 20px 80px}
-h1{font-family:var(--serif);font-size:44px;line-height:1.06;margin:0 0 6px;font-weight:900}
-h1 em{display:block;font-family:var(--mono);font-style:normal;font-size:10.5px;letter-spacing:.42em;
+#start{display:block;overflow-y:auto;padding:40px 20px calc(40px + env(safe-area-inset-bottom))}
+h1{font-family:var(--serif);font-size:40px;line-height:1.08;margin:0 0 6px;font-weight:900}
+h1 em{display:block;font-family:var(--mono);font-style:normal;font-size:10px;letter-spacing:.4em;
   color:var(--accent);margin-top:12px;font-weight:500;padding-top:10px;border-top:1px solid var(--edge)}
-.tape{height:2px;background:linear-gradient(90deg,var(--up),var(--dn),var(--up));opacity:.7;margin:16px 0 20px}
-.sub{color:var(--dim);font-size:13.5px;line-height:1.85;margin:0 0 26px}
-.field{margin-bottom:20px}
-.field>label{display:block;font-size:9.5px;letter-spacing:.26em;color:var(--dim);
-  font-family:var(--mono);margin-bottom:8px;text-transform:uppercase;
-  border-bottom:1px solid var(--edge);padding-bottom:5px}
-input{width:100%;padding:11px 12px;background:var(--panel);color:var(--ink);
+.tape{height:2px;border-radius:2px;background:linear-gradient(90deg,var(--up),var(--dn),var(--up));
+  opacity:.7;margin:16px 0 20px}
+.sub{color:var(--dim);font-size:13.5px;line-height:1.85;margin:0 0 22px}
+.sub a{color:var(--accent)}
+.field{margin-bottom:16px}
+.field>label{display:block;font-size:9.5px;letter-spacing:.24em;color:var(--dim);
+  font-family:var(--mono);margin-bottom:7px;text-transform:uppercase}
+input{width:100%;padding:12px 13px;background:var(--card);color:var(--ink);border-radius:10px;
   border:1px solid var(--edge);font-size:15px;font-family:var(--mono);outline:none}
 input:focus{border-color:var(--accent)}
 
-/* ---- HUD ---- */
-#hud{position:sticky;top:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--edge);
-  padding:10px 0 9px;margin-bottom:18px}
-#hud .in{max-width:1080px;margin:0 auto;padding:0 16px;display:flex;gap:18px;align-items:baseline;
-  flex-wrap:wrap;font-family:var(--mono);font-size:12px}
-#hud .k{color:var(--dim);font-size:9.5px;letter-spacing:.18em;margin-right:5px}
-#hud .v{font-weight:700;font-size:14px}
-#hud .yr{font-family:var(--serif);font-size:20px;font-weight:900;letter-spacing:-.01em}
-.dice{letter-spacing:3px;font-size:19px;line-height:1;color:var(--edge)}
-.dice b{color:var(--accent);font-weight:400}
-.dice b.now{color:var(--ink);text-shadow:0 0 0 var(--accent)}
-.die{display:inline-block;font-size:26px;line-height:1;margin-right:9px;
-  vertical-align:-4px;color:var(--accent)}
+/* ---- 上方：主數據 ---- */
+#hud{flex:none;background:var(--card);border-bottom:1px solid var(--edge);
+  padding:calc(10px + env(safe-area-inset-top)) 14px 9px}
+#hud .top{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
+#hud .yr{font-family:var(--serif);font-size:23px;font-weight:900;line-height:1.1}
+#hud .yr small{display:block;font-family:var(--mono);font-size:10px;font-weight:400;
+  letter-spacing:.16em;color:var(--dim);margin-top:2px}
+#hud .nav{text-align:right;line-height:1.1}
+#hud .nav .k{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;color:var(--dim)}
+#hud .nav .v{font-family:var(--mono);font-size:25px;font-weight:700;letter-spacing:-.02em}
+#hud .chips{display:flex;gap:6px;margin-top:9px}
+#hud .chip{flex:1;background:var(--card2);border-radius:9px;padding:5px 8px;
+  font-family:var(--mono);font-size:13px;font-weight:700;line-height:1.35;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#hud .chip:last-child{flex:1.5}
+#hud .chip span{display:block;font-size:9px;letter-spacing:.16em;color:var(--dim);font-weight:400}
+#hud .chip b{font-size:10.5px;font-weight:700;margin-left:2px}
+.dice{letter-spacing:1px;font-size:17px;line-height:1;color:var(--edge)}
+.dice b{color:var(--accent);font-weight:400;font-size:17px;margin:0}
+.dice b.now{color:var(--ink)}
+.die{display:inline-block;font-size:24px;line-height:1;margin-right:8px;
+  vertical-align:-3px;color:var(--accent)}
 
-/* ---- 版面 ---- */
-.cols{display:grid;grid-template-columns:1fr 380px;gap:22px;align-items:start}
-/* ---- 手機 ----
-   桌面是兩欄儀表板。直接塌成一欄，「可以做的事」會被推到整頁最底部：
-   第一年要往下捲約 660px，第二十年年度紀事累積到兩千多 px，
-   等於每一回合都要捲三四個螢幕才玩得下一步。那不是手機版面，
-   那是把交易終端機倒下來。
+/* ---- 中間：顯示面板 ----
+   整頁不捲，只有這一格捲。上面的數據與下面的選單永遠在原地，
+   所以「現在你有多少錢」與「現在要你決定什麼」不會被內容推走。 */
+#stage{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:11px 11px 14px}
+.card{background:var(--card);border:1px solid var(--edge);border-radius:var(--r);
+  padding:12px 13px;margin-bottom:9px}
+.card>h3{margin:0 0 9px;font-size:9.5px;letter-spacing:.24em;color:var(--dim);
+  font-family:var(--mono);text-transform:uppercase;font-weight:500}
+.card:last-child{margin-bottom:0}
 
-   display:contents 讓兩個 wrapper 在手機上不生成方塊，
-   六個 box 直接變成 .cols 的子項，就能個別排順序。
-   桌面那組一個字都不用改，因為這段只活在 media query 裡。 */
-@media(max-width:860px){
-  .cols{display:flex;flex-direction:column;gap:0}
-  .cols>div{display:contents}
-  #b-sig{order:1}  #flash{order:2}
-  #b-book{order:3} #b-chart{order:4} #b-log{order:5}
-
-  /* 選項固定在底部。手機上這一頁的形狀因此變成
-     上面釘住狀態、中間捲動的內容、下面釘住選項——
-     野球模擬器就是這個形狀，而它是對的：
-     「現在要你決定什麼」不該隨著內容長高而跑掉。 */
-  #b-act{position:fixed;left:0;right:0;bottom:0;z-index:50;margin:0;
-    max-height:56vh;overflow:auto;
-    border-left:none;border-right:none;border-bottom:none;
-    box-shadow:0 -8px 24px rgba(20,17,12,.16);
-    padding-bottom:calc(14px + env(safe-area-inset-bottom))}
-  #b-act>h3{position:sticky;top:0;background:var(--panel);z-index:1;margin-top:-2px;padding-top:2px}
-
-  /* 紀事是唯一會無限長的東西。關進自己的捲軸，它就推不動別人 */
-  #b-log .log{max-height:44vh;overflow:auto}
-  /* 手指不是滑鼠 */
-  button{min-height:48px;padding:12px 14px}
-  #hud .in{gap:11px 14px;font-size:11.5px}
-  #hud .v{font-size:13px}
-  #hud .yr{font-size:18px}
-  /* 底部留白改由 dockPad() 依面板實際高度設在 body 上，這裡不要再多墊一份 */
-  .wrap{padding-bottom:8px}
-}
-.box{background:var(--panel);border:1px solid var(--edge);padding:14px 15px;margin-bottom:16px}
-.box>h3{margin:0 0 10px;font-size:9.5px;letter-spacing:.26em;color:var(--dim);
-  font-family:var(--mono);text-transform:uppercase;border-bottom:1px solid var(--edge);padding-bottom:6px;
-  font-weight:500}
-
-/* ---- 訊號 ---- */
-.sig{display:flex;gap:9px;align-items:flex-start;padding:6px 0;font-size:14px;line-height:1.6}
+/* ---- 風向 ---- */
+.sig{display:flex;gap:8px;align-items:flex-start;padding:5px 0;font-size:14px;line-height:1.6}
 .sig i{font-style:normal;color:var(--accent);font-family:var(--mono);font-size:11px;padding-top:3px}
 .sig.theme{color:var(--accent);font-weight:700}
 
-/* ---- 帳本 ---- */
+/* ---- 持股 ---- */
 table.book{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px}
 table.book th{text-align:right;color:var(--dim);font-weight:400;font-size:9.5px;letter-spacing:.14em;
   padding:0 0 5px;border-bottom:1px solid var(--edge)}
 table.book th:first-child{text-align:left}
-table.book td{padding:6px 0;border-bottom:1px solid var(--edge);text-align:right}
+table.book td{padding:7px 0;border-bottom:1px solid var(--edge);text-align:right}
 table.book td:first-child{text-align:left;font-family:var(--sans);font-size:13.5px}
 table.book tr:last-child td{border-bottom:none}
-.empty{color:var(--dim);font-size:13px;padding:10px 0}
-.scout{font-size:10px;font-family:var(--mono);padding:1px 5px;border:1px solid currentColor;margin-left:6px}
+.empty{color:var(--dim);font-size:13px;padding:8px 0}
+.scout{font-size:10px;font-family:var(--mono);padding:1px 5px;border:1px solid currentColor;
+  border-radius:6px;margin-left:5px}
+
+/* ---- 剛剛／紀錄 ---- */
+.flash{border-color:var(--accent)}
+.log .row{border-left:2px solid var(--edge);padding:7px 0 7px 11px;margin-bottom:9px;font-size:13.5px;
+  line-height:1.75}
+.log .row:last-child{margin-bottom:0}
+.log .row.good{border-color:var(--up)} .log .row.bad{border-color:var(--dn)}
+.log .row.mkt{border-color:var(--accent)}
+.log .row .t{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--dim);
+  text-transform:uppercase;display:block;margin-bottom:2px}
+.flash .row{border:none;padding:0 0 8px;margin:0 0 8px;border-bottom:1px dotted var(--edge)}
+.flash .row:last-child{border-bottom:none;padding-bottom:0;margin-bottom:0}
+
+/* ---- 圖 ---- */
+svg.chart{width:100%;height:130px;display:block}
+.legend{font-family:var(--mono);font-size:10.5px;color:var(--dim);display:flex;gap:14px;margin-top:6px}
+.legend i{font-style:normal;display:inline-block;width:14px;height:2px;vertical-align:middle;margin-right:4px}
+
+/* ---- 下方：選單，可收納 ----
+   收起來只剩一條把手＋分頁列，中間那格就拿回整個螢幕；
+   要出牌的時候再拉開。這條把手同時是「現在輪到你決定什麼」的標題。 */
+#dock{flex:none;background:var(--card);border-top:1px solid var(--edge);
+  border-radius:16px 16px 0 0;box-shadow:0 -6px 22px rgba(20,17,12,.13);
+  padding-bottom:env(safe-area-inset-bottom)}
+#grab{display:flex;align-items:center;gap:10px;width:100%;padding:9px 14px 8px;
+  background:none;border:none;border-radius:16px 16px 0 0;cursor:pointer;text-align:left}
+#grab .bar{position:absolute;left:50%;transform:translateX(-50%);top:5px;
+  width:34px;height:3px;border-radius:3px;background:var(--edge)}
+#grab .t{flex:1;font-size:13px;font-weight:700;line-height:1.4}
+#grab .c{font-family:var(--mono);font-size:11px;color:var(--dim)}
+#dock{position:relative}
+#dock-body{max-height:min(50vh,400px);overflow-y:auto;padding:0 12px 10px}
+#dock.min #dock-body{display:none}
+#tabs{display:flex;border-top:1px solid var(--edge);background:var(--card)}
+#tabs button{flex:1;background:none;border:none;border-top:2px solid transparent;margin-top:-1px;
+  padding:9px 2px calc(9px + env(safe-area-inset-bottom));font-size:12.5px;color:var(--dim);
+  text-align:center;font-weight:500;cursor:pointer;border-radius:0}
+#tabs button.on{color:var(--accent);border-top-color:var(--accent);font-weight:700}
 
 /* ---- 出牌 ---- */
-.moves{display:flex;flex-direction:column;gap:7px}
-button{font-family:var(--sans);font-size:14.5px;cursor:pointer;text-align:left;
-  background:var(--panel2);color:var(--ink);border:1px solid var(--edge);padding:10px 12px;width:100%;
-  line-height:1.5;transition:none}
-button:hover:not(:disabled){border-color:var(--accent);background:var(--panel)}
+button{font-family:var(--sans);font-size:15px;cursor:pointer;text-align:left;border-radius:11px;
+  background:var(--card2);color:var(--ink);border:1px solid var(--edge);padding:12px 13px;width:100%;
+  min-height:48px;line-height:1.5;margin-bottom:7px;transition:none}
+button:last-child{margin-bottom:0}
+button:hover:not(:disabled){border-color:var(--accent)}
 button:disabled{opacity:.4;cursor:default}
 button .s{display:block;font-size:11.5px;color:var(--dim);font-family:var(--mono);margin-top:2px}
 button.main{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
 button.main .s{color:rgba(255,255,255,.8)}
 button.main:hover:not(:disabled){background:var(--accent2);border-color:var(--accent2)}
 button.warn{border-color:var(--dn);color:var(--dn)}
-.q{font-size:16px;line-height:1.78;margin:0 0 13px;padding-bottom:12px;
-  border-bottom:1px solid var(--edge)}
-button.skipall{margin-top:10px;background:transparent;color:var(--dim);border-style:dashed}
-.grp{margin-bottom:12px}
-.grp>label{display:block;font-size:9.5px;letter-spacing:.22em;color:var(--dim);
-  font-family:var(--mono);margin:0 0 6px;text-transform:uppercase}
-
-/* ---- 紀事 ---- */
-.log .row{border-left:2px solid var(--edge);padding:8px 0 8px 12px;margin-bottom:10px;font-size:13.5px;
-  line-height:1.75}
-.log .row.good{border-color:var(--up)} .log .row.bad{border-color:var(--dn)}
-.log .row.mkt{border-color:var(--accent)}
-.log .row .t{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--dim);
-  text-transform:uppercase;display:block;margin-bottom:2px}
-
-/* ---- 剛剛 ---- */
-.flash{border-left:2px solid var(--accent)}
-.flash .row{border:none;padding:0 0 8px;margin:0 0 8px;border-bottom:1px dotted var(--edge)}
-.flash .row:last-child{border-bottom:none;padding-bottom:0;margin-bottom:0}
-.fx{display:block;font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-top:3px}
+button.skipall{background:transparent;color:var(--dim);border-style:dashed}
+.q{font-size:15.5px;line-height:1.75;margin:0 0 11px;padding:0 2px}
 
 /* ---- 彈窗 ---- */
 #mask{position:fixed;inset:0;background:rgba(20,17,12,.72);z-index:60;display:flex;
-  align-items:center;justify-content:center;padding:20px}
-#mask .m{background:var(--panel);border:1px solid var(--edge);max-width:520px;width:100%;
-  padding:22px 22px 20px;max-height:88vh;overflow:auto}
-#mask h2{font-family:var(--serif);font-size:26px;margin:0 0 8px;font-weight:900}
-#mask p{margin:0 0 16px;font-size:14.5px;line-height:1.8}
+  align-items:flex-end;justify-content:center;padding:16px}
+#mask .m{background:var(--card);border:1px solid var(--edge);border-radius:16px;max-width:460px;
+  width:100%;padding:20px 16px calc(16px + env(safe-area-inset-bottom));
+  max-height:86vh;overflow-y:auto}
+#mask h2{font-family:var(--serif);font-size:24px;margin:0 0 8px;font-weight:900}
+#mask p{margin:0 0 15px;font-size:14.5px;line-height:1.8}
 #mask p.fxline{font-family:var(--mono);font-size:12.5px;border-top:1px solid var(--edge);
-  padding-top:11px;margin-bottom:14px}
+  padding-top:11px;margin-bottom:13px}
+@media(min-height:620px){ #mask{align-items:center} }
 
-/* ---- 圖 ---- */
-svg.chart{width:100%;height:120px;display:block}
-.legend{font-family:var(--mono);font-size:10.5px;color:var(--dim);display:flex;gap:14px;margin-top:6px}
-.legend i{font-style:normal;display:inline-block;width:14px;height:2px;vertical-align:middle;margin-right:4px}
-
-.foot{max-width:1080px;margin:30px auto 0;padding:14px 16px 0;border-top:1px solid var(--edge);
-  color:var(--dim);font-size:11.5px;font-family:var(--mono);display:flex;gap:16px;flex-wrap:wrap}
+.foot{color:var(--dim);font-size:11px;font-family:var(--mono);
+  display:flex;gap:12px;flex-wrap:wrap;padding:12px 2px 0}
 .foot a{color:var(--dim)}
 </style>
 </head>
 <body>
 
-<div id="start">
+<div id="start" class="phone">
   <h1>少年股神<em>KERNEL V2 · 試玩</em></h1>
   <div class="tape"></div>
   <p class="sub">
@@ -190,46 +191,65 @@ svg.chart{width:100%;height:120px;display:block}
     <label>種子</label>
     <input id="seed" maxlength="24" placeholder="留空隨機">
   </div>
-  <button class="main" id="go">▸ 開戶，開始這二十四年</button>
-  <p class="sub" style="margin-top:22px;font-size:12px">
+  <button class="main" id="go">開戶，開始</button>
+  <p class="sub" style="margin-top:20px;font-size:12px">
     相同種子＋相同選擇＝相同人生。骨架說明見 <a href="KERNEL.md">KERNEL.md</a>。
   </p>
 </div>
 
-<div id="game" style="display:none">
-  <div id="hud"><div class="in">
-    <span class="yr" id="h-yr">16 歲</span>
-    <span><span class="k">淨值</span><span class="v" id="h-nav">—</span></span>
-    <span><span class="k">現金</span><span class="v" id="h-cash">—</span></span>
-    <span><span class="k">心態</span><span class="v" id="h-tilt">—</span></span>
-    <span><span class="k">生活</span><span class="v" id="h-life">—</span></span>
-    <span><span class="k">骰子</span><span class="v dice" id="h-ap">—</span></span>
-  </div></div>
+<div id="game" class="phone" style="display:none">
 
-  <div class="wrap"><div class="cols">
-    <div>
-      <div class="box" id="b-sig"><h3>今年的訊號</h3><div id="sigs"></div></div>
-      <div class="box" id="b-book"><h3>帳本</h3><div id="book"></div></div>
-      <div class="box" id="b-chart"><h3>淨值</h3>
+  <!-- 上：主數據。永遠在原地 -->
+  <div id="hud">
+    <div class="top">
+      <div class="yr"><span id="h-yr">16 歲</span><small id="h-year">第 1 年</small></div>
+      <div class="nav"><span class="k">淨值</span><span class="v" id="h-nav">—</span></div>
+    </div>
+    <div class="chips">
+      <div class="chip"><span>現金</span><span id="h-cash">—</span></div>
+      <div class="chip"><span>心態</span><span id="h-tilt">—</span></div>
+      <div class="chip"><span>生活</span><span id="h-life">—</span></div>
+      <div class="chip"><span>骰子</span><span class="dice" id="h-ap">—</span></div>
+    </div>
+  </div>
+
+  <!-- 中：顯示面板。一次只看一頁，由下面的分頁列切換 -->
+  <div id="stage">
+    <div id="p-now">
+      <!-- 剛剛發生了什麼，印在你正在看的地方。
+           丟進「紀錄」分頁等於沒有印——那一頁你不會去翻。 -->
+      <div class="card flash" id="flash" style="display:none"><h3>剛剛</h3><div id="flash-in"></div></div>
+      <div class="card"><h3>風向</h3><div id="sigs"></div></div>
+    </div>
+    <div id="p-book" style="display:none">
+      <div class="card"><h3>持股</h3><div id="book"></div></div>
+    </div>
+    <div id="p-chart" style="display:none">
+      <div class="card"><h3>走勢</h3>
         <svg class="chart" id="chart" viewBox="0 0 600 120" preserveAspectRatio="none"></svg>
         <div class="legend"><span><i style="background:var(--accent)"></i>你</span>
-          <span><i style="background:var(--dim)"></i>同樣的錢全買市值型 ETF</span></div>
+          <span><i style="background:var(--dim)"></i>全買市值型 ETF</span></div>
       </div>
-      <div class="box" id="b-log"><h3>年度紀事</h3><div class="log" id="log"></div></div>
     </div>
-    <div>
-      <!-- 剛剛發生了什麼，印在你正在看的地方。
-           年度紀事在左欄最下面，手機上更是被推到整頁的另一端——
-           結果寫在那裡，等於沒有寫。 -->
-      <div class="box flash" id="flash" style="display:none"><h3>剛剛</h3><div id="flash-in"></div></div>
-      <div class="box" id="b-act"><h3 id="act-h">可以做的事</h3><div id="act"></div></div>
+    <div id="p-log" style="display:none">
+      <div class="card"><h3>紀錄</h3><div class="log" id="log"></div></div>
+      <div class="foot">
+        <span id="f-seed"></span>
+        <a href="KERNEL.md">骨架說明</a>
+      </div>
     </div>
-  </div></div>
+  </div>
 
-  <div class="foot">
-    <span id="f-seed"></span>
-    <a href="KERNEL.md">骨架說明</a>
-    <span>內核 v2 · 骨架試玩</span>
+  <!-- 下：選單。把手可以把它收起來 -->
+  <div id="dock">
+    <button id="grab"><i class="bar"></i><span class="t" id="act-h">可以做的事</span><span class="c" id="grab-c">▾</span></button>
+    <div id="dock-body"><div id="act"></div></div>
+    <div id="tabs">
+      <button data-p="now" class="on">現況</button>
+      <button data-p="book">持股</button>
+      <button data-p="chart">走勢</button>
+      <button data-p="log">紀錄</button>
+    </div>
   </div>
 </div>
 
@@ -260,7 +280,7 @@ if(typeof KERNEL!=='undefined' && !(KERNEL.VERSION>=NEED_VERSION)){
     '<p class="sub">你的瀏覽器還留著十分鐘前那份 <code>kernel.js</code>。'+
     '這一頁需要新的。強制重新整理一次就好——'+
     'Mac 是 <b class="hl">Cmd+Shift+R</b>，Windows 是 <b class="hl">Ctrl+F5</b>。</p>'+
-    '<button class="main" onclick="location.reload(true)">▸ 重新載入</button>';
+    '<button class="main" onclick="location.reload(true)">重新載入</button>';
   throw new Error('stale kernel');
 }
 if(typeof KERNEL==='undefined'){
@@ -275,7 +295,7 @@ if(typeof KERNEL==='undefined'){
   throw new Error('KERNEL not loaded');
 }
 
-const DIE=['','\u2680','\u2681','\u2682','\u2683','\u2684','\u2685'];
+const DIE=['','⚀','⚁','⚂','⚃','⚄','⚅'];
 function money(v){
   const a=Math.abs(v);
   if(a>=10000) return (v/10000).toFixed(2)+'億';
@@ -340,7 +360,7 @@ function eventModal(){
     f:()=>{
       const r=g.answerEvent(o.i);
       reportEvent(r); render();
-      /* 結果留在畫面正中間，不要只丟進紀事——
+      /* 結果留在畫面正中間，不要只丟進紀錄——
          你按完的那一刻眼睛在彈窗上，結果印在別的地方等於沒有印。
          事件卡是這款唯一的故事時刻，它值得一個自己的畫面。 */
       outcomeModal(r);
@@ -354,7 +374,7 @@ function outcomeModal(r){
     ? '<p class="fxline">'+r.eff.map(x=>'<b class="'+(x.v>=0?'up':'dn')+'">'+esc(x.t)+'</b>').join('　')+'</p>'
     : '';
   modal(r.gamble ? (r.ok?'成了':'沒成') : r.opt, r.text,
-        [{t:'▸ 繼續', main:1, f:()=>{}}], fx);
+        [{t:'繼續', main:1, f:()=>{}}], fx);
 }
 function reportEvent(r){
   if(!r) return;
@@ -408,13 +428,14 @@ function settle(){
   logRow(row.blew?'bad':(row.ret>=0?'good':'bad'),'結算',s);
   render();
   if(g.over){ ending(); return; }
-  actOnly([{t:'▸ 下一年',main:1,f:nextYear}]);
+  actOnly([{t:'下一年',main:1,f:nextYear}]);
 }
 
 /* ================= 畫面 ================= */
 function render(){
   const r=g.raw;
   $('h-yr').textContent=r.age+' 歲';
+  $('h-year').textContent='第 '+(r.year+1)+' 年';
   $('h-nav').textContent=money(g.nav());
   $('h-cash').textContent=money(r.cash);
   $('h-tilt').innerHTML=Math.round(r.tilt)+
@@ -426,7 +447,6 @@ function render(){
         : '<b'+(i===r.dieAt?' class="now"':'')+'>'+DIE[d]+'</b>').join('')
     : '—';
   renderSignals(); renderBook(); renderChart(); renderActs();
-  syncView();
 }
 function renderSignals(){
   $('sigs').innerHTML=g.raw.signals.map(s=>
@@ -446,7 +466,7 @@ function renderBook(){
        (sc!=null?'<span class="scout" style="color:var(--'+(sc?'up':'dn')+')">'+
          (sc?'看好':'看壞')+'</span>':'')+
        '</td><td>'+money(mv)+'</td><td>'+b.cost.toFixed(1)+'</td>'+
-       '<td class="'+(pl>=0?'':'')+'"><b class="'+(pl>=0?'up':'dn')+'">'+sgn(pl)+'%</b></td></tr>';
+       '<td><b class="'+(pl>=0?'up':'dn')+'">'+sgn(pl)+'%</b></td></tr>';
   });
   if(r.debt>0){
     const cover=g.assets()/r.debt*100;
@@ -471,54 +491,60 @@ function renderChart(){
   sv.innerHTML=line(benchHist,'var(--dim)',1.2)+line(navHist,'var(--accent)',2);
 }
 
+/* ---- 分頁：中間那格一次只顯示一頁 ----
+   四張卡疊在一起要捲三個螢幕，而其中三張（持股、走勢、紀錄）
+   是你想看才看的東西。攤開來只是把「現在的處境」擠出畫面。 */
+const PAGES=['now','book','chart','log'];
+function showPage(name){
+  PAGES.forEach(p=>{ const el=$('p-'+p); if(el) el.style.display = p===name ? '' : 'none'; });
+  const tabs=$('tabs');
+  if(tabs && typeof tabs.querySelectorAll==='function')
+    tabs.querySelectorAll('button').forEach(b=>{
+      if(b.classList) b.classList.toggle('on', b.dataset && b.dataset.p===name);
+    });
+  scrollTop();
+}
+(function(){
+  const tabs=$('tabs');
+  if(!tabs || typeof tabs.querySelectorAll!=='function') return;
+  tabs.querySelectorAll('button').forEach(b=>{
+    b.onclick=()=>showPage(b.dataset?b.dataset.p:'now');
+  });
+})();
+function scrollTop(){
+  const st=$('stage');
+  if(st && typeof st.scrollTo==='function'){ try{ st.scrollTo({top:0,behavior:'smooth'}); }catch(e){ st.scrollTop=0; } }
+  else if(st) st.scrollTop=0;
+}
+
+/* ---- 收納 ----
+   收起來的時候把手還在，而且把手上寫著「還有幾件事」——
+   收起來不等於忘記還沒做完。 */
+let docked=false;
+function setDock(min){
+  docked=!!min;
+  const d=$('dock');
+  if(d && d.classList) d.classList.toggle('min', docked);
+  const c=$('grab-c');
+  if(c) c.textContent = docked ? '▴' : '▾';
+}
+(function(){
+  const gb=$('grab');
+  if(gb) gb.onclick=()=>setDock(!docked);
+})();
+
 /* ---- 出牌：一次一個問題 ----
    moves() 是完整的合法空間，全部攤出來實測平均 42 個選項、最多 58 個——那是報表。
    借野球模擬器的節奏改成 beat()：一次一個處境、2～4 個選項，
    而且每個選項都是那個處境裡你真的能做的事。 */
-/* ---- 手機：釘在底部的選項，與停在中間的最新內容 ----
-   桌面不做這件事：那邊出牌面板一直在右欄，捲動只會讓人暈。 */
-function isPhone(){
-  return !!(window.matchMedia && window.matchMedia('(max-width:860px)').matches);
-}
-/* 選項浮在底部，內容就得空出它的高度——不然最後一段永遠被蓋住。
-   面板高度會隨選項數量變（兩個到五個差很多），所以每次重畫都要重量一次。 */
-function dockPad(){
-  const el=$('b-act');
-  if(!el || typeof el.getBoundingClientRect!=='function') return 0;
-  if(!isPhone()){ document.body.style.paddingBottom=''; return 0; }
-  const h=el.getBoundingClientRect().height||0;
-  document.body.style.paddingBottom=(h+28)+'px';
-  return h;
-}
-/* 最新的一則停在可視區的中間。可視區＝視窗高度扣掉底部那塊面板——
-   用整個視窗算會把它推到面板底下，那就等於沒捲。 */
-function centerLatest(dock){
-  const t=$('flash');
-  if(!t || t.style.display==='none') return;
-  if(typeof t.getBoundingClientRect!=='function' || typeof window.scrollTo!=='function') return;
-  const avail=(window.innerHeight||0)-dock;
-  if(avail<=0) return;
-  const r=t.getBoundingClientRect();
-  const y=(window.scrollY||0)+r.top-Math.max(12,(avail-r.height)/2);
-  window.scrollTo({top:Math.max(0,y), behavior:'smooth'});
-}
-function syncView(){
-  try{
-    const dock=dockPad();
-    if(isPhone()) centerLatest(dock);
-  }catch(e){}
-}
-/* 轉向、鍵盤收起、字級改變都會讓面板高度變，留白要跟著重算。
-   假 DOM 沒有 addEventListener，所以要先問過再掛。 */
-if(typeof window.addEventListener==='function')
-  window.addEventListener('resize', function(){ try{ dockPad(); }catch(e){} });
 function renderActs(){
   try{ renderBeat(); }
   catch(err){
     /* 出牌面板是唯一「空著也看不出壞掉」的地方——寧可把錯誤印在臉上 */
     $('act-h').textContent='壞掉了';
     $('act').innerHTML='<div class="q">這一格炸了：'+esc(err&&err.message||err)+
-      '</div><button class="main" onclick="location.reload(true)">▸ 重新載入</button>';
+      '</div><button class="main" onclick="location.reload(true)">重新載入</button>';
+    setDock(false);
     throw err;
   }
 }
@@ -527,20 +553,19 @@ function renderBeat(){
   /* 卡還沒處理就不能出牌。彈窗被關掉或載入到一半的時候，這裡是唯一的回頭路——
      不然畫面會給你一顆「結束這一年」，而那張卡就這樣消失了。 */
   if(r.phase==='event'){
-    $('act-h').textContent='今年發生了一件事';
-    $('act').innerHTML='<button class="main">▸ 看看是什麼</button>';
+    setAct('今年發生了一件事','<button class="main">看看是什麼</button>');
     $('act').querySelector('button').onclick=eventModal;
     return;
   }
   if(r.apLeft<=0){ doneYear(); return; }
   const b=g.beat();
   if(!b){ doneYear(); return; }
-  $('act-h').textContent='還有 '+r.apLeft+' 件事的時間';
-  $('act').innerHTML='<div class="q"><span class="die">'+DIE[b.die]+'</span>'+esc(b.q)+'</div>'+
+  setAct('還有 '+r.apLeft+' 件事',
+    '<div class="q"><span class="die">'+DIE[b.die]+'</span>'+esc(b.q)+'</div>'+
     b.opts.map(o=>'<button'+(o.warn?' class="warn"':'')+'>'+esc(o.t)+
       (o.s?'<span class="s">'+esc(o.s)+'</span>':'')+'</button>').join('')+
-    '<button class="skipall">就這樣過完這一年<span class="s">剩下的 '+r.apLeft+
-      ' 點不用了</span></button>';
+    '<button class="skipall">今年就這樣<span class="s">剩下的 '+r.apLeft+
+      ' 點不用了</span></button>');
   const bs=$('act').querySelectorAll('button');
   b.opts.forEach((o,i)=>{ bs[i].onclick=()=>{
     if(o.skip){ g.pass(b.id); render(); return; }
@@ -548,9 +573,15 @@ function renderBeat(){
   };});
   bs[b.opts.length].onclick=()=>{ g.skipRest(); render(); };
 }
+/* 選單一有新東西要你決定就自己拉開。收納是你的選擇，
+   但「輪到你了」這件事不該藏在一條把手後面。 */
+function setAct(title,html){
+  $('act-h').textContent=title;
+  $('act').innerHTML=html;
+  setDock(false);
+}
 function doneYear(){
-  $('act-h').textContent='　';
-  $('act').innerHTML='<button class="main">▸ 結束這一年</button>';
+  setAct('這一年做完了','<button class="main">結束這一年</button>');
   $('act').querySelector('button').onclick=endTurn;
 }
 function doPlay(id,arg){
@@ -579,13 +610,12 @@ function reportPlay(m,res){
   else if(m.kind==='life') logRow('good','生活','你把生活過回來了一點。');
 }
 function actOnly(list){
-  $('act-h').textContent='　';
-  $('act').innerHTML=list.map(o=>'<button class="'+(o.main?'main':'')+'">'+esc(o.t)+'</button>').join('');
+  setAct('　',list.map(o=>'<button class="'+(o.main?'main':'')+'">'+esc(o.t)+'</button>').join(''));
   $('act').querySelectorAll('button').forEach((b,i)=>b.onclick=list[i].f);
 }
-/* 一則紀錄同時寫兩個地方：左欄的年度紀事（完整歷史）
-   與出牌面板正上方的「剛剛」（你眼睛真正在看的地方）。
-   只寫年度紀事的話，手機上結果會落在整頁的另一端——等於沒有寫。 */
+/* 一則紀錄同時寫兩個地方：「紀錄」分頁（完整歷史）
+   與「現況」最上面的「剛剛」（你眼睛真正在看的地方）。
+   只寫紀錄的話，結果會落在一個你不會去翻的分頁裡——等於沒有寫。 */
 let flashKeep=[];
 function logRow(cls,tag,html){
   const body=(tag?'<span class="t">'+esc(tag)+'</span>':'')+html;
@@ -597,9 +627,10 @@ function logRow(cls,tag,html){
 }
 function flash(cls,body){
   flashKeep.unshift('<div class="row'+(cls?' '+cls:'')+'">'+body+'</div>');
-  flashKeep=flashKeep.slice(0,2);          /* 只留最新兩則，多了就變成第二個年度紀事 */
+  flashKeep=flashKeep.slice(0,2);          /* 只留最新兩則，多了就變成第二份紀錄 */
   const box=$('flash');
   if(box){ box.style.display=''; $('flash-in').innerHTML=flashKeep.join(''); }
+  showPage('now');                          /* 有事發生就切回現況，不然結果印在別的分頁 */
 }
 function flashClear(){ flashKeep=[]; const b=$('flash'); if(b) b.style.display='none'; }
 
@@ -608,7 +639,7 @@ function modal(title,body,opts,extra){
   const m=document.createElement('div'); m.id='mask';
   m.innerHTML='<div class="m"><h2>'+esc(title)+'</h2><p>'+esc(body)+'</p>'+
     (extra||'')+
-    opts.map(o=>'<button class="'+(o.warn?'warn':'')+'" style="margin-bottom:7px">'+esc(o.t)+
+    opts.map(o=>'<button class="'+(o.main?'main':(o.warn?'warn':''))+'">'+esc(o.t)+
       (o.s?'<span class="s">'+esc(o.s)+'</span>':'')+'</button>').join('')+'</div>';
   document.body.appendChild(m);
   m.querySelectorAll('button').forEach((b,i)=>b.onclick=()=>{ m.remove(); opts[i].f(); });
@@ -618,9 +649,9 @@ function modal(title,body,opts,extra){
 function ending(){
   const e=g.ending;
   const cell=(k,v)=>'<tr><td>'+k+'</td><td style="text-align:right"><b>'+v+'</b></td></tr>';
-  modal(e.t,'四十歲，結算。',[{t:'▸ 再來一次（同一顆種子）',main:1,f:()=>location.reload()}]);
+  modal(e.t,'四十歲，結算。',[{t:'再來一次（同一顆種子）',main:1,f:()=>location.reload()}]);
   const box=document.createElement('div');
-  box.className='box';
+  box.className='card';
   box.innerHTML='<h3>結算</h3><table class="book">'+
     cell('淨值',money(e.nav))+
     cell('二十五年存進去的錢',money(e.inflow))+
@@ -632,10 +663,12 @@ function ending(){
     cell('斷頭次數',e.blowups)+
     cell('生活',Math.round(e.life))+
     '</table>';
-  const col=document.querySelector('.cols>div');
+  const col=$('p-now');
   if(col) col.insertBefore(box,col.firstChild);
+  showPage('now');
   $('act-h').textContent='　';
   $('act').innerHTML='';
+  setDock(true);
 }
 </script>
 </body>
