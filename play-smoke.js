@@ -49,7 +49,7 @@ ok('KERNEL 匯出頁面要用的東西', need.every(k=>K[k]!=null));
 
 const g=K.newGame('smoke');
 const api=['nav','assets','investable','openYear','moves','play','midWindow','playMid','closeYear','career',
-           'event','answerEvent'];
+           'event','answerEvent','beat','pass','skipRest','setPlan','autoTick'];
 ok('遊戲物件有頁面要用的方法', api.every(k=>typeof g[k]==='function'));
 
 /* 第 2 拍：卡沒處理掉，phase 會停在 'event'，moves() 與 beat() 全部回空——
@@ -125,19 +125,24 @@ ok('結局有頁面要印的欄位',
    不然「頁面能玩」這件事等於沒有驗過。 */
 (function(){
   let opts=0, asks=0, mx=0, minOpt=99, years=0, ended=0;
-  const seen={}; let badOpt=0, noSkip=0;
+  const seen={}; let badOpt=0, noSkip=0, autos=0, dry=0;
+  const PLANS=K.PLAN_K;
   for(let i=0;i<200;i++){
     const a=K.newGame('beat-'+i); let guard=0;
+    a.setPlan(PLANS[i%PLANS.length]);
     while(!a.over && guard++<40){
       if(a.raw.year===6) a.career('job');
       if(!a.openYear()) break;
       years++;
       answerCard(a,i+years);
-      let s=0;
+      let s=0, asked=0;
       while(a.raw.apLeft>0 && s++<20){
+        /* 頁面的節奏：不需要問的事先自動跑掉，但最後一顆骰子留給玩家。
+           不留的話實測有 27% 的年份一句話都插不上——那一年不是玩家在過。 */
+        if(!(a.raw.apLeft<=1 && a.beat()) && a.autoTick()){ autos++; continue; }
         const b=a.beat();
         if(!b){ a.skipRest(); break; }
-        asks++; seen[b.id]=(seen[b.id]||0)+1;
+        asks++; asked++; seen[b.id]=(seen[b.id]||0)+1;
         opts+=b.opts.length;
         if(b.opts.length>mx) mx=b.opts.length;
         if(b.opts.length<minOpt) minOpt=b.opts.length;
@@ -148,6 +153,7 @@ ok('結局有頁面要印的欄位',
         const okPlay = o.skip ? a.pass(b.id) : !!a.play(o.mv,o.arg);
         if(!okPlay){ badOpt++; break; }
       }
+      if(!asked) dry++;
       const w=a.midWindow(); if(w) a.playMid(w.options[0].id);
       a.closeYear();
     }
@@ -160,6 +166,11 @@ ok('結局有頁面要印的欄位',
   ok('每題都留得下「不做」這個選項', noSkip===0);
   ok('用 beat() 玩得完（'+ended+'/200 局）', ended===200);
   ok('處境不只一種（'+Object.keys(seen).length+' 種）', Object.keys(seen).length>=5);
+  /* autoTick 沒有人呼叫的時候，生活／研究／加班在畫面上從來不會發生，
+     骰子也因此只剩滑價一個作用。這兩條把那件事釘住。 */
+  ok('不用問的事有自動跑掉（每年 '+(autos/years).toFixed(2)+' 件）', autos/years>1);
+  ok('幾乎每年都問得到玩家（沒問到 '+(dry/years*100).toFixed(1)+'%，要 <5%）', dry/years<0.05);
+  ok('每年問 '+(asks/years).toFixed(2)+' 次（要 1～3）', asks/years>=1 && asks/years<=3);
   console.log('    處境分布：'+Object.keys(seen).sort((x,y)=>seen[y]-seen[x])
     .map(k=>k+' '+(seen[k]/asks*100).toFixed(0)+'%').join('　'));
 })();

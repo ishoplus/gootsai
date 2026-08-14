@@ -55,6 +55,7 @@ h1 em{display:block;font-family:var(--mono);font-style:normal;font-size:10px;let
 input{width:100%;padding:12px 13px;background:var(--card);color:var(--ink);border-radius:10px;
   border:1px solid var(--edge);font-size:15px;font-family:var(--mono);outline:none}
 input:focus{border-color:var(--accent)}
+.hint{color:var(--dim);font-size:12px;line-height:1.7;margin:8px 2px 0}
 
 /* ---- 上方：主數據 ---- */
 #hud{flex:none;background:var(--card);border-bottom:1px solid var(--edge);
@@ -70,14 +71,18 @@ input:focus{border-color:var(--accent)}
 #hud .chip{flex:1;background:var(--card2);border-radius:9px;padding:5px 8px;
   font-family:var(--mono);font-size:13px;font-weight:700;line-height:1.35;
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#hud .chip:last-child{flex:1.5}
 #hud .chip span{display:block;font-size:9px;letter-spacing:.16em;color:var(--dim);font-weight:400}
 #hud .chip b{font-size:10.5px;font-weight:700;margin-left:2px}
-.dice{letter-spacing:1px;font-size:17px;line-height:1;color:var(--edge)}
-.dice b{color:var(--accent);font-weight:400;font-size:17px;margin:0}
-.dice b.now{color:var(--ink)}
-.die{display:inline-block;font-size:24px;line-height:1;margin-right:8px;
-  vertical-align:-3px;color:var(--accent)}
+/* 骰子從 chip 裡搬出來自己站一列。擠在 17px 的 chip 裡，
+   「用掉的」與「還沒用的」在那個尺寸上分不出來——等於沒有顯示。 */
+#hud .dicerow{display:flex;align-items:center;gap:8px;margin-top:7px;
+  background:var(--card2);border-radius:9px;padding:5px 9px}
+#hud .dicerow .k{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--dim)}
+.dice{letter-spacing:2px;font-size:22px;line-height:1.15;color:var(--edge)}
+.dice b{color:var(--accent);font-weight:400}
+.dice b.now{color:var(--ink);border-bottom:2px solid var(--accent)}
+.dice s{color:var(--edge);text-decoration:line-through;text-decoration-thickness:1px}
+.die{display:inline-block;font-size:26px;line-height:1;color:var(--accent)}
 
 /* ---- 中間：顯示面板 ----
    整頁不捲，只有這一格捲。上面的數據與下面的選單永遠在原地，
@@ -113,6 +118,9 @@ table.book tr:last-child td{border-bottom:none}
 .log .row:last-child{margin-bottom:0}
 .log .row.good{border-color:var(--up)} .log .row.bad{border-color:var(--dn)}
 .log .row.mkt{border-color:var(--accent)}
+/* 照方針自動跑掉的事，顏色比你自己的決定淡一階——
+   看得到它發生過，但不會跟你按下去的那些搶。 */
+.log .row.auto{border-color:var(--edge);color:var(--dim)}
 .log .row .t{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--dim);
   text-transform:uppercase;display:block;margin-bottom:2px}
 .flash .row{border:none;padding:0 0 8px;margin:0 0 8px;border-bottom:1px dotted var(--edge)}
@@ -157,7 +165,13 @@ button.main .s{color:rgba(255,255,255,.8)}
 button.main:hover:not(:disabled){background:var(--accent2);border-color:var(--accent2)}
 button.warn{border-color:var(--dn);color:var(--dn)}
 button.skipall{background:transparent;color:var(--dim);border-style:dashed}
-.q{font-size:15.5px;line-height:1.75;margin:0 0 11px;padding:0 2px}
+.q{font-size:15.5px;line-height:1.75;margin:0 0 9px;padding:0 2px}
+/* 這顆骰子現在給你什麼，就寫在選項的正上方。
+   一顆沒有標籤的骰子印在題目旁邊，玩家只會當它是裝飾。 */
+.dietip{display:flex;align-items:center;gap:9px;margin:0 0 10px;padding:7px 10px;
+  background:var(--card2);border-radius:11px;border:1px solid var(--edge)}
+.dietip .tx{font-size:12px;line-height:1.5;color:var(--dim)}
+.dietip .tx b{display:block;color:var(--ink);font-size:12.5px}
 
 /* ---- 彈窗 ---- */
 #mask{position:fixed;inset:0;background:rgba(20,17,12,.72);z-index:60;display:flex;
@@ -191,6 +205,12 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed}
     <label>種子</label>
     <input id="seed" maxlength="24" placeholder="留空隨機">
   </div>
+  <div class="field">
+    <label>方針</label>
+    <div id="plans"></div>
+    <p class="hint">不需要你決定的事——餵既有的習慣、讀財報、休息、接案——照這個方針自動跑掉，
+      寫成敘述給你看。錢的事永遠還是你決定。</p>
+  </div>
   <button class="main" id="go">開戶，開始</button>
   <p class="sub" style="margin-top:20px;font-size:12px">
     相同種子＋相同選擇＝相同人生。骨架說明見 <a href="KERNEL.md">KERNEL.md</a>。
@@ -209,8 +229,8 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed}
       <div class="chip"><span>現金</span><span id="h-cash">—</span></div>
       <div class="chip"><span>心態</span><span id="h-tilt">—</span></div>
       <div class="chip"><span>生活</span><span id="h-life">—</span></div>
-      <div class="chip"><span>骰子</span><span class="dice" id="h-ap">—</span></div>
     </div>
+    <div class="dicerow"><span class="k">今年的骰子</span><span class="dice" id="h-ap">—</span></div>
   </div>
 
   <!-- 中：顯示面板。一次只看一頁，由下面的分頁列切換 -->
@@ -253,7 +273,7 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed}
   </div>
 </div>
 
-<script src="kernel.js?v=8"></script>
+<script src="kernel.js?v=9"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用舊版：呈現層一律禁止呼叫內核的亂數——
@@ -268,7 +288,7 @@ let g=null, benchHist=[], navHist=[];
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源
    （file 文件的 origin 是不透明的），所以直接雙擊打開會載不到內核。
    與其讓畫面停在一片空白，不如講清楚怎麼跑。 */
-const NEED_VERSION=8;
+const NEED_VERSION=9;
 /* GitHub Pages 送的是 cache-control: max-age=600。兩次發布相隔不到十分鐘，
    瀏覽器就會拿新的 play.html 配快取裡的舊 kernel.js——舊內核沒有 beat()，
    renderActs() 一呼叫就丟 TypeError，面板從此空著，而且畫面上什麼都不說。
@@ -296,6 +316,12 @@ if(typeof KERNEL==='undefined'){
 }
 
 const DIE=['','⚀','⚁','⚂','⚃','⚄','⚅'];
+/* 骰子不決定你能不能做，決定的是做出來什麼樣。這句話要寫在你按之前看得到的地方——
+   每個選項後面那句是它在那個選項上的實際數字，這一行是它的方向。 */
+const DIETIP=['',
+  '點數低，這一手會做得比較勉強','點數低，這一手會做得比較勉強',
+  '點數普通，中規中矩','點數普通，中規中矩',
+  '點數高，這一手做得特別到位','點數高，這一手做得特別到位'];
 function money(v){
   const a=Math.abs(v);
   if(a>=10000) return (v/10000).toFixed(2)+'億';
@@ -305,11 +331,27 @@ function money(v){
 function sgn(v,d){ d=d==null?1:d; return (v>=0?'+':'')+v.toFixed(d); }
 
 /* ================= 開場 ================= */
+/* 方針決定「不需要問你的那些事」自動照什麼順序做。
+   它不是難度，是你這個人平常會先做哪一件。 */
+let plan='craft';
+function renderPlans(){
+  const box=$('plans');
+  if(!box || typeof box.querySelectorAll!=='function') return;
+  box.innerHTML=(KERNEL.PLAN_K||[]).map(k=>
+    '<button data-k="'+esc(k)+'"'+(k===plan?' class="main"':'')+'>'+esc(KERNEL.PLANS[k].n)+
+    '<span class="s">'+esc(KERNEL.PLANS[k].d)+'</span></button>').join('');
+  box.querySelectorAll('button').forEach(b=>{
+    b.onclick=()=>{ if(b.dataset && b.dataset.k) plan=b.dataset.k; renderPlans(); };
+  });
+}
+renderPlans();
+
 $('go').onclick=()=>{
   const raw=($('seed').value||'').replace(SAFE,'').slice(0,24);
   const seed=raw||Math.random().toString(36).slice(2,10);
   try{ history.replaceState(null,'','?seed='+encodeURIComponent(seed)); }catch(e){}
   g=KERNEL.newGame(seed);
+  g.setPlan(plan);
   $('f-seed').textContent='種子 '+seed;
   $('start').style.display='none';
   $('game').style.display='';
@@ -441,9 +483,10 @@ function render(){
   $('h-tilt').innerHTML=Math.round(r.tilt)+
     (r.tilt>=80?' <b class="dn">手癢</b>':r.tilt<=20?' <b class="dn">不敢</b>':'');
   $('h-life').innerHTML=Math.round(r.life)+(r.life<=30?' <b class="dn">撐不住</b>':'');
-  /* 用完的骰子留在原地變灰——看得到今年擲出什麼、又花掉了哪幾顆 */
+  /* 用完的骰子留在原地劃掉，下一顆底下畫一條線——
+     看得到今年擲出什麼、花掉了哪幾顆、接下來輪到哪一顆 */
   $('h-ap').innerHTML = r.dice.length
-    ? r.dice.map((d,i)=> i<r.dieAt ? DIE[d]
+    ? r.dice.map((d,i)=> i<r.dieAt ? '<s>'+DIE[d]+'</s>'
         : '<b'+(i===r.dieAt?' class="now"':'')+'>'+DIE[d]+'</b>').join('')
     : '—';
   renderSignals(); renderBook(); renderChart(); renderActs();
@@ -548,6 +591,25 @@ function renderActs(){
     throw err;
   }
 }
+/* ---- 不需要問你的事，照方針自動跑掉 ----
+   餵既有的習慣、讀財報、撐不住的時候休息、缺錢的時候接案——
+   這些不是決定，是照做。停下來問，一年就變成六次點擊的雜事清單。
+
+   內核早就寫好 autoTick() 了，但沒有任何地方呼叫它，
+   所以這三件事在畫面上從來沒有發生過——連帶讓骰子只剩「滑價」一個作用。
+
+   永遠留一顆骰子給你：實測不留的話有 27% 的年份你一句話都插不上，
+   那一年不是你在過。留一顆之後掉到 1%，而習慣照樣養得起來
+   （四十歲時槽位一樣是滿的，固化 3.92 個對 3.95 個）。 */
+function autoRun(){
+  let guard=0;
+  while(g.raw.apLeft>0 && guard++<12){
+    if(g.raw.apLeft<=1 && g.beat()) return;   /* 最後一顆，而且有事要問你——留著 */
+    const say=g.autoTick();
+    if(!say) return;
+    logRow('auto','', esc(say));
+  }
+}
 function renderBeat(){
   const r=g.raw;
   /* 卡還沒處理就不能出牌。彈窗被關掉或載入到一半的時候，這裡是唯一的回頭路——
@@ -557,11 +619,14 @@ function renderBeat(){
     $('act').querySelector('button').onclick=eventModal;
     return;
   }
+  autoRun();
   if(r.apLeft<=0){ doneYear(); return; }
   const b=g.beat();
   if(!b){ doneYear(); return; }
   setAct('還有 '+r.apLeft+' 件事',
-    '<div class="q"><span class="die">'+DIE[b.die]+'</span>'+esc(b.q)+'</div>'+
+    '<div class="q">'+esc(b.q)+'</div>'+
+    '<div class="dietip"><span class="die">'+DIE[b.die]+'</span><span class="tx">'+
+      '<b>第 '+(r.dieAt+1)+' 顆，'+b.die+' 點</b>'+DIETIP[b.die]+'</span></div>'+
     b.opts.map(o=>'<button'+(o.warn?' class="warn"':'')+'>'+esc(o.t)+
       (o.s?'<span class="s">'+esc(o.s)+'</span>':'')+'</button>').join('')+
     '<button class="skipall">今年就這樣<span class="s">剩下的 '+r.apLeft+
