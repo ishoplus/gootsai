@@ -118,8 +118,16 @@ table.book td:first-child{text-align:left;font-family:var(--sans);font-size:13.5
 table.book tr:last-child td{border-bottom:none}
 .empty{color:var(--dim);font-size:13px;padding:8px 0}
 .card.end{border-color:var(--accent)}
-.endt{font-family:var(--serif);font-size:26px;font-weight:900;line-height:1.15;
-  margin:-2px 0 10px;color:var(--accent)}
+.endt{font-family:var(--serif);font-size:25px;font-weight:900;line-height:1.15;
+  margin:-2px 0 8px;color:var(--accent)}
+.endnav{display:flex;align-items:baseline;justify-content:space-between;
+  border-bottom:1px solid var(--edge);padding-bottom:7px;margin-bottom:9px}
+.endnav span{font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;color:var(--dim)}
+.endnav b{font-family:var(--mono);font-size:25px;font-weight:700;letter-spacing:-.02em}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px 10px}
+.tl span{display:block;font-family:var(--mono);font-size:9px;line-height:1.35;letter-spacing:.12em;
+  color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.tl b{font-family:var(--mono);font-size:14px;font-weight:700;line-height:1.3}
 .scout{font-size:10px;font-family:var(--mono);padding:1px 5px;border:1px solid currentColor;
   border-radius:6px;margin-left:5px}
 
@@ -263,7 +271,7 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed;min-h
       <!-- 剛剛發生了什麼，印在你正在看的地方。
            丟進「紀錄」分頁等於沒有印——那一頁你不會去翻。 -->
       <div class="card flash" id="flash" style="display:none"><h3>剛剛</h3><div id="flash-in"></div></div>
-      <div class="card"><h3>風向</h3><div id="sigs"></div></div>
+      <div class="card" id="c-sig"><h3>風向</h3><div id="sigs"></div></div>
     </div>
     <div id="p-book" style="display:none">
       <div class="card"><h3>持股</h3><div id="book"></div></div>
@@ -767,22 +775,31 @@ function modal(title,body,opts,extra){
 function ending(){
   const e=g.ending;
   const cell=(k,v)=>'<tr><td>'+k+'</td><td style="text-align:right"><b>'+v+'</b></td></tr>';
+  /* 十列的表在 375×667 上要捲兩下才看得完，而這是整局唯一的總結——
+     它該一次全部進到眼睛裡。改成兩欄的方塊：淨值自己一行大字，
+     其餘八個數字排成 2×4。 */
+  const tile=(k,v,cls)=>'<div class="tl"><span>'+k+'</span><b'+(cls?' class="'+cls+'"':'')+'>'+v+'</b></div>';
   const box=document.createElement('div');
   box.className='card end';
-  box.innerHTML='<h3>四十歲 · 結算</h3><div class="endt">'+esc(e.t)+'</div><table class="book">'+
-    cell('淨值',money(e.nav))+
-    cell('二十五年存進去的錢',money(e.inflow))+
-    cell('同樣的錢全買市值型 ETF',money(e.bench))+
-    cell('你贏它','<b class="'+(e.edge>=0?'up':'dn')+'">'+sgn(e.edge)+'%</b>')+
-    cell('年化報酬','<b class="'+(e.cagr>=0?'up':'dn')+'">'+sgn(e.cagr)+'%</b>')+
-    cell('繳出去的稅費',money(e.tax))+
-    cell('收到的股利',money(e.div))+
-    cell('交易次數',e.trades)+
-    cell('斷頭次數',e.blowups)+
-    cell('生活',Math.round(e.life))+
-    '</table>';
+  box.innerHTML='<h3>四十歲 · 結算</h3><div class="endt">'+esc(e.t)+'</div>'+
+    '<div class="endnav"><span>淨值</span><b>'+money(e.nav)+'</b></div>'+
+    '<div class="grid">'+
+      tile('年化',sgn(e.cagr)+'%',e.cagr>=0?'up':'dn')+
+      tile('贏過 ETF',sgn(e.edge)+'%',e.edge>=0?'up':'dn')+
+      tile('生活',Math.round(e.life))+
+      tile('存進去',money(e.inflow))+
+      tile('ETF 對照',money(e.bench))+
+      tile('股利',money(e.div))+
+      tile('稅費',money(e.tax))+
+      tile('交易',e.trades+' 次')+
+      tile('斷頭',e.blowups+' 次')+
+    '</div>';
   const col=$('p-now');
   if(col) col.insertBefore(box,col.firstChild);
+  /* 結局這一頁只留結算表。「剛剛」與「風向」講的是還在進行的那一年，
+     而那一年已經結束了——留著只會把表推出畫面。 */
+  flashClear();
+  const sig=$('c-sig'); if(sig) sig.style.display='none';
   showPage('now');
   /* 結算表插進「現況」最上面，然後彈窗只報結局的名字。
      原本這裡唯一的按鈕是「再來一次」，而它會 location.reload()——
