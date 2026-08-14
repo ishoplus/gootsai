@@ -181,7 +181,7 @@ svg.chart{width:100%;height:120px;display:block}
   </div>
 </div>
 
-<script src="kernel.js"></script>
+<script src="kernel.js?v=2"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用舊版：呈現層一律禁止呼叫內核的亂數——
@@ -196,6 +196,21 @@ let g=null, benchHist=[], navHist=[];
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源
    （file 文件的 origin 是不透明的），所以直接雙擊打開會載不到內核。
    與其讓畫面停在一片空白，不如講清楚怎麼跑。 */
+const NEED_VERSION=2;
+/* GitHub Pages 送的是 cache-control: max-age=600。兩次發布相隔不到十分鐘，
+   瀏覽器就會拿新的 play.html 配快取裡的舊 kernel.js——舊內核沒有 beat()，
+   renderActs() 一呼叫就丟 TypeError，面板從此空著，而且畫面上什麼都不說。
+   實際發生過一次。所以：script src 帶 ?v=，載入後再對一次版本。 */
+if(typeof KERNEL!=='undefined' && !(KERNEL.VERSION>=NEED_VERSION)){
+  document.getElementById('start').innerHTML=
+    '<h1>內核是舊的<em>STALE KERNEL '+(KERNEL.VERSION||0)+' &lt; '+NEED_VERSION+'</em></h1>'+
+    '<div class="tape"></div>'+
+    '<p class="sub">你的瀏覽器還留著十分鐘前那份 <code>kernel.js</code>。'+
+    '這一頁需要新的。強制重新整理一次就好——'+
+    'Mac 是 <b class="hl">Cmd+Shift+R</b>，Windows 是 <b class="hl">Ctrl+F5</b>。</p>'+
+    '<button class="main" onclick="location.reload(true)">▸ 重新載入</button>';
+  throw new Error('stale kernel');
+}
 if(typeof KERNEL==='undefined'){
   document.getElementById('start').innerHTML=
     '<h1>載不到內核<em>KERNEL.JS NOT LOADED</em></h1><div class="tape"></div>'+
@@ -367,6 +382,16 @@ function renderChart(){
    借野球模擬器的節奏改成 beat()：一次一個處境、2～4 個選項，
    而且每個選項都是那個處境裡你真的能做的事。 */
 function renderActs(){
+  try{ renderBeat(); }
+  catch(err){
+    /* 出牌面板是唯一「空著也看不出壞掉」的地方——寧可把錯誤印在臉上 */
+    $('act-h').textContent='壞掉了';
+    $('act').innerHTML='<div class="q">這一格炸了：'+esc(err&&err.message||err)+
+      '</div><button class="main" onclick="location.reload(true)">▸ 重新載入</button>';
+    throw err;
+  }
+}
+function renderBeat(){
   const r=g.raw;
   if(r.apLeft<=0){ doneYear(); return; }
   const b=g.beat();

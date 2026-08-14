@@ -727,7 +727,11 @@ function wrap(g){
   };
 }
 
-return {newGame:newGame, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
+/* 頁面用這個數字確認自己拿到的不是快取裡的舊內核。
+   改了對外介面就 +1，並同步改 play.html 的 ?v= 與 NEED_VERSION。 */
+const VERSION=2;
+
+return {newGame:newGame, VERSION:VERSION, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
         BEATS:BEATS, on:on, fold:fold, hb:hb, slotsAt:slotsAt, nav:nav};
 });
