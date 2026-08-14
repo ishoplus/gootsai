@@ -65,7 +65,29 @@ input:focus{border-color:var(--accent)}
 
 /* ---- 版面 ---- */
 .cols{display:grid;grid-template-columns:1fr 380px;gap:22px;align-items:start}
-@media(max-width:860px){.cols{grid-template-columns:1fr}}
+/* ---- 手機 ----
+   桌面是兩欄儀表板。直接塌成一欄，「可以做的事」會被推到整頁最底部：
+   第一年要往下捲約 660px，第二十年年度紀事累積到兩千多 px，
+   等於每一回合都要捲三四個螢幕才玩得下一步。那不是手機版面，
+   那是把交易終端機倒下來。
+
+   display:contents 讓兩個 wrapper 在手機上不生成方塊，
+   六個 box 直接變成 .cols 的子項，就能個別排順序。
+   桌面那組一個字都不用改，因為這段只活在 media query 裡。 */
+@media(max-width:860px){
+  .cols{display:flex;flex-direction:column;gap:0}
+  .cols>div{display:contents}
+  #b-sig{order:1}  #flash{order:2}  #b-act{order:3}
+  #b-book{order:4} #b-chart{order:5} #b-log{order:6}
+  /* 紀事是唯一會無限長的東西。關進自己的捲軸，它就推不動別人 */
+  #b-log .log{max-height:44vh;overflow:auto}
+  /* 手指不是滑鼠 */
+  button{min-height:48px;padding:12px 14px}
+  #hud .in{gap:11px 14px;font-size:11.5px}
+  #hud .v{font-size:13px}
+  #hud .yr{font-size:18px}
+  .wrap{padding-bottom:40px}
+}
 .box{background:var(--panel);border:1px solid var(--edge);padding:14px 15px;margin-bottom:16px}
 .box>h3{margin:0 0 10px;font-size:9.5px;letter-spacing:.26em;color:var(--dim);
   font-family:var(--mono);text-transform:uppercase;border-bottom:1px solid var(--edge);padding-bottom:6px;
@@ -174,20 +196,20 @@ svg.chart{width:100%;height:120px;display:block}
   <div class="wrap"><div class="cols">
     <div>
       <div class="box" id="b-sig"><h3>今年的訊號</h3><div id="sigs"></div></div>
-      <div class="box"><h3>帳本</h3><div id="book"></div></div>
+      <div class="box" id="b-book"><h3>帳本</h3><div id="book"></div></div>
       <div class="box" id="b-chart"><h3>淨值</h3>
         <svg class="chart" id="chart" viewBox="0 0 600 120" preserveAspectRatio="none"></svg>
         <div class="legend"><span><i style="background:var(--accent)"></i>你</span>
           <span><i style="background:var(--dim)"></i>同樣的錢全買市值型 ETF</span></div>
       </div>
-      <div class="box"><h3>年度紀事</h3><div class="log" id="log"></div></div>
+      <div class="box" id="b-log"><h3>年度紀事</h3><div class="log" id="log"></div></div>
     </div>
     <div>
       <!-- 剛剛發生了什麼，印在你正在看的地方。
            年度紀事在左欄最下面，手機上更是被推到整頁的另一端——
            結果寫在那裡，等於沒有寫。 -->
       <div class="box flash" id="flash" style="display:none"><h3>剛剛</h3><div id="flash-in"></div></div>
-      <div class="box"><h3 id="act-h">可以做的事</h3><div id="act"></div></div>
+      <div class="box" id="b-act"><h3 id="act-h">可以做的事</h3><div id="act"></div></div>
     </div>
   </div></div>
 
@@ -391,6 +413,7 @@ function render(){
         : '<b'+(i===r.dieAt?' class="now"':'')+'>'+DIE[d]+'</b>').join('')
     : '—';
   renderSignals(); renderBook(); renderChart(); renderActs();
+  focusAct();
 }
 function renderSignals(){
   $('sigs').innerHTML=g.raw.signals.map(s=>
@@ -439,6 +462,18 @@ function renderChart(){
    moves() 是完整的合法空間，全部攤出來實測平均 42 個選項、最多 58 個——那是報表。
    借野球模擬器的節奏改成 beat()：一次一個處境、2～4 個選項，
    而且每個選項都是那個處境裡你真的能做的事。 */
+/* 出牌面板跑出畫面就捲回來。版面排對了還是要有這道安全網——
+   彈窗關掉、紀事突然長高、或是從結算跳回來，都會讓它落在視窗外。
+   只在手機上做：桌面它一直在右欄，捲動只會讓人暈。 */
+function focusAct(){
+  try{
+    if(!window.matchMedia || !window.matchMedia('(max-width:860px)').matches) return;
+    const el=$('b-act');
+    if(!el || typeof el.getBoundingClientRect!=='function') return;
+    const r=el.getBoundingClientRect();
+    if(r.top<0 || r.top>window.innerHeight-120) el.scrollIntoView({block:'start',behavior:'smooth'});
+  }catch(e){}
+}
 function renderActs(){
   try{ renderBeat(); }
   catch(err){
