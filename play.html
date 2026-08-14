@@ -114,6 +114,12 @@ button.skipall{margin-top:10px;background:transparent;color:var(--dim);border-st
 .log .row .t{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--dim);
   text-transform:uppercase;display:block;margin-bottom:2px}
 
+/* ---- 剛剛 ---- */
+.flash{border-left:2px solid var(--accent)}
+.flash .row{border:none;padding:0 0 8px;margin:0 0 8px;border-bottom:1px dotted var(--edge)}
+.flash .row:last-child{border-bottom:none;padding-bottom:0;margin-bottom:0}
+.fx{display:block;font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-top:3px}
+
 /* ---- 彈窗 ---- */
 #mask{position:fixed;inset:0;background:rgba(20,17,12,.72);z-index:60;display:flex;
   align-items:center;justify-content:center;padding:20px}
@@ -121,6 +127,8 @@ button.skipall{margin-top:10px;background:transparent;color:var(--dim);border-st
   padding:22px 22px 20px;max-height:88vh;overflow:auto}
 #mask h2{font-family:var(--serif);font-size:26px;margin:0 0 8px;font-weight:900}
 #mask p{margin:0 0 16px;font-size:14.5px;line-height:1.8}
+#mask p.fxline{font-family:var(--mono);font-size:12.5px;border-top:1px solid var(--edge);
+  padding-top:11px;margin-bottom:14px}
 
 /* ---- 圖 ---- */
 svg.chart{width:100%;height:120px;display:block}
@@ -174,7 +182,13 @@ svg.chart{width:100%;height:120px;display:block}
       </div>
       <div class="box"><h3>年度紀事</h3><div class="log" id="log"></div></div>
     </div>
-    <div><div class="box"><h3 id="act-h">可以做的事</h3><div id="act"></div></div></div>
+    <div>
+      <!-- 剛剛發生了什麼，印在你正在看的地方。
+           年度紀事在左欄最下面，手機上更是被推到整頁的另一端——
+           結果寫在那裡，等於沒有寫。 -->
+      <div class="box flash" id="flash" style="display:none"><h3>剛剛</h3><div id="flash-in"></div></div>
+      <div class="box"><h3 id="act-h">可以做的事</h3><div id="act"></div></div>
+    </div>
   </div></div>
 
   <div class="foot">
@@ -184,7 +198,7 @@ svg.chart{width:100%;height:120px;display:block}
   </div>
 </div>
 
-<script src="kernel.js?v=7"></script>
+<script src="kernel.js?v=8"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用舊版：呈現層一律禁止呼叫內核的亂數——
@@ -199,7 +213,7 @@ let g=null, benchHist=[], navHist=[];
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源
    （file 文件的 origin 是不透明的），所以直接雙擊打開會載不到內核。
    與其讓畫面停在一片空白，不如講清楚怎麼跑。 */
-const NEED_VERSION=7;
+const NEED_VERSION=8;
 /* GitHub Pages 送的是 cache-control: max-age=600。兩次發布相隔不到十分鐘，
    瀏覽器就會拿新的 play.html 配快取裡的舊 kernel.js——舊內核沒有 beat()，
    renderActs() 一呼叫就丟 TypeError，面板從此空著，而且畫面上什麼都不說。
@@ -270,6 +284,7 @@ function nextYear(){
 function openYear(){
   const o=g.openYear();
   if(!o){ ending(); return; }
+  flashClear();          /* 「剛剛」講的是今年，跨年就清掉 */
   logRow('mkt', o.age+' 歲 · 第 '+(g.raw.year+1)+' 年',
     (o.income>0?'今年存下 <b class="up">'+money(o.income)+'</b>。':'全職操盤，沒有薪水。'));
   g.raw.notes.forEach(n=>logRow('bad','', esc(n)));
@@ -287,9 +302,24 @@ function eventModal(){
     t:o.t,
     s:[o.need?'因為你有「'+KERNEL.HABITS[o.need].n+'」':'', o.gamble?'這個要擲':''].filter(Boolean).join('　'),
     warn:o.gamble,
-    f:()=>{ reportEvent(g.answerEvent(o.i)); render(); }
+    f:()=>{
+      const r=g.answerEvent(o.i);
+      reportEvent(r); render();
+      /* 結果留在畫面正中間，不要只丟進紀事——
+         你按完的那一刻眼睛在彈窗上，結果印在別的地方等於沒有印。
+         事件卡是這款唯一的故事時刻，它值得一個自己的畫面。 */
+      outcomeModal(r);
+    }
   })));
   return true;
+}
+function outcomeModal(r){
+  if(!r) return;
+  const fx = r.eff.length
+    ? '<p class="fxline">'+r.eff.map(x=>'<b class="'+(x.v>=0?'up':'dn')+'">'+esc(x.t)+'</b>').join('　')+'</p>'
+    : '';
+  modal(r.gamble ? (r.ok?'成了':'沒成') : r.opt, r.text,
+        [{t:'▸ 繼續', main:1, f:()=>{}}], fx);
 }
 function reportEvent(r){
   if(!r) return;
@@ -480,17 +510,31 @@ function actOnly(list){
   $('act').innerHTML=list.map(o=>'<button class="'+(o.main?'main':'')+'">'+esc(o.t)+'</button>').join('');
   $('act').querySelectorAll('button').forEach((b,i)=>b.onclick=list[i].f);
 }
+/* 一則紀錄同時寫兩個地方：左欄的年度紀事（完整歷史）
+   與出牌面板正上方的「剛剛」（你眼睛真正在看的地方）。
+   只寫年度紀事的話，手機上結果會落在整頁的另一端——等於沒有寫。 */
+let flashKeep=[];
 function logRow(cls,tag,html){
+  const body=(tag?'<span class="t">'+esc(tag)+'</span>':'')+html;
   const d=document.createElement('div');
   d.className='row'+(cls?' '+cls:'');
-  d.innerHTML=(tag?'<span class="t">'+esc(tag)+'</span>':'')+html;
+  d.innerHTML=body;
   const L=$('log'); L.insertBefore(d,L.firstChild);
+  flash(cls,body);
 }
+function flash(cls,body){
+  flashKeep.unshift('<div class="row'+(cls?' '+cls:'')+'">'+body+'</div>');
+  flashKeep=flashKeep.slice(0,2);          /* 只留最新兩則，多了就變成第二個年度紀事 */
+  const box=$('flash');
+  if(box){ box.style.display=''; $('flash-in').innerHTML=flashKeep.join(''); }
+}
+function flashClear(){ flashKeep=[]; const b=$('flash'); if(b) b.style.display='none'; }
 
 /* ---- 彈窗 ---- */
-function modal(title,body,opts){
+function modal(title,body,opts,extra){
   const m=document.createElement('div'); m.id='mask';
   m.innerHTML='<div class="m"><h2>'+esc(title)+'</h2><p>'+esc(body)+'</p>'+
+    (extra||'')+
     opts.map(o=>'<button class="'+(o.warn?'warn':'')+'" style="margin-bottom:7px">'+esc(o.t)+
       (o.s?'<span class="s">'+esc(o.s)+'</span>':'')+'</button>').join('')+'</div>';
   document.body.appendChild(m);

@@ -766,7 +766,7 @@ function openYear(g){
     const amt=investable(g)*0.3;
     if(amt>MIN_TRADE && th){ buy(g,th.id,amt); g.apLeft--; g.dieAt++; g.notes.push('你手癢，年初就先追了 '+g.hotGuess+'——這一點不是你決定的'); }
   }
-  g.scouted={};
+  g.scouted={}; g.autoDone={};
   /* 第 2 拍：今年發生在你身上的事。抽得到就先問它，抽不到才直接進出牌。
      phase 停在 'event' 的時候 moves()／beat()／autoTick() 全部回空——
      呼叫端必須先把卡處理掉。closeYear() 留了一張安全網，見那裡的註解。 */
@@ -800,6 +800,10 @@ function moves(g){
       if(x.theme||x.id==='lead') out.push({id:'margin:'+x.id, kind:'margin', inst:x.id, label:'融資買 '+x.n});
     });
   }
+  /* 還融資。沒有這張牌，融資就是一條單行道：借得到、還不掉，只能等斷頭。
+     那不是一個處境，那是一個判決。 */
+  if(g.debt>0 && g.cash>MIN_TRADE) out.push({id:'repay', kind:'repay', label:'還掉一部分融資'});
+
   const act=Object.keys(g.habits);
   HK.forEach(function(k){
     const h=g.habits[k];
@@ -860,6 +864,11 @@ function play(g,moveId,arg){
     const say=g.R()*100<acc ? beats : !beats;
     g.scouted[target]=say;
     res={inst:target, beatsMarket:say, acc:Math.round(acc)};
+  } else if(kind==='repay'){
+    const amt=Math.min(g.cash, g.debt);
+    if(!(amt>MIN_TRADE)) return null;
+    g.cash-=amt; g.debt-=amt;
+    res={repaid:amt, debt:g.debt};
   } else if(kind==='work'){
     /* 拿時間直接換錢。給得少、扣得重——不然它會變成沒有風險的最優解 */
     const amt=(0.6+g.year*0.09)*die;
@@ -1062,6 +1071,40 @@ const BEATS=[
     o.push({t:'放著不管', s:'沒賣就不算賠', skip:1});
     return {q:h.n+'已經'+pctText(h.pl)+'。你打開對帳單的次數變少了。', opts:o};
   }},
+  /* 去年的題材 ----
+     KERNEL.md 說這是新骨架最主要的張力來源：「你手上很可能還抱著去年的航運」。
+     但一直沒有人問你這件事——停利要 +45%、停損要 −28%，
+     泡沫剛破、還沒破到停損線的那一段，正好掉在兩張網子中間，
+     而那才是這件事最難受的地方：它還沒爛到讓你死心。 */
+  {id:'stale', ask:1, pick:function(g){
+    const prev=g.year>0?g.hots[g.year-1]:null;
+    if(!prev || prev===g.hots[g.year]) return null;
+    const h=held(g).filter(function(x){ return x.id==='th_'+prev; })[0];
+    if(!h) return null;
+    const die=curDie(g);
+    return {q:prev+'概念股是去年的題材，今年沒有人在講了。它現在'+pctText(h.pl)+'。',
+      opts:[
+        {t:'認了，全部賣掉', s:'換回現金，這筆帳就結了'+slipNote(die), mv:'sell:'+h.id, arg:{frac:1}},
+        {t:'賣一半，留一點', s:'萬一它真的回來，你還在車上'+slipNote(die), mv:'sell:'+h.id, arg:{frac:0.5}},
+        {t:'再等等，它會回來', s:'去年這個時候，它讓你賺了很多', skip:1}
+      ]};
+  }},
+  /* 維持率吃緊 ----
+     融資本來是一條單行道：借得到，還不掉，只能等斷頭。
+     加了 repay 之後它才是一個處境——你有機會活下來，但要付代價。 */
+  {id:'call', ask:1, pick:function(g){
+    if(g.debt<=0) return null;
+    const cover=assets(g)/g.debt*100;
+    if(cover>=185) return null;
+    const o=[];
+    if(g.cash>MIN_TRADE)
+      o.push({t:'用現金還掉一部分', s:'維持率直接拉高——這是唯一真的有用的動作', mv:'repay'});
+    const h=held(g)[0];
+    if(h) o.push({t:'賣掉'+h.n+'，先把錢換回來', s:'賣了還不會降維持率，但下一步才還得了錢'+slipNote(curDie(g)),
+                  mv:'sell:'+h.id, arg:{frac:1}});
+    o.push({t:'撐著，它會回來', s:'跌破 130% 就是強制平倉，一次結清', skip:1, warn:1});
+    return {q:'維持率 '+cover.toFixed(0)+'%。券商的簡訊今天發了第二封。', opts:o};
+  }},
   /* 生活：撐不住的時候 */
   {id:'life', pick:function(g){
     if(g.life>=42) return null;
@@ -1102,28 +1145,19 @@ const BEATS=[
     o.push({t:'先放著', s:'現金一年 1.5%，以及一整年的「早知道」', skip:1});
     return {q:'帳上有 '+inv.toFixed(0)+' 萬。今年市場在講的是'+g.hotGuess+'。', opts:o};
   }},
-  /* 習慣：早年才問，而且一次只給兩個 */
-  {id:'habit', pick:function(g){
+  /* 習慣：只問「要不要開一個新的」。
+     維持既有的habit不問——那不是決定，那是照做，autoTick 會寫成敘述跑掉。
+     開一個新的才是決定：槽位永遠不夠，開了這個就等於放棄那個。 */
+  {id:'habit', ask:1, pick:function(g){
     const act=Object.keys(g.habits);
-    const feed=act.filter(function(k){ return g.habits[k].stage<3 && g.habits[k].fed!==g.year; });
-    const room=act.length<slotsAt(g.age);
-    if(!feed.length && !room) return null;
-    const o=[];
-    feed.slice(0,2).forEach(function(k){
-      o.push({t:'繼續'+HABITS[k].n,
-              s: curDie(g)>=5
-                 ? '第 '+(g.habits[k].streak+1)+' 年。今年你是真的做到了——一年抵兩年'
-                 : '第 '+(g.habits[k].streak+1)+' 年。六年就固化，之後不用再花力氣',
-              mv:'habit:'+k});
-    });
-    if(room){
-      const cand=HK.filter(function(k){ return !g.habits[k]; }).slice(0, o.length?1:2);
-      cand.forEach(function(k){ o.push({t:'開始'+HABITS[k].n, s:HABITS[k].fx, mv:'habit:'+k}); });
-    }
-    if(!o.length) return null;
-    o.push({t:'今年沒空', s:'沒餵的習慣會退，退到底就斷了', skip:1});
-    return {q:'今年要固定做點什麼嗎？'+
-      (act.length>=slotsAt(g.age)?'（槽位已經滿了）':'（槽位 '+act.length+'／'+slotsAt(g.age)+'）'), opts:o};
+    if(act.length>=slotsAt(g.age)) return null;
+    /* 候選照方針排序——方針決定「先想到什麼」，但選的人還是你 */
+    const plan=PLANS[g.plan]||PLANS.craft;
+    const cand=plan.pr.filter(function(k){ return HABITS[k] && !g.habits[k]; }).slice(0,3);
+    if(!cand.length) return null;
+    const o=cand.map(function(k){ return {t:'開始'+HABITS[k].n, s:HABITS[k].fx, mv:'habit:'+k}; });
+    o.push({t:'今年不開新的', s:'槽位留著。你也不確定自己撐不撐得住', skip:1});
+    return {q:'還有一個槽位空著（'+act.length+'／'+slotsAt(g.age)+'）。要固定做點什麼嗎？', opts:o};
   }},
   /* 研究：手上有東西才問 */
   {id:'scout', pick:function(g){
@@ -1164,35 +1198,86 @@ const PLANS={
 };
 const PLAN_K=Object.keys(PLANS);
 
+/* 旁白的變體。同一句話連印三年，玩家看到的不是人生，是複讀機——
+   實測十六歲那年「有人找你接案子，你接了」連印三次。
+
+   索引用年份與連續年數算出來，不擲骰：擲了會偏移種子流，
+   模擬器與頁面就對不起來，而這只是換句話說，不該花掉一顆亂數。 */
+function vary(list,n){ return list[((n%list.length)+list.length)%list.length]; }
+const SAY={
+  life:[
+    '你停下來喘了一口氣，把日子過回來一些。',
+    '你關掉通知，睡了兩天飽覺。醒來的時候盤早就收了。',
+    '你回了一趟家，什麼都沒講，只是好好吃了頓飯。',
+    '你把週末空出來。沒做什麼，就是沒有看盤。'
+  ],
+  keep:[
+    '你照著做了：{n}，第 {k} 年。',
+    '{n}——今年也沒有斷，第 {k} 年了。',
+    '沒有特別想，時間到了就去做{n}。第 {k} 年。',
+    '{n}這件事你已經不用提醒自己，第 {k} 年。'
+  ],
+  big:[
+    '這一年你是真的在{n}——一年抵兩年。',
+    '{n}這件事，今年你做得比哪一年都認真，一年抵兩年。',
+    '不知道為什麼，今年特別做得下去。{n}，一年抵兩年。'
+  ],
+  lock:[
+    '　現在它已經是你的一部分，不用再花力氣。',
+    '　它不再需要你想起它了。',
+    '　從今以後這件事會自己發生。'
+  ],
+  scout:[
+    '你翻了{n}的財報，覺得它今年{v}贏大盤。（這個判斷的準確率 {a}%）',
+    '你把{n}的財報從頭讀到尾，結論是它今年{v}贏大盤。（準確率 {a}%）',
+    '幾個晚上下來，{n}你大概看懂了：今年{v}贏大盤。（準確率 {a}%）'
+  ],
+  work:[
+    '有人找你接案子，你接了。進帳 {m} 萬，人也累了。',
+    '你接了個案子，做到半夜。{m} 萬入帳，隔天整天沒精神。',
+    '週末拿去接案。錢有了 {m} 萬，睡眠沒了。'
+  ]
+};
+function fill(s,o){ return s.replace(/\{(\w)\}/g, function(_,k){ return o[k]; }); }
+
 /* 自動跑掉一個不需要問的處境，回傳一句敘述（沒有可跑的就回 null）。
-   頁面重複呼叫到 null 為止，再開始問問題。 */
+   頁面重複呼叫到 null 為止，再開始問問題。
+
+   一年一次的閘門是必要的：沒有它，「加班」會把整年的行動點吃光，
+   而且會用一模一樣的句子印三次。 */
 function autoTick(g){
   if(g.phase!=='act' || g.apLeft<=0) return null;
   const legal={}; moves(g).forEach(function(m){ legal[m.id]=1; });
   const plan=PLANS[g.plan]||PLANS.craft;
-  /* 生活撐不住優先；再來照方針養習慣；然後研究；真的沒事做才加班 */
-  if(g.life<48 && legal['life']){
+  const done=g.autoDone||(g.autoDone={});
+  /* 生活撐不住優先；再來照方針餵既有的習慣；然後研究；真的沒事做才加班 */
+  if(g.life<48 && legal['life'] && !done.life){
+    done.life=1;
     const r=play(g,'life');
-    if(r) return '你停下來喘了一口氣，把日子過回來一些。';
+    if(r) return vary(SAY.life, g.year+g.age);
   }
   for(let i=0;i<plan.pr.length;i++){
     const k=plan.pr[i];
-    if(legal['habit:'+k] && !(g.habits[k]&&g.habits[k].fed===g.year)){
-      const die=curDie(g), r=play(g,'habit:'+k);
-      if(r) return (r.gain>1 ? '這一年你是真的在'+HABITS[k].n+'——一年抵兩年。'
-                             : '你照著做了：'+HABITS[k].n+'，第 '+(g.habits[k].streak)+' 年。')+
-                   (r.stage>=3 ? '　現在它已經是你的一部分，不用再花力氣。' : '');
-    }
+    /* 只餵已經有的。開一個新習慣是決定，不是照做——那一題留給玩家 */
+    if(!g.habits[k] || g.habits[k].fed===g.year) continue;
+    if(!legal['habit:'+k]) continue;
+    const r=play(g,'habit:'+k);
+    if(!r) continue;
+    const st=g.habits[k]?g.habits[k].streak:0;
+    const base = r.gain>1 ? fill(vary(SAY.big, g.year+i), {n:HABITS[k].n})
+                          : fill(vary(SAY.keep, g.year+st), {n:HABITS[k].n, k:st});
+    return base + (r.stage>=3 ? vary(SAY.lock, g.year) : '');
   }
   const hs=held(g).filter(function(x){ return g.scouted[x.id]==null; })[0];
   if(hs && legal['scout:'+hs.id]){
     const r=play(g,'scout:'+hs.id);
-    if(r) return '你翻了'+hs.n+'的財報，覺得它今年'+(r.beatsMarket?'會':'不會')+
-                 '贏大盤。（這個判斷的準確率 '+r.acc+'%）';
+    if(r) return fill(vary(SAY.scout, g.year+hs.n.length),
+                      {n:hs.n, v:(r.beatsMarket?'會':'不會'), a:r.acc});
   }
-  if(g.cash<10 && legal['work']){
+  if(g.cash<10 && legal['work'] && !done.work){
+    done.work=1;
     const r=play(g,'work');
-    if(r) return '有人找你接案子，你接了。錢是進來了，人也累了。';
+    if(r) return fill(vary(SAY.work, g.year+g.age), {m:r.earned.toFixed(1)});
   }
   return null;
 }
@@ -1435,7 +1520,7 @@ function wrap(g){
 
 /* 頁面用這個數字確認自己拿到的不是快取裡的舊內核。
    改了對外介面就 +1，並同步改 play.html 的 ?v= 與 NEED_VERSION。 */
-const VERSION=7;
+const VERSION=8;
 
 return {newGame:newGame, VERSION:VERSION, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
