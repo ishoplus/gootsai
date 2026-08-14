@@ -1,0 +1,491 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self' 'unsafe-inline';
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src https://fonts.gstatic.com;
+  img-src 'self' data:;
+  base-uri 'none';
+  form-action 'none'">
+<title>少年股神 · 內核 v2 試玩</title>
+<meta name="description" content="持股跨年延續、訊號牌可解讀、心態會動你的選項。內核 v2 的可玩骨架。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 fill=%22%23e8e4da%22/%3E%3Cpath d=%22M3 24 L10 16 L15 20 L22 8 L29 12%22 stroke=%22%238c2f2f%22 stroke-width=%222.5%22 fill=%22none%22 stroke-linejoin=%22round%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@600;900&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#e8e4da; --panel:#f6f3ec; --panel2:#eeeae0; --edge:#c9c2b3;
+  --ink:#1d1a15; --dim:#6b6355; --accent:#8c2f2f; --accent2:#b04545;
+  --up:#1d6b3a; --dn:#a51e1e; --warn:#8a5a0c; --gold:#7d5f18;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --sans:'Noto Sans TC',system-ui,-apple-system,sans-serif;
+  --serif:'Noto Serif TC',Georgia,serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.7;
+  -webkit-text-size-adjust:100%}
+b.up{color:var(--up)} b.dn{color:var(--dn)} b.hl{color:var(--accent)} b.gd{color:var(--gold)}
+.mono{font-family:var(--mono)}
+.wrap{max-width:1080px;margin:0 auto;padding:0 16px 120px}
+
+/* ---- 開場 ---- */
+#start{max-width:560px;margin:0 auto;padding:56px 20px 80px}
+h1{font-family:var(--serif);font-size:44px;line-height:1.06;margin:0 0 6px;font-weight:900}
+h1 em{display:block;font-family:var(--mono);font-style:normal;font-size:10.5px;letter-spacing:.42em;
+  color:var(--accent);margin-top:12px;font-weight:500;padding-top:10px;border-top:1px solid var(--edge)}
+.tape{height:2px;background:linear-gradient(90deg,var(--up),var(--dn),var(--up));opacity:.7;margin:16px 0 20px}
+.sub{color:var(--dim);font-size:13.5px;line-height:1.85;margin:0 0 26px}
+.field{margin-bottom:20px}
+.field>label{display:block;font-size:9.5px;letter-spacing:.26em;color:var(--dim);
+  font-family:var(--mono);margin-bottom:8px;text-transform:uppercase;
+  border-bottom:1px solid var(--edge);padding-bottom:5px}
+input{width:100%;padding:11px 12px;background:var(--panel);color:var(--ink);
+  border:1px solid var(--edge);font-size:15px;font-family:var(--mono);outline:none}
+input:focus{border-color:var(--accent)}
+
+/* ---- HUD ---- */
+#hud{position:sticky;top:0;z-index:40;background:var(--bg);border-bottom:1px solid var(--edge);
+  padding:10px 0 9px;margin-bottom:18px}
+#hud .in{max-width:1080px;margin:0 auto;padding:0 16px;display:flex;gap:18px;align-items:baseline;
+  flex-wrap:wrap;font-family:var(--mono);font-size:12px}
+#hud .k{color:var(--dim);font-size:9.5px;letter-spacing:.18em;margin-right:5px}
+#hud .v{font-weight:700;font-size:14px}
+#hud .yr{font-family:var(--serif);font-size:20px;font-weight:900;letter-spacing:-.01em}
+.pips{letter-spacing:2px;font-size:15px;color:var(--accent)}
+.pips span.off{color:var(--edge)}
+
+/* ---- 版面 ---- */
+.cols{display:grid;grid-template-columns:1fr 380px;gap:22px;align-items:start}
+@media(max-width:860px){.cols{grid-template-columns:1fr}}
+.box{background:var(--panel);border:1px solid var(--edge);padding:14px 15px;margin-bottom:16px}
+.box>h3{margin:0 0 10px;font-size:9.5px;letter-spacing:.26em;color:var(--dim);
+  font-family:var(--mono);text-transform:uppercase;border-bottom:1px solid var(--edge);padding-bottom:6px;
+  font-weight:500}
+
+/* ---- 訊號 ---- */
+.sig{display:flex;gap:9px;align-items:flex-start;padding:6px 0;font-size:14px;line-height:1.6}
+.sig i{font-style:normal;color:var(--accent);font-family:var(--mono);font-size:11px;padding-top:3px}
+.sig.theme{color:var(--accent);font-weight:700}
+
+/* ---- 帳本 ---- */
+table.book{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px}
+table.book th{text-align:right;color:var(--dim);font-weight:400;font-size:9.5px;letter-spacing:.14em;
+  padding:0 0 5px;border-bottom:1px solid var(--edge)}
+table.book th:first-child{text-align:left}
+table.book td{padding:6px 0;border-bottom:1px solid var(--edge);text-align:right}
+table.book td:first-child{text-align:left;font-family:var(--sans);font-size:13.5px}
+table.book tr:last-child td{border-bottom:none}
+.empty{color:var(--dim);font-size:13px;padding:10px 0}
+.scout{font-size:10px;font-family:var(--mono);padding:1px 5px;border:1px solid currentColor;margin-left:6px}
+
+/* ---- 出牌 ---- */
+.moves{display:flex;flex-direction:column;gap:7px}
+button{font-family:var(--sans);font-size:14.5px;cursor:pointer;text-align:left;
+  background:var(--panel2);color:var(--ink);border:1px solid var(--edge);padding:10px 12px;width:100%;
+  line-height:1.5;transition:none}
+button:hover:not(:disabled){border-color:var(--accent);background:var(--panel)}
+button:disabled{opacity:.4;cursor:default}
+button .s{display:block;font-size:11.5px;color:var(--dim);font-family:var(--mono);margin-top:2px}
+button.main{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
+button.main .s{color:rgba(255,255,255,.8)}
+button.main:hover:not(:disabled){background:var(--accent2);border-color:var(--accent2)}
+button.warn{border-color:var(--dn);color:var(--dn)}
+.grp{margin-bottom:12px}
+.grp>label{display:block;font-size:9.5px;letter-spacing:.22em;color:var(--dim);
+  font-family:var(--mono);margin:0 0 6px;text-transform:uppercase}
+
+/* ---- 紀事 ---- */
+.log .row{border-left:2px solid var(--edge);padding:8px 0 8px 12px;margin-bottom:10px;font-size:13.5px;
+  line-height:1.75}
+.log .row.good{border-color:var(--up)} .log .row.bad{border-color:var(--dn)}
+.log .row.mkt{border-color:var(--accent)}
+.log .row .t{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--dim);
+  text-transform:uppercase;display:block;margin-bottom:2px}
+
+/* ---- 彈窗 ---- */
+#mask{position:fixed;inset:0;background:rgba(20,17,12,.72);z-index:60;display:flex;
+  align-items:center;justify-content:center;padding:20px}
+#mask .m{background:var(--panel);border:1px solid var(--edge);max-width:520px;width:100%;
+  padding:22px 22px 20px;max-height:88vh;overflow:auto}
+#mask h2{font-family:var(--serif);font-size:26px;margin:0 0 8px;font-weight:900}
+#mask p{margin:0 0 16px;font-size:14.5px;line-height:1.8}
+
+/* ---- 圖 ---- */
+svg.chart{width:100%;height:120px;display:block}
+.legend{font-family:var(--mono);font-size:10.5px;color:var(--dim);display:flex;gap:14px;margin-top:6px}
+.legend i{font-style:normal;display:inline-block;width:14px;height:2px;vertical-align:middle;margin-right:4px}
+
+.foot{max-width:1080px;margin:30px auto 0;padding:14px 16px 0;border-top:1px solid var(--edge);
+  color:var(--dim);font-size:11.5px;font-family:var(--mono);display:flex;gap:16px;flex-wrap:wrap}
+.foot a{color:var(--dim)}
+</style>
+</head>
+<body>
+
+<div id="start">
+  <h1>少年股神<em>KERNEL V2 · 試玩</em></h1>
+  <div class="tape"></div>
+  <p class="sub">
+    十六歲，你拿壓歲錢開了戶。二十四年後結算。<br>
+    這一版的差別：<b class="hl">持股跨年延續</b>——你會抱著去年的題材股；
+    <b class="hl">訊號可以讀</b>——十五張牌各有各的偏向，你會慢慢學會那張表；
+    <b class="hl">心態不扣你的錢，它動你的選項</b>——太得意的年份，年初就有一顆行動點不是你花的。
+  </p>
+  <div class="field">
+    <label>種子</label>
+    <input id="seed" maxlength="24" placeholder="留空隨機">
+  </div>
+  <button class="main" id="go">▸ 開戶，開始這二十四年</button>
+  <p class="sub" style="margin-top:22px;font-size:12px">
+    相同種子＋相同選擇＝相同人生。骨架說明見 <a href="KERNEL.md">KERNEL.md</a>。
+  </p>
+</div>
+
+<div id="game" style="display:none">
+  <div id="hud"><div class="in">
+    <span class="yr" id="h-yr">16 歲</span>
+    <span><span class="k">淨值</span><span class="v" id="h-nav">—</span></span>
+    <span><span class="k">現金</span><span class="v" id="h-cash">—</span></span>
+    <span><span class="k">心態</span><span class="v" id="h-tilt">—</span></span>
+    <span><span class="k">生活</span><span class="v" id="h-life">—</span></span>
+    <span><span class="k">行動</span><span class="v pips" id="h-ap">—</span></span>
+  </div></div>
+
+  <div class="wrap"><div class="cols">
+    <div>
+      <div class="box" id="b-sig"><h3>今年的訊號</h3><div id="sigs"></div></div>
+      <div class="box"><h3>帳本</h3><div id="book"></div></div>
+      <div class="box" id="b-chart"><h3>淨值</h3>
+        <svg class="chart" id="chart" viewBox="0 0 600 120" preserveAspectRatio="none"></svg>
+        <div class="legend"><span><i style="background:var(--accent)"></i>你</span>
+          <span><i style="background:var(--dim)"></i>同樣的錢全買市值型 ETF</span></div>
+      </div>
+      <div class="box"><h3>年度紀事</h3><div class="log" id="log"></div></div>
+    </div>
+    <div><div class="box"><h3 id="act-h">可以做的事</h3><div id="act"></div></div></div>
+  </div></div>
+
+  <div class="foot">
+    <span id="f-seed"></span>
+    <a href="KERNEL.md">骨架說明</a>
+    <span>內核 v2 · 骨架試玩</span>
+  </div>
+</div>
+
+<script src="kernel.js"></script>
+<script>
+'use strict';
+/* 這一層是純呈現。鐵律沿用舊版：呈現層一律禁止呼叫內核的亂數——
+   多消耗一次，後面整條人生就會錯位。這裡只讀狀態、只呼叫 g.play/closeYear。 */
+const $=id=>document.getElementById(id);
+const SAFE=/[^\w㐀-䶿一-鿿぀-ヿ-]/g;
+const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
+  .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+
+let g=null, benchHist=[], navHist=[], pending=null;
+
+/* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源
+   （file 文件的 origin 是不透明的），所以直接雙擊打開會載不到內核。
+   與其讓畫面停在一片空白，不如講清楚怎麼跑。 */
+if(typeof KERNEL==='undefined'){
+  document.getElementById('start').innerHTML=
+    '<h1>載不到內核<em>KERNEL.JS NOT LOADED</em></h1><div class="tape"></div>'+
+    '<p class="sub">這一頁的邏輯放在外部檔案 <code>kernel.js</code>，'+
+    'CSP 在 <code>file://</code> 底下擋掉了它。開一個本機伺服器就好：</p>'+
+    '<div class="field"><label>終端機</label>'+
+    '<input readonly value="python3 -m http.server 8000" onclick="this.select()"></div>'+
+    '<p class="sub">然後開 <b class="hl">http://localhost:8000/play.html</b>。'+
+    '部署到 GitHub Pages 之類的靜態主機則不受影響。</p>';
+  throw new Error('KERNEL not loaded');
+}
+
+function money(v){
+  const a=Math.abs(v);
+  if(a>=10000) return (v/10000).toFixed(2)+'億';
+  if(a>=1000)  return Math.round(v)+'萬';
+  return v.toFixed(1)+'萬';
+}
+function sgn(v,d){ d=d==null?1:d; return (v>=0?'+':'')+v.toFixed(d); }
+
+/* ================= 開場 ================= */
+$('go').onclick=()=>{
+  const raw=($('seed').value||'').replace(SAFE,'').slice(0,24);
+  const seed=raw||Math.random().toString(36).slice(2,10);
+  try{ history.replaceState(null,'','?seed='+encodeURIComponent(seed)); }catch(e){}
+  g=KERNEL.newGame(seed);
+  $('f-seed').textContent='種子 '+seed;
+  $('start').style.display='none';
+  $('game').style.display='';
+  benchHist=[]; navHist=[]; $('log').innerHTML='';
+  nextYear();
+};
+(function(){
+  const q=new URLSearchParams(location.search).get('seed');
+  if(q) $('seed').value=q.replace(SAFE,'').slice(0,24);
+})();
+
+/* ================= 年循環 ================= */
+function nextYear(){
+  if(g.over){ ending(); return; }
+  /* 二十二歲的分岔：唯一一個職業決定 */
+  if(g.raw.year===6 && !g.raw.careerSet){
+    g.raw.careerSet=1;
+    modal('二十二歲','畢業了。你要去上班，還是把這件事變成全職？',[
+      {t:'去上班',s:'每年存得下 13～26 萬，穩定',f:()=>{ g.career('job'); openYear(); }},
+      {t:'全職操盤',s:'沒有薪水，但每年多一顆行動點；生活每年 −6',warn:1,
+        f:()=>{ g.career('pro'); openYear(); }}
+    ]);
+    return;
+  }
+  openYear();
+}
+function openYear(){
+  const o=g.openYear();
+  if(!o){ ending(); return; }
+  logRow('mkt', o.age+' 歲 · 第 '+(g.raw.year+1)+' 年',
+    (o.income>0?'今年存下 <b class="up">'+money(o.income)+'</b>。':'全職操盤，沒有薪水。'));
+  g.raw.notes.forEach(n=>logRow('bad','', esc(n)));
+  render();
+}
+function endTurn(){
+  const w=g.midWindow();
+  if(w){ midModal(w); return; }
+  settle();
+}
+function midModal(w){
+  const crash=w.kind==='crash';
+  modal(crash?'年中':'年中·狂牛',
+    crash
+      ? '指數已經跌了 '+Math.abs(w.sofar)+'%，而且沒有止住的跡象。委賣單掛在那裡一整天，一張都沒成交。'
+      : '指數已經漲了 '+w.sofar+'%。群組裡沒有人在談風險，你的對帳單好看得不像自己的。',
+    w.options.map(o=>({
+      t:o.label,
+      s:o.id==='cut' ? '賣得掉賣不掉要看流動性——跌停鎖死就是賣不掉'
+       :o.id==='add' ? (crash?'用一半的現金往下攤':'再追三成現金進去')
+       :o.id==='take'? '一半落袋，成本重算'
+       :'什麼都不做',
+      warn:o.id==='add'&&!crash,
+      f:()=>{ const r=g.playMid(o.id); midReport(w,o,r); settle(); }
+    })));
+}
+function midReport(w,o,r){
+  if(!r) return;
+  if(o.id==='cut'){
+    if(r.sold.length) logRow('good','年中',r.sold.map(id=>KERNEL.BY_ID[id].n).join('、')+' 砍掉了。');
+    if(r.failed.length) logRow('bad','年中',
+      r.failed.map(id=>KERNEL.BY_ID[id].n).join('、')+' <b class="dn">跌停鎖死，賣不掉</b>。');
+  } else if(o.id==='add') logRow('','年中','往下加碼了。');
+  else if(o.id==='take') logRow('good','年中','獲利了結一半。');
+  else logRow('','年中','你什麼都沒做。');
+}
+function settle(){
+  const before=g.nav();
+  const row=g.closeYear();
+  if(!row){ ending(); return; }
+  navHist.push(row.nav);
+  benchHist.push(g.raw.benchSh*g.raw.price.wide);
+  const rg=KERNEL.REGIME[row.rg];
+  let s='<b class="'+(row.mkt>=0?'up':'dn')+'">'+rg.n+' '+sgn(row.mkt)+'%</b>'+
+        '　你的部位 <b class="'+(row.ret>=0?'up':'dn')+'">'+sgn(row.ret)+'%</b>'+
+        '　淨值 <b class="hl">'+money(row.nav)+'</b>';
+  if(row.div>0.05) s+='<br>股利入袋 <b class="up">'+money(row.div)+'</b>。';
+  if(row.blew) s+='<br><b class="dn">維持率跌破 130%，被強制平倉。</b>';
+  logRow(row.blew?'bad':(row.ret>=0?'good':'bad'),'結算',s);
+  render();
+  if(g.over){ ending(); return; }
+  actOnly([{t:'▸ 下一年',main:1,f:nextYear}]);
+}
+
+/* ================= 畫面 ================= */
+function render(){
+  const r=g.raw;
+  $('h-yr').textContent=r.age+' 歲';
+  $('h-nav').textContent=money(g.nav());
+  $('h-cash').textContent=money(r.cash);
+  $('h-tilt').innerHTML=Math.round(r.tilt)+
+    (r.tilt>=80?' <b class="dn">手癢</b>':r.tilt<=20?' <b class="dn">不敢</b>':'');
+  $('h-life').innerHTML=Math.round(r.life)+(r.life<=30?' <b class="dn">撐不住</b>':'');
+  let pips='';
+  for(let i=0;i<r.ap;i++) pips+=i<r.apLeft?'●':'<span class="off">●</span>';
+  $('h-ap').innerHTML=pips||'—';
+  renderSignals(); renderBook(); renderChart(); renderActs();
+}
+function renderSignals(){
+  $('sigs').innerHTML=g.raw.signals.map(s=>
+    '<div class="sig'+(s.id==='theme'?' theme':'')+'"><i>'+(s.id==='theme'?'★':'▸')+'</i><span>'+
+    esc(s.t)+'</span></div>').join('');
+}
+function renderBook(){
+  const r=g.raw, ids=Object.keys(r.book);
+  if(!ids.length && r.debt<=0){
+    $('book').innerHTML='<div class="empty">空手。錢全部在現金，一年 1.5%。</div>'; return;
+  }
+  let h='<table class="book"><tr><th>標的</th><th>市值</th><th>成本</th><th>未實現</th></tr>';
+  ids.forEach(id=>{
+    const b=r.book[id], p=r.price[id], mv=b.sh*p, pl=(p/b.cost-1)*100;
+    const sc=r.scouted[id];
+    h+='<tr><td>'+esc(KERNEL.BY_ID[id].n)+
+       (sc!=null?'<span class="scout" style="color:var(--'+(sc?'up':'dn')+')">'+
+         (sc?'看好':'看壞')+'</span>':'')+
+       '</td><td>'+money(mv)+'</td><td>'+b.cost.toFixed(1)+'</td>'+
+       '<td class="'+(pl>=0?'':'')+'"><b class="'+(pl>=0?'up':'dn')+'">'+sgn(pl)+'%</b></td></tr>';
+  });
+  if(r.debt>0){
+    const cover=g.assets()/r.debt*100;
+    h+='<tr><td><b class="dn">融資負債</b></td><td><b class="dn">−'+money(r.debt)+'</b></td>'+
+       '<td colspan="2">維持率 <b class="'+(cover<160?'dn':'')+'">'+cover.toFixed(0)+'%</b></td></tr>';
+  }
+  $('book').innerHTML=h+'</table>';
+}
+function renderChart(){
+  const sv=$('chart');
+  if(navHist.length<2){ sv.innerHTML=''; return; }
+  const all=navHist.concat(benchHist).map(v=>Math.log10(Math.max(0.5,v)));
+  const mn=Math.min.apply(null,all), mx=Math.max.apply(null,all), rg=(mx-mn)||1;
+  const line=(arr,color,w)=>{
+    const pts=arr.map((v,i)=>{
+      const x=(i/(navHist.length-1||1))*596+2;
+      const y=114-((Math.log10(Math.max(0.5,v))-mn)/rg)*108;
+      return x.toFixed(1)+','+y.toFixed(1);
+    }).join(' ');
+    return '<polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="'+w+'"/>';
+  };
+  sv.innerHTML=line(benchHist,'var(--dim)',1.2)+line(navHist,'var(--accent)',2);
+}
+
+/* ---- 出牌 ---- */
+function renderActs(){
+  if(pending){ renderPending(); return; }
+  const r=g.raw;
+  $('act-h').textContent='可以做的事　剩 '+r.apLeft+' 點';
+  if(r.apLeft<=0){ actOnly([{t:'▸ 結束這一年',main:1,f:endTurn}]); return; }
+  const mv=g.moves();
+  const grp=(label,list)=>list.length?'<div class="grp"><label>'+label+'</label>'+
+    list.map(m=>btn(m)).join('')+'</div>':'';
+  const buys=mv.filter(m=>m.kind==='buy'), sells=mv.filter(m=>m.kind==='sell'),
+        marg=mv.filter(m=>m.kind==='margin'), habs=mv.filter(m=>m.kind==='habit'),
+        scts=mv.filter(m=>m.kind==='scout'),
+        etc=mv.filter(m=>m.kind==='life'||m.kind==='work');
+  const a=$('act');
+  a.innerHTML=grp('買進（可投入 '+money(g.investable())+'）',buys)+
+    grp('賣出',sells)+grp('融資',marg)+
+    grp('習慣　槽位 '+Object.keys(r.habits).length+'／'+KERNEL.slotsAt(r.age),habs)+
+    grp('研究',scts)+grp('生活',etc)+
+    '<button class="main" id="done">▸ 結束這一年<span class="s">剩下的 '+r.apLeft+' 點不用完也可以</span></button>';
+  a.querySelectorAll('button[data-mv]').forEach(b=>{
+    b.onclick=()=>{
+      const m=mv.find(x=>x.id===b.dataset.mv);
+      if(m.fracs){ pending=m; renderPending(); return; }
+      doPlay(m.id);
+    };
+  });
+  $('done').onclick=endTurn;
+}
+function btn(m){
+  const habInfo=m.kind==='habit'?KERNEL.HABITS[m.id.slice(6)]:null;
+  const inst=m.inst?KERNEL.BY_ID[m.inst]:null;
+  let s='';
+  if(habInfo) s=habInfo.fx;
+  else if(m.kind==='buy'&&inst) s='β'+inst.beta.toFixed(2)+
+    (inst.div?'　配息 '+inst.div+'%':'')+(inst.liq<0.6?'　流動性差':'');
+  else if(m.kind==='margin') s='借淨值的六成去買。維持率跌破 130% 強制平倉，年息 7.5%';
+  else if(m.kind==='scout') s='換一個「今年會不會贏大盤」的判斷';
+  else if(m.kind==='life') s='生活 +9，心態拉回中間';
+  else if(m.kind==='work') s='拿時間換錢，生活 −7';
+  return '<button data-mv="'+esc(m.id)+'"'+(m.kind==='margin'?' class="warn"':'')+'>'+
+    esc(m.label)+(s?'<span class="s">'+esc(s)+'</span>':'')+'</button>';
+}
+function renderPending(){
+  const m=pending, inv=g.investable();
+  const label=f=>m.kind==='buy'
+    ? (f===1?'全部':f===0.6?'六成':'三成')+'　'+money(inv*f)
+    : (f===1?'全部賣掉':'賣一半');
+  $('act').innerHTML='<div class="grp"><label>'+esc(m.label)+'</label>'+
+    m.fracs.map(f=>'<button data-f="'+f+'">'+esc(label(f))+'</button>').join('')+
+    '<button data-f="x">← 取消</button></div>';
+  $('act').querySelectorAll('button').forEach(b=>{
+    b.onclick=()=>{
+      if(b.dataset.f==='x'){ pending=null; renderActs(); return; }
+      doPlay(m.id,{frac:parseFloat(b.dataset.f)});
+    };
+  });
+}
+function doPlay(id,arg){
+  const m=g.moves().find(x=>x.id===id);
+  const res=g.play(id,arg);
+  pending=null;
+  if(res) reportPlay(m,res);
+  render();
+}
+function reportPlay(m,res){
+  if(!m) return;
+  if(m.kind==='buy')  logRow('','買進','買了 '+esc(KERNEL.BY_ID[m.inst].n)+' <b class="hl">'+money(res.amount)+'</b>。');
+  else if(m.kind==='sell') logRow(res.pl>=0?'good':'bad','賣出',
+    '賣掉 '+esc(KERNEL.BY_ID[m.inst].n)+'，實現 <b class="'+(res.pl>=0?'up':'dn')+'">'+
+    sgn(res.pl)+'萬</b>（證交稅 0.3% 已扣）。');
+  else if(m.kind==='margin') logRow('bad','融資',
+    '借了 <b class="dn">'+money(res.borrowed)+'</b> 去買 '+esc(KERNEL.BY_ID[m.inst].n)+'。');
+  else if(m.kind==='scout') logRow('','研究',
+    esc(KERNEL.BY_ID[m.inst].n)+'——你判斷它今年<b class="'+(res.beatsMarket?'up':'dn')+'">'+
+    (res.beatsMarket?'會贏大盤':'不會贏大盤')+'</b>。<span style="color:var(--dim)">這個判斷的準確率 '+
+    res.acc+'%</span>');
+  else if(m.kind==='habit') logRow('good','習慣',
+    esc(KERNEL.HABITS[m.id.slice(6)].n)+'——'+
+    ['','剛開始','已經是習慣了','固化了，不用再花力氣維持'][res.stage]+'。');
+  else if(m.kind==='work') logRow('','加班','接了案子，進帳 <b class="up">'+money(res.earned)+'</b>，生活 −7。');
+  else if(m.kind==='life') logRow('good','生活','你把生活過回來了一點。');
+}
+function actOnly(list){
+  $('act-h').textContent='　';
+  $('act').innerHTML=list.map(o=>'<button class="'+(o.main?'main':'')+'">'+esc(o.t)+'</button>').join('');
+  $('act').querySelectorAll('button').forEach((b,i)=>b.onclick=list[i].f);
+}
+function logRow(cls,tag,html){
+  const d=document.createElement('div');
+  d.className='row'+(cls?' '+cls:'');
+  d.innerHTML=(tag?'<span class="t">'+esc(tag)+'</span>':'')+html;
+  const L=$('log'); L.insertBefore(d,L.firstChild);
+}
+
+/* ---- 彈窗 ---- */
+function modal(title,body,opts){
+  const m=document.createElement('div'); m.id='mask';
+  m.innerHTML='<div class="m"><h2>'+esc(title)+'</h2><p>'+esc(body)+'</p>'+
+    opts.map(o=>'<button class="'+(o.warn?'warn':'')+'" style="margin-bottom:7px">'+esc(o.t)+
+      (o.s?'<span class="s">'+esc(o.s)+'</span>':'')+'</button>').join('')+'</div>';
+  document.body.appendChild(m);
+  m.querySelectorAll('button').forEach((b,i)=>b.onclick=()=>{ m.remove(); opts[i].f(); });
+}
+
+/* ================= 結局 ================= */
+function ending(){
+  const e=g.ending;
+  const cell=(k,v)=>'<tr><td>'+k+'</td><td style="text-align:right"><b>'+v+'</b></td></tr>';
+  modal(e.t,'四十歲，結算。',[{t:'▸ 再來一次（同一顆種子）',main:1,f:()=>location.reload()}]);
+  const box=document.createElement('div');
+  box.className='box';
+  box.innerHTML='<h3>結算</h3><table class="book">'+
+    cell('淨值',money(e.nav))+
+    cell('二十五年存進去的錢',money(e.inflow))+
+    cell('同樣的錢全買市值型 ETF',money(e.bench))+
+    cell('你贏它','<b class="'+(e.edge>=0?'up':'dn')+'">'+sgn(e.edge)+'%</b>')+
+    cell('繳出去的稅費',money(e.tax))+
+    cell('收到的股利',money(e.div))+
+    cell('交易次數',e.trades)+
+    cell('斷頭次數',e.blowups)+
+    cell('生活',Math.round(e.life))+
+    '</table>';
+  const col=document.querySelector('.cols>div');
+  if(col) col.insertBefore(box,col.firstChild);
+  $('act-h').textContent='　';
+  $('act').innerHTML='';
+}
+</script>
+</body>
+</html>
