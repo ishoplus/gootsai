@@ -37,6 +37,48 @@ vm.createContext(sandbox);
 try{ vm.runInContext(inline[0],sandbox,{filename:'play.html'}); console.log('  ✓ 腳本載入不拋錯'); }
 catch(e){ bad++; console.error('  ✗ 載入期就炸了：'+e.message); }
 
+/* ---- 叫得到卻沒定義的函式 ----
+   實際發生過：把舊的出牌面板換成骰子分配時，setAct() 被刪掉，
+   但 actOnly() 還在呼叫它。載入期不會炸（那行還沒執行），
+   要等到「結算完要畫下一年那顆按鈕」才 ReferenceError——
+   於是整局卡在十六歲，而三十五條測試全綠。
+
+   所以：把腳本裡所有「被當成函式呼叫的名字」抓出來，
+   對照「腳本裡宣告過的名字」，少掉的就是這種未爆彈。 */
+(function(){
+  /* 先把註解與字串挖掉：不然會掃到 CSS 的 var(--dim)、
+     以及註解裡提到的函式名（例如這一段自己）。 */
+  const src=inline[0]
+    .replace(/\/\*[\s\S]*?\*\//g,' ')
+    .replace(/(^|[^:])\/\/[^\n]*/g,'$1 ')
+    .replace(/'(?:\\.|[^'\\])*'/g,"''")
+    .replace(/"(?:\\.|[^"\\])*"/g,'""')
+    .replace(/`(?:\\.|[^`\\])*`/g,'``');
+  const declared=new Set();
+  let m;
+  const DECL=/(?:function\s+([A-Za-z_$][\w$]*)|(?:const|let|var)\s+([A-Za-z_$][\w$]*))/g;
+  while((m=DECL.exec(src))) declared.add(m[1]||m[2]);
+  /* 參數也算宣告過（callback 的參數常常是函式） */
+  const PARAM=/\(([^)]*)\)\s*=>|function\s*[A-Za-z_$\w]*\s*\(([^)]*)\)/g;
+  while((m=PARAM.exec(src)))
+    (m[1]||m[2]||'').split(',').forEach(x=>{ x=x.trim().replace(/=.*$/,''); if(x) declared.add(x); });
+  const BUILTIN=new Set(['if','for','while','switch','catch','return','typeof','function','new',
+    'do','else','try','throw','void','delete','in','of','instanceof','case','await','yield',
+    'Math','JSON','Object','Array','String','Number','Boolean','Date','Error','RegExp','Set','Map',
+    'parseInt','parseFloat','isNaN','encodeURIComponent','decodeURIComponent','setTimeout',
+    'URLSearchParams','requestAnimationFrame','alert','confirm','Promise','Symbol','BigInt']);
+  const CALL=/(?:^|[^\w.$])([A-Za-z_$][\w$]*)\s*\(/g;
+  const missing=new Set();
+  while((m=CALL.exec(src))){
+    const n=m[1];
+    if(BUILTIN.has(n)||declared.has(n)) continue;
+    if(typeof sandbox[n]==='function') continue;
+    missing.add(n);
+  }
+  ok('沒有「叫得到卻沒定義」的函式'+(missing.size?'（'+[...missing].join('、')+'）':''),
+     missing.size===0);
+})();
+
 const q=expr=>{ try{ return vm.runInContext(expr,sandbox); }catch(e){ return '<<'+e.message+'>>'; } };
 ok('money() 可用',        q('money(12345)')==='1.23億');
 ok('sgn() 可用',          q('sgn(3.14)')==='+3.1');

@@ -860,9 +860,19 @@ function reportPlay(m,res){
   else if(m.kind==='work') logRow('','加班','接了案子，進帳 <b class="up">'+money(res.earned)+'</b>，生活 −7。');
   else if(m.kind==='life') logRow('good','生活','你把生活過回來了一點。');
 }
+/* 結算完、結局那兩處用的：把下面那格換成一兩顆按鈕。
+   這裡以前呼叫 setAct()，而 setAct 是舊出牌面板的東西，
+   改成骰子分配的時候被我一起刪掉了——於是結算完要畫「下一年」時
+   丟 ReferenceError，整局卡在十六歲。不再依賴外面的東西。 */
 function actOnly(list){
-  setAct('　',list.map(o=>'<button class="'+(o.main?'main':'')+'">'+esc(o.t)+'</button>').join(''));
-  $('act').querySelectorAll('button').forEach((b,i)=>b.onclick=list[i].f);
+  const h=$('act-h'); if(h) h.textContent='　';
+  const tray=$('tray'); if(tray) tray.innerHTML='';
+  const act=$('act');
+  if(!act) return;
+  act.innerHTML=list.map(o=>'<button class="main">'+esc(o.t)+'</button>').join('');
+  const bs=act.querySelectorAll('button');
+  if(bs.forEach) bs.forEach((b,i)=>{ if(list[i]) b.onclick=list[i].f; });
+  setDock(false);
 }
 /* 一則紀錄同時寫兩個地方：「紀錄」分頁（完整歷史）
    與「現況」最上面的「剛剛」（你眼睛真正在看的地方）。
