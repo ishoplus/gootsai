@@ -1409,20 +1409,40 @@ function skipRest(g){ if(g.phase==='act'){ g.apLeft=0; g.dieAt=g.dice.length; re
 
 /* 3. 年中窗口：崩盤與狂牛各插播一次免費行動。
    恐懼與貪婪各測一次——而且這是唯一一個「你知道走到一半了」的決策點。 */
+/* 年中的三個選項以前是無條件塞進去的：只問「現在是崩盤還是狂牛」、
+   「手上有沒有部位」，從來沒問過「你有沒有錢」。現金 0 的時候
+   「加碼攤平」照樣出現，按下去 playMid() 因為 amt<=MIN_TRADE 而
+   什麼都不做，卻仍然標記 g.mid='add' 並且動心態——你為一件沒有
+   發生的事付了情緒代價。列出來卻做不動的選項，跟 beat() 那邊
+   犯過的是同一個錯：畫面上就是按了沒反應。
+
+   順便補上金額。這是最後一組還在講「三成現金」而不是「2.4 萬」的選項。 */
+function midAmt(g,kind){ return investable(g)*(kind==='crash'?0.5:0.3); }
 function midWindow(g){
   if(g.phase!=='act') return null;
   const m=g.market[g.year];
   const held=Object.keys(g.book);
   if(!held.length) return null;
-  if(m.rg==='crash'){
-    return {kind:'crash', sofar:Math.round(m.ret*0.62),
-      options:[{id:'cut',label:'全部砍掉'},{id:'hold',label:'抱著，不看'},{id:'add',label:'加碼攤平'}]};
+  const crash=m.rg==='crash';
+  if(!crash && m.rg!=='boom') return null;
+  const add=midAmt(g,m.rg), canAdd=add>MIN_TRADE;
+  const posVal=held.reduce(function(t,id){ return t+g.book[id].sh*g.price[id]; },0);
+  const opts=[];
+  if(crash){
+    opts.push({id:'cut', label:'全部砍掉', n:'手上 '+amt(posVal)+'，賣得掉多少看流動性',
+               s:'跌停鎖死就是賣不掉'});
+    if(canAdd) opts.push({id:'add', label:'加碼攤平', n:'投入 '+amt(add)+'（一半的現金）',
+                          s:'成本拉低，前提是它真的會回來'});
+    opts.push({id:'hold', label:'抱著，不看', s:'什麼都不做'});
+  } else {
+    opts.push({id:'take', label:'獲利了結一半', n:'賣掉 '+amt(posVal*0.5)+'，成本重算',
+               s:'一半落袋'});
+    if(canAdd) opts.push({id:'add', label:'再加碼', n:'投入 '+amt(add)+'（三成現金）',
+                          s:'追在所有人都很樂觀的時候'});
+    opts.push({id:'hold', label:'續抱', s:'什麼都不做'});
   }
-  if(m.rg==='boom'){
-    return {kind:'boom', sofar:Math.round(m.ret*0.62),
-      options:[{id:'take',label:'獲利了結一半'},{id:'hold',label:'續抱'},{id:'add',label:'再加碼'}]};
-  }
-  return null;
+  return {kind:crash?'crash':'boom', sofar:Math.round(m.ret*0.62),
+          canAdd:canAdd, options:opts};
 }
 function playMid(g,choice){
   const w=midWindow(g); if(!w) return null;
@@ -1440,9 +1460,12 @@ function playMid(g,choice){
     });
     g.mid='cut';
   } else if(choice==='add'){
-    const amt=investable(g)*(w.kind==='crash'?0.5:0.3);
+    const money=midAmt(g,w.kind);
     const id=w.kind==='crash' ? (held[0]) : ('th_'+g.hotGuess);
-    if(amt>MIN_TRADE && BY_ID[id]) { buy(g,id,amt); }
+    /* 買不動就整個不算數：不標 g.mid、不動心態、回 null。
+       原本這裡會靜靜地跳過買賣卻照樣扣心態——為一件沒發生的事付代價。 */
+    if(!(money>MIN_TRADE) || !BY_ID[id] || !buy(g,id,money)) return null;
+    out.bought=money;
     /* 手動改成半路價：加碼發生在年中 */
     const b=g.book[id];
     if(b){ b.cost=b.cost*(midP[id]/g.price[id]); }
@@ -1593,7 +1616,7 @@ function wrap(g){
 
 /* 頁面用這個數字確認自己拿到的不是快取裡的舊內核。
    改了對外介面就 +1，並同步改 play.html 的 ?v= 與 NEED_VERSION。 */
-const VERSION=13;
+const VERSION=14;
 
 return {newGame:newGame, VERSION:VERSION, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,

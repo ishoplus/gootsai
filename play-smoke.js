@@ -115,6 +115,52 @@ ok('出過牌（'+plays+' 次）', plays>20);
 ok('買、賣、習慣、研究都走到過',
    ['buy','sell','habit','scout'].every(k=>kinds[k]>0));
 ok('遇過年中窗口（'+mids+' 次）', mids>0);
+
+/* 年中「加碼」以前是無條件列出來的：現金 0 也給你按，
+   按下去 playMid() 因為金額不足而什麼都不做，卻照樣扣心態。
+   列出來卻做不動的選項，跟 beat() 那邊犯過的是同一個錯。 */
+(function(){
+  let windows=0, offered=0, ghost=0, broke=0, silent=0;
+  for(let i=0;i<400;i++){
+    const a=K.newGame('mid-'+i); let n=0;
+    while(!a.over && n++<30){
+      if(a.raw.year===6) a.career('job');
+      if(!a.openYear()) break;
+      answerCard(a,i+n);
+      let s=0;
+      while(a.raw.apLeft>0 && s++<20){
+        if(!(a.raw.apLeft<=1 && a.beat()) && a.autoTick()) continue;
+        const b=a.beat(); if(!b) break;
+        const o=b.opts[(i+s)%b.opts.length];
+        if(o.skip) a.pass(b.id); else if(!a.play(o.mv,o.arg)) break;
+      }
+      const w=a.midWindow();
+      if(w){
+        windows++;
+        const add=w.options.filter(x=>x.id==='add')[0];
+        if(add){
+          offered++;
+          const tilt=a.raw.tilt, mid=a.raw.mid;
+          const r=a.playMid('add');
+          /* 列出來就必須做得動 */
+          if(!r || !(r.bought>0)) ghost++;
+          /* 做不動的時候，心態與 mid 都不該被動過 */
+          if(!r && (a.raw.tilt!==tilt || a.raw.mid!==mid)) silent++;
+        } else {
+          /* 沒列出來的年份，確實應該是錢不夠 */
+          const need=a.investable()*(w.kind==='crash'?0.5:0.3);
+          if(need>0.5) broke++;
+          a.playMid('hold');
+        }
+      }
+      a.closeYear();
+    }
+  }
+  ok('年中窗口 '+windows+' 次，其中列出加碼 '+offered+' 次', windows>50);
+  ok('列出來的加碼都買得動（做不動 '+ghost+' 次）', ghost===0);
+  ok('沒列出來的都是真的錢不夠（誤判 '+broke+' 次）', broke===0);
+  ok('做不動的時候不會偷偷動心態（'+silent+' 次）', silent===0);
+})();
 ok('抽到過事件卡（'+cards+' 張）', cards>=15);
 ok('有結局', !!g.ending && !!g.ending.t);
 ok('結局有頁面要印的欄位',

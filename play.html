@@ -325,7 +325,7 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed;min-h
   </div>
 </div>
 
-<script src="kernel.js?v=13"></script>
+<script src="kernel.js?v=14"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用舊版：呈現層一律禁止呼叫內核的亂數——
@@ -340,7 +340,7 @@ let g=null, benchHist=[], navHist=[];
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源
    （file 文件的 origin 是不透明的），所以直接雙擊打開會載不到內核。
    與其讓畫面停在一片空白，不如講清楚怎麼跑。 */
-const NEED_VERSION=13;
+const NEED_VERSION=14;
 /* GitHub Pages 送的是 cache-control: max-age=600。兩次發布相隔不到十分鐘，
    瀏覽器就會拿新的 play.html 配快取裡的舊 kernel.js——舊內核沒有 beat()，
    renderActs() 一呼叫就丟 TypeError，面板從此空著，而且畫面上什麼都不說。
@@ -488,6 +488,9 @@ function endTurn(){
   if(w){ midModal(w); return; }
   settle();
 }
+/* 副標改由內核給（帶金額），畫面不再自己寫死一份。
+   寫死的那份講的是「三成現金」，而內核算得出來那是多少錢；
+   更糟的是它跟選項的存在條件脫鉤——沒錢的年份照樣寫著「再追三成現金進去」。 */
 function midModal(w){
   const crash=w.kind==='crash';
   modal(crash?'年中':'年中·狂牛',
@@ -496,21 +499,22 @@ function midModal(w){
       : '指數已經漲了 '+w.sofar+'%。群組裡沒有人在談風險，你的對帳單好看得不像自己的。',
     w.options.map(o=>({
       t:o.label,
-      s:o.id==='cut' ? '賣得掉賣不掉要看流動性——跌停鎖死就是賣不掉'
-       :o.id==='add' ? (crash?'用一半的現金往下攤':'再追三成現金進去')
-       :o.id==='take'? '一半落袋，成本重算'
-       :'什麼都不做',
+      n:o.n||'', s:o.s||'',
       warn:o.id==='add'&&!crash,
-      f:()=>{ const r=g.playMid(o.id); midReport(w,o,r); settle(); }
+      f:()=>{ const b4=snap(); const r=g.playMid(o.id); nextFx=delta(b4);
+              midReport(w,o,r); settle(); }
     })));
 }
 function midReport(w,o,r){
-  if(!r) return;
+  /* playMid() 買不動的時候回 null。安靜地什麼都不印，
+     跟以前無條件印「往下加碼了」是同一種說謊——只是換一個方向。 */
+  if(!r){ logRow('bad','年中','沒買成——可投入的現金不夠。'); return; }
   if(o.id==='cut'){
     if(r.sold.length) logRow('good','年中',r.sold.map(id=>KERNEL.BY_ID[id].n).join('、')+' 砍掉了。');
     if(r.failed.length) logRow('bad','年中',
       r.failed.map(id=>KERNEL.BY_ID[id].n).join('、')+' <b class="dn">跌停鎖死，賣不掉</b>。');
-  } else if(o.id==='add') logRow('','年中','往下加碼了。');
+  } else if(o.id==='add') logRow('','年中',
+    (w.kind==='crash'?'往下加碼了':'又追了一筆')+'，投入 <b class="hl">'+money(r.bought)+'</b>。');
   else if(o.id==='take') logRow('good','年中','獲利了結一半。');
   else logRow('','年中','你什麼都沒做。');
 }
@@ -820,7 +824,8 @@ function modal(title,body,opts,extra){
   m.innerHTML='<div class="m"><h2>'+esc(title)+'</h2><p>'+esc(body)+'</p>'+
     (extra||'')+
     opts.map(o=>'<button class="'+(o.main?'main':(o.warn?'warn':''))+'">'+esc(o.t)+
-      (o.s?'<span class="s">'+esc(o.s)+'</span>':'')+'</button>').join('')+'</div>';
+      ((o.n||o.s)?'<span class="s">'+(o.n?'<b>'+esc(o.n)+'</b>':'')+
+        (o.n&&o.s?'　':'')+esc(o.s||'')+'</span>':'')+'</button>').join('')+'</div>';
   document.body.appendChild(m);
   m.querySelectorAll('button').forEach((b,i)=>b.onclick=()=>{ m.remove(); opts[i].f(); });
 }
