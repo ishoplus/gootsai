@@ -1102,9 +1102,9 @@ const BEATS=[
       opts:[
         {t:'賣一半，先把本金抽回來', n:sellNote(g,h.id,0.5,curDie(g)), s:'剩下的讓它跑',
          mv:'sell:'+h.id, arg:{frac:0.5}},
-        {t:'全部落袋', n:sellNote(g,h.id,1,curDie(g)), s:'你不會再看它了',
+        {t:'全部落袋', n:sellNote(g,h.id,1,curDie(g)), s:'從此不再看它',
          mv:'sell:'+h.id, arg:{frac:1}},
-        {t:'一張都不賣', s:'會賺的部位不該賣——你是這樣告訴自己的', skip:1}
+        {t:'一張都不賣', s:'你是這樣告訴自己的', skip:1}
       ]};
   }},
   /* 停損：套牢的時候，攤平還是認錯 */
@@ -1112,9 +1112,9 @@ const BEATS=[
     const h=held(g).filter(function(x){ return x.pl<=-28; })[0];
     if(!h) return null;
     const can=investable(g)>MIN_TRADE;
-    const o=[{t:'認賠出場', n:sellNote(g,h.id,1,curDie(g)), s:'這筆帳就結了',
+    const o=[{t:'認賠出場', n:sellNote(g,h.id,1,curDie(g)), s:'帳就結了',
               mv:'sell:'+h.id, arg:{frac:1}}];
-    if(can) o.push({t:'往下攤平', n:buyNote(g,0.6,curDie(g)), s:'成本會被拉低',
+    if(can) o.push({t:'往下攤平', n:buyNote(g,0.6,curDie(g)), s:'成本拉低',
                     mv:'buy:'+h.id, arg:{frac:0.6}});
     o.push({t:'放著不管', s:'沒賣就不算賠', skip:1});
     return {q:h.n+'已經'+pctText(h.pl)+'。你打開對帳單的次數變少了。', opts:o};
@@ -1133,9 +1133,9 @@ const BEATS=[
     return {q:prev+'概念股是去年的題材，今年沒有人在講了。它現在'+pctText(h.pl)+'。',
       opts:[
         {t:'認了，全部賣掉', n:sellNote(g,h.id,1,die), s:'換回現金', mv:'sell:'+h.id, arg:{frac:1}},
-        {t:'賣一半，留一點', n:sellNote(g,h.id,0.5,die), s:'萬一它回來，你還在車上',
+        {t:'賣一半，留一點', n:sellNote(g,h.id,0.5,die), s:'它回來你還在車上',
          mv:'sell:'+h.id, arg:{frac:0.5}},
-        {t:'再等等，它會回來', s:'去年這個時候，它讓你賺了很多', skip:1}
+        {t:'再等等，它會回來', s:'去年它讓你賺很多', skip:1}
       ]};
   }},
   /* 維持率吃緊 ----
@@ -1151,13 +1151,13 @@ const BEATS=[
         const a=Math.min(g.cash,g.debt);
         return '還 '+amt(a)+'・維持率 '+(assets(g)/g.debt*100).toFixed(0)+'% → '+
                coverNote(g,-a,-a).replace('維持率 ','');
-      })(), s:'唯一真的有用的動作', mv:'repay'});
+      })(), s:'唯一有用的動作', mv:'repay'});
     const h=held(g)[0];
     /* 賣出不寫維持率——因為它不動。上面那個選項寫了前後值，
        兩個放在一起，「賣了不會救到維持率」自己就看得出來。 */
     if(h) o.push({t:'賣掉'+h.n+'，先把錢換回來', n:sellNote(g,h.id,1,curDie(g)),
-                  s:'維持率不動，但下一步才還得了錢', mv:'sell:'+h.id, arg:{frac:1}});
-    o.push({t:'撐著，它會回來', s:'跌破 130% 就是強制平倉，一次結清', skip:1, warn:1});
+                  s:'維持率不動，但有錢還了', mv:'sell:'+h.id, arg:{frac:1}});
+    o.push({t:'撐著，它會回來', s:'跌破 130% 強制平倉', skip:1, warn:1});
     return {q:'維持率 '+cover.toFixed(0)+'%。券商的簡訊今天發了第二封。', opts:o};
   }},
   /* 生活：撐不住的時候 */
@@ -1180,14 +1180,14 @@ const BEATS=[
     if(inv<=MIN_TRADE) return null;
     const hot='th_'+g.hotGuess, hs=held(g);
     const die=curDie(g), o=[];
-    o.push({t:'買'+g.hotGuess+'概念股', n:buyNote(g,0.6,die), s:'上車要快，下車更要快',
+    o.push({t:'買'+g.hotGuess+'概念股', n:buyNote(g,0.6,die), s:'下車要更快',
             mv:'buy:'+hot, arg:{frac:0.6}});
-    o.push({t:'買市值型 ETF', n:buyNote(g,1,die), s:'跟著大盤走，無聊是它的優點',
+    o.push({t:'買市值型 ETF', n:buyNote(g,1,die), s:'跟著大盤',
             mv:'buy:wide', arg:{frac:1}});
     /* 防守端：手上已經有東西就退到債券，什麼都沒有就先進高股息 */
     const def = hs.length ? 'bond' : 'div';
     o.push({t:'買'+BY_ID[def].n, n:buyNote(g,1,die),
-            s:(def==='bond'?'指數垮的時候它不太動':'漲得慢，但每季有錢進來'),
+            s:(def==='bond'?'指數垮它不太動':'慢，但每季配息'),
             mv:'buy:'+def, arg:{frac:1}});
     /* 融資不是常駐按鈕。只有在你正得意的時候它才會自己冒出來——那才是它真正的樣子。
        沒得意的年份，那一格讓給「加碼已經有的部位」。 */
@@ -1199,8 +1199,8 @@ const BEATS=[
       o.push({t:'融資追'+g.hotGuess, n:(function(){
         const b=nav(g)*0.6;
         return '借 '+amt(b)+'・'+coverNote(g,b,b);
-      })(), s:'跌破 130% 就是斷頭，一次結清', mv:'margin:'+hot, warn:1});
-    o.push({t:'先放著', s:'現金一年 1.5%，以及一整年的「早知道」', skip:1});
+      })(), s:'跌破 130% 斷頭', mv:'margin:'+hot, warn:1});
+    o.push({t:'先放著', s:'現金一年 1.5%', skip:1});
     return {q:'帳上有 '+inv.toFixed(0)+' 萬。今年市場在講的是'+g.hotGuess+'。', opts:o};
   }},
   /* 習慣：只問「要不要開一個新的」。
@@ -1223,7 +1223,7 @@ const BEATS=[
     const note=dieFace(die)+'進度 +'+gain+(gain>1?'（抵兩年）':'');
     const o=cand.map(function(k){ return {t:'開始'+HABITS[k].n, n:note, s:HABITS[k].fx,
                                           mv:'habit:'+k}; });
-    o.push({t:'今年不開新的', s:'槽位留著。你也不確定自己撐不撐得住', skip:1});
+    o.push({t:'今年不開新的', s:'槽位先留著', skip:1});
     return {q:'還有一個槽位空著（'+act.length+'／'+slotsAt(g.age)+'）。要固定做點什麼嗎？', opts:o};
   }},
   /* 研究：手上有東西才問 */
@@ -1430,15 +1430,15 @@ function midWindow(g){
   const opts=[];
   if(crash){
     opts.push({id:'cut', label:'全部砍掉', n:'手上 '+amt(posVal)+'，賣得掉多少看流動性',
-               s:'跌停鎖死就是賣不掉'});
+               s:'跌停就賣不掉'});
     if(canAdd) opts.push({id:'add', label:'加碼攤平', n:'投入 '+amt(add)+'（一半的現金）',
-                          s:'成本拉低，前提是它真的會回來'});
+                          s:'前提是它會回來'});
     opts.push({id:'hold', label:'抱著，不看', s:'什麼都不做'});
   } else {
     opts.push({id:'take', label:'獲利了結一半', n:'賣掉 '+amt(posVal*0.5)+'，成本重算',
                s:'一半落袋'});
     if(canAdd) opts.push({id:'add', label:'再加碼', n:'投入 '+amt(add)+'（三成現金）',
-                          s:'追在所有人都很樂觀的時候'});
+                          s:'追在最樂觀的時候'});
     opts.push({id:'hold', label:'續抱', s:'什麼都不做'});
   }
   return {kind:crash?'crash':'boom', sofar:Math.round(m.ret*0.62),
@@ -1616,7 +1616,7 @@ function wrap(g){
 
 /* 頁面用這個數字確認自己拿到的不是快取裡的舊內核。
    改了對外介面就 +1，並同步改 play.html 的 ?v= 與 NEED_VERSION。 */
-const VERSION=14;
+const VERSION=15;
 
 return {newGame:newGame, VERSION:VERSION, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,

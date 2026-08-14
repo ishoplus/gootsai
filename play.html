@@ -56,6 +56,7 @@ input{width:100%;padding:12px 13px;background:var(--card);color:var(--ink);borde
   border:1px solid var(--edge);font-size:15px;font-family:var(--mono);outline:none}
 input:focus{border-color:var(--accent)}
 .hint{color:var(--dim);font-size:12px;line-height:1.7;margin:8px 2px 0}
+.hint a{color:var(--accent)}
 
 /* ---- 上方：主數據 ---- */
 #hud{flex:none;background:var(--card);border-bottom:1px solid var(--edge);
@@ -241,25 +242,19 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed;min-h
 <div id="start" class="phone">
   <h1>少年股神<em>KERNEL V2 · 試玩</em></h1>
   <div class="tape"></div>
-  <p class="sub">
-    十六歲，你拿壓歲錢開了戶。二十四年後結算。<br>
-    這一版的差別：<b class="hl">持股跨年延續</b>——你會抱著去年的題材股；
-    <b class="hl">訊號可以讀</b>——十五張牌各有各的偏向，你會慢慢學會那張表；
-    <b class="hl">心態不扣你的錢，它動你的選項</b>——太得意的年份，年初就有一顆行動點不是你花的。
-  </p>
+  <!-- 開場原本有兩百多字的說明：三個「這一版的差別」、方針的用途、
+       種子的意義。那些是設計筆記，不是玩家開始前需要知道的事——
+       規則在撞上的那一刻教就好。留一句話跟一個選擇。 -->
+  <p class="sub">十六歲開戶，四十歲結算。</p>
   <div class="field">
-    <label>種子</label>
-    <input id="seed" maxlength="24" placeholder="留空隨機">
-  </div>
-  <div class="field">
-    <label>方針</label>
+    <label>你是哪種人</label>
     <div id="plans"></div>
-    <p class="hint">不需要你決定的事——餵既有的習慣、讀財報、休息、接案——照這個方針自動跑掉，
-      寫成敘述給你看。錢的事永遠還是你決定。</p>
   </div>
   <button class="main" id="go">開戶，開始</button>
-  <p class="sub" style="margin-top:20px;font-size:12px">
-    相同種子＋相同選擇＝相同人生。骨架說明見 <a href="KERNEL.md">KERNEL.md</a>。
+  <p class="hint" style="margin-top:16px">
+    <input id="seed" maxlength="24" placeholder="種子（留空隨機）"
+      style="font-size:13px;padding:9px 11px">
+    相同種子＝相同人生。<a href="KERNEL.md">說明</a>
   </p>
 </div>
 
@@ -325,7 +320,7 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed;min-h
   </div>
 </div>
 
-<script src="kernel.js?v=14"></script>
+<script src="kernel.js?v=15"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用舊版：呈現層一律禁止呼叫內核的亂數——
@@ -340,7 +335,7 @@ let g=null, benchHist=[], navHist=[];
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源
    （file 文件的 origin 是不透明的），所以直接雙擊打開會載不到內核。
    與其讓畫面停在一片空白，不如講清楚怎麼跑。 */
-const NEED_VERSION=14;
+const NEED_VERSION=15;
 /* GitHub Pages 送的是 cache-control: max-age=600。兩次發布相隔不到十分鐘，
    瀏覽器就會拿新的 play.html 配快取裡的舊 kernel.js——舊內核沒有 beat()，
    renderActs() 一呼叫就丟 TypeError，面板從此空著，而且畫面上什麼都不說。
@@ -372,9 +367,10 @@ const DIE=['','⚀','⚁','⚂','⚃','⚄','⚅'];
    每個選項後面那句是它在那個選項上的實際數字，這一行是它的方向。 */
 /* 這一行講的是「這顆骰子在買賣上值多少」，選項後面那句講的是
    「換算成這一手的錢是多少」。一個是規則，一個是這次的金額。 */
-const DIETIP=['','低・買賣價差 2.0%','低・買賣價差 2.0%',
-  '普通・買賣價差 0.6%','普通・買賣價差 0.6%',
-  '高・價位比市價好 0.4%','高・價位比市價好 0.4%'];
+/* 「第 2／5 顆」在上面的骰子列已經看得到，這裡不必再講一次。
+   一個決定的畫面上原本有兩百多個字，重複的那些先砍。 */
+const DIETIP=['','價差 +2.0%','價差 +2.0%','價差 +0.6%','價差 +0.6%',
+  '價位好 0.4%','價位好 0.4%'];
 function money(v){
   const a=Math.abs(v);
   if(a>=10000) return (v/10000).toFixed(2)+'億';
@@ -422,9 +418,9 @@ function nextYear(){
   /* 二十二歲的分岔：唯一一個職業決定 */
   if(g.raw.year===6 && !g.raw.careerSet){
     g.raw.careerSet=1;
-    modal('二十二歲','畢業了。你要去上班，還是把這件事變成全職？',[
-      {t:'去上班',s:'每年存得下 13～26 萬，穩定',f:()=>{ g.career('job'); openYear(); }},
-      {t:'全職操盤',s:'沒有薪水，但每年多一顆行動點；生活每年 −6',warn:1,
+    modal('二十二歲','畢業了。要上班，還是全職操盤？',[
+      {t:'去上班',n:'每年存 13～26 萬',s:'穩定',f:()=>{ g.career('job'); openYear(); }},
+      {t:'全職操盤',n:'沒有薪水，每年多一顆骰子',s:'生活每年 −6',warn:1,
         f:()=>{ g.career('pro'); openYear(); }}
     ]);
     return;
@@ -454,7 +450,7 @@ function eventModal(){
   if(!e) return false;
   modal(e.n, e.d, e.opts.map(o=>({
     t:o.t,
-    s:[o.need?'因為你有「'+KERNEL.HABITS[o.need].n+'」':'', o.gamble?'這個要擲':''].filter(Boolean).join('　'),
+    s:[o.need?'因為你有「'+KERNEL.HABITS[o.need].n+'」':'', o.gamble?'要擲骰':''].filter(Boolean).join('　'),
     warn:o.gamble,
     f:()=>{
       const b4=snap();
@@ -495,8 +491,8 @@ function midModal(w){
   const crash=w.kind==='crash';
   modal(crash?'年中':'年中·狂牛',
     crash
-      ? '指數已經跌了 '+Math.abs(w.sofar)+'%，而且沒有止住的跡象。委賣單掛在那裡一整天，一張都沒成交。'
-      : '指數已經漲了 '+w.sofar+'%。群組裡沒有人在談風險，你的對帳單好看得不像自己的。',
+      ? '指數跌了 '+Math.abs(w.sofar)+'%，還沒止住。'
+      : '指數漲了 '+w.sofar+'%。群組裡沒有人在談風險。',
     w.options.map(o=>({
       t:o.label,
       n:o.n||'', s:o.s||'',
@@ -693,7 +689,9 @@ function autoRun(){
     if(!say) return;
     markDie(say.kind, at);
     nextFx=delta(b4);
-    logRow('auto','', esc(say.text));
+    /* 標籤用骰子那一列同一套字（加班／習慣／研究…）：
+       選項上方那條只留標籤與數字，沒有標籤就只剩一串數字，看不出是誰做的。 */
+    logRow('auto', DIETAG[say.kind]||'', esc(say.text));
   }
 }
 function renderBeat(){
@@ -712,11 +710,11 @@ function renderBeat(){
   setAct('還有 '+r.apLeft+' 件事',
     '<div class="q">'+esc(b.q)+'</div>'+
     '<div class="dieline"><span class="die">'+DIE[b.die]+'</span><span>'+
-      '<b>第 '+(r.dieAt+1)+'／'+r.dice.length+' 顆・'+b.die+' 點</b>　'+DIETIP[b.die]+'</span></div>'+
+      '<b>'+b.die+' 點</b>　'+DIETIP[b.die]+'</span></div>'+
     b.opts.map(o=>'<button'+(o.warn?' class="warn"':'')+'>'+esc(o.t)+
       ((o.n||o.s)?'<span class="s">'+(o.n?'<b>'+esc(o.n)+'</b>':'')+
         (o.n&&o.s?'　':'')+esc(o.s||'')+'</span>':'')+'</button>').join('')+
-    '<button class="skipall">今年就這樣，剩下的 '+r.apLeft+' 點不用了</button>');
+    '<button class="skipall">今年就這樣</button>');
   const bs=$('act').querySelectorAll('button');
   b.opts.forEach((o,i)=>{ bs[i].onclick=()=>{
     if(o.skip){ g.pass(b.id); render(); return; }
@@ -796,10 +794,11 @@ function delta(a){
   });
   return out.join('　');
 }
-let nextFx='';
+let nextFx='', nextFxKeep='', lastTag='';
 function logRow(cls,tag,html){
-  const body=(tag?'<span class="t">'+esc(tag)+'</span>':'')+html+
-    (nextFx?'<span class="fx">'+nextFx+'</span>':'');
+  nextFxKeep = nextFx ? '<span class="fx">'+nextFx+'</span>' : '';
+  lastTag = tag||'';
+  const body=(tag?'<span class="t">'+esc(tag)+'</span>':'')+html+nextFxKeep;
   nextFx='';
   const d=document.createElement('div');
   d.className='row'+(cls?' '+cls:'');
@@ -810,9 +809,21 @@ function logRow(cls,tag,html){
 /* 最新的一則放在選項正上方，完整的歷史留在「紀錄」分頁。
    中間那格不再重複印一次——選項展開時它只剩三十幾 px，
    印在那裡跟印在畫面外沒有差別。 */
+/* dock 上那一條只放「做了什麼」與「數字變成什麼」。
+   完整那句留在「紀錄」——它是故事，但故事不該擠在下一個決定的正上方，
+   而且它每一年都會出現，是家具不是情節。 */
 function flash(cls,body){
   const last=$('last');
-  if(last){ last.style.display=''; last.innerHTML=body; }
+  if(!last) return;
+  last.style.display='';
+  last.innerHTML=(lastTag?'<span class="t">'+esc(lastTag)+'</span>':'')+
+    (nextFxKeep||'<span class="fx">'+esc(lastPlain(body))+'</span>');
+}
+/* 沒有數字可印的時候（研究、開習慣那類），退回原本那句話的第一個句子 */
+function lastPlain(body){
+  const t=String(body).replace(/<[^>]*>/g,'');
+  const cut=t.indexOf('。');
+  return cut>0 ? t.slice(0,cut+1) : t.slice(0,28);
 }
 function flashClear(){
   const l=$('last'); if(l){ l.style.display='none'; l.innerHTML=''; }
@@ -864,8 +875,7 @@ function ending(){
      原本這裡唯一的按鈕是「再來一次」，而它會 location.reload()——
      等於這張表插進去之後，沒有任何一條路徑看得到它。
      現在按掉彈窗就是結算表，重玩改放在下面的選單裡。 */
-  modal(e.t,'四十歲，結算。二十四年就這樣過完了。',
-        [{t:'看結算', main:1, f:()=>{}}]);
+  modal(e.t,'二十四年，結算。',[{t:'看結算', main:1, f:()=>{}}]);
   actOnly([
     {t:'再玩一次（同一顆種子）', main:1, f:()=>location.reload()},
     {t:'換一顆種子', f:()=>{ location.href=location.pathname; }}
