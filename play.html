@@ -75,19 +75,23 @@ input:focus{border-color:var(--accent)}
 #hud .chip b{font-size:10.5px;font-weight:700;margin-left:2px}
 /* 骰子從 chip 裡搬出來自己站一列。擠在 17px 的 chip 裡，
    「用掉的」與「還沒用的」在那個尺寸上分不出來——等於沒有顯示。 */
-#hud .dicerow{display:flex;align-items:center;gap:8px;margin-top:7px;
-  background:var(--card2);border-radius:9px;padding:5px 9px}
+#hud .dicerow{display:flex;align-items:center;gap:8px;margin-top:6px;
+  background:var(--card2);border-radius:9px;padding:3px 9px 4px}
 #hud .dicerow .k{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--dim)}
 .dice{letter-spacing:2px;font-size:22px;line-height:1.15;color:var(--edge)}
 .dice b{color:var(--accent);font-weight:400}
 .dice b.now{color:var(--ink);border-bottom:2px solid var(--accent)}
 .dice s{color:var(--edge);text-decoration:line-through;text-decoration-thickness:1px}
-.die{display:inline-block;font-size:26px;line-height:1;color:var(--accent)}
+.die{display:inline-block;font-size:20px;line-height:1;color:var(--accent)}
 
 /* ---- 中間：顯示面板 ----
    整頁不捲，只有這一格捲。上面的數據與下面的選單永遠在原地，
    所以「現在你有多少錢」與「現在要你決定什麼」不會被內容推走。 */
-#stage{flex:1 1 auto;overflow-y:auto;-webkit-overflow-scrolling:touch;padding:11px 11px 14px}
+/* flex-basis 0 ＋ min-height：這一格才會「讓」出空間。
+   選項多的年份由它縮，而不是讓選項自己長出一條捲軸——
+   要你決定的東西不該有一半藏在畫面外。 */
+#stage{flex:1 1 0;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:11px 11px 14px}
 .card{background:var(--card);border:1px solid var(--edge);border-radius:var(--r);
   padding:12px 13px;margin-bottom:9px}
 .card>h3{margin:0 0 9px;font-size:9.5px;letter-spacing:.24em;color:var(--dim);
@@ -134,44 +138,56 @@ svg.chart{width:100%;height:130px;display:block}
 /* ---- 下方：選單，可收納 ----
    收起來只剩一條把手＋分頁列，中間那格就拿回整個螢幕；
    要出牌的時候再拉開。這條把手同時是「現在輪到你決定什麼」的標題。 */
-#dock{flex:none;background:var(--card);border-top:1px solid var(--edge);
+/* min-height:0 ＋ 自己也是 flex：畫面真的不夠高的時候，
+   這一格要會「縮」而不是被切掉。被切掉的話最後一個選項連同分頁列
+   一起消失在畫面外，而且沒有任何捲軸告訴你它還在那裡——
+   實測 580px 高的視窗就會發生。 */
+#dock{flex:0 1 auto;min-height:0;max-height:100%;display:flex;flex-direction:column;
+  background:var(--card);border-top:1px solid var(--edge);
   border-radius:16px 16px 0 0;box-shadow:0 -6px 22px rgba(20,17,12,.13);
   padding-bottom:env(safe-area-inset-bottom)}
-#grab{display:flex;align-items:center;gap:10px;width:100%;padding:9px 14px 8px;
+#grab{flex:none;display:flex;align-items:center;gap:10px;width:100%;padding:8px 14px 7px;min-height:0;
+  margin-bottom:0;
   background:none;border:none;border-radius:16px 16px 0 0;cursor:pointer;text-align:left}
 #grab .bar{position:absolute;left:50%;transform:translateX(-50%);top:5px;
   width:34px;height:3px;border-radius:3px;background:var(--edge)}
 #grab .t{flex:1;font-size:13px;font-weight:700;line-height:1.4}
 #grab .c{font-family:var(--mono);font-size:11px;color:var(--dim)}
 #dock{position:relative}
-#dock-body{max-height:min(50vh,400px);overflow-y:auto;padding:0 12px 10px}
+/* 沒有 max-height：選項有多高，這一格就多高。
+   上面的 #stage 會讓位。overflow 只是最後一道保險，
+   正常玩到的年份（最多 5 個選項）碰不到它。 */
+#dock-body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 11px 9px}
 #dock.min #dock-body{display:none}
-#tabs{display:flex;border-top:1px solid var(--edge);background:var(--card)}
-#tabs button{flex:1;background:none;border:none;border-top:2px solid transparent;margin-top:-1px;
-  padding:9px 2px calc(9px + env(safe-area-inset-bottom));font-size:12.5px;color:var(--dim);
-  text-align:center;font-weight:500;cursor:pointer;border-radius:0}
+#tabs{flex:none;display:flex;border-top:1px solid var(--edge);background:var(--card)}
+#tabs button{flex:1;background:none;border:none;border-top:2px solid transparent;margin:-1px 0 0;
+  min-height:0;padding:8px 2px calc(8px + env(safe-area-inset-bottom));font-size:12.5px;
+  color:var(--dim);text-align:center;font-weight:500;cursor:pointer;border-radius:0}
 #tabs button.on{color:var(--accent);border-top-color:var(--accent);font-weight:700}
 
 /* ---- 出牌 ---- */
-button{font-family:var(--sans);font-size:15px;cursor:pointer;text-align:left;border-radius:11px;
-  background:var(--card2);color:var(--ink);border:1px solid var(--edge);padding:12px 13px;width:100%;
-  min-height:48px;line-height:1.5;margin-bottom:7px;transition:none}
+/* 五個選項要在一個螢幕裡全部看得到，所以每一顆都壓到最省：
+   標題一行、副標一行、上下各 9px。再省就按不準了。 */
+button{font-family:var(--sans);font-size:14.5px;cursor:pointer;text-align:left;border-radius:10px;
+  background:var(--card2);color:var(--ink);border:1px solid var(--edge);padding:9px 11px;width:100%;
+  min-height:44px;line-height:1.4;margin-bottom:6px;transition:none}
 button:last-child{margin-bottom:0}
 button:hover:not(:disabled){border-color:var(--accent)}
 button:disabled{opacity:.4;cursor:default}
-button .s{display:block;font-size:11.5px;color:var(--dim);font-family:var(--mono);margin-top:2px}
+button .s{display:block;font-size:11px;line-height:1.4;color:var(--dim);font-family:var(--mono);
+  margin-top:1px}
 button.main{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
 button.main .s{color:rgba(255,255,255,.8)}
 button.main:hover:not(:disabled){background:var(--accent2);border-color:var(--accent2)}
 button.warn{border-color:var(--dn);color:var(--dn)}
-button.skipall{background:transparent;color:var(--dim);border-style:dashed}
-.q{font-size:15.5px;line-height:1.75;margin:0 0 9px;padding:0 2px}
-/* 這顆骰子現在給你什麼，就寫在選項的正上方。
-   一顆沒有標籤的骰子印在題目旁邊，玩家只會當它是裝飾。 */
-.dietip{display:flex;align-items:center;gap:9px;margin:0 0 10px;padding:7px 10px;
-  background:var(--card2);border-radius:11px;border:1px solid var(--edge)}
-.dietip .tx{font-size:12px;line-height:1.5;color:var(--dim)}
-.dietip .tx b{display:block;color:var(--ink);font-size:12.5px}
+button.skipall{background:transparent;color:var(--dim);border-style:dashed;min-height:38px;
+  font-size:13px;padding:8px 11px}
+.q{font-size:15px;line-height:1.6;margin:0 0 6px;padding:0 2px}
+/* 骰子壓成一行。原本是一個有邊框的方塊，光它就吃掉 46px——
+   在小螢幕上那 46px 直接換成「最後一個選項看不到」。 */
+.dieline{display:flex;align-items:center;gap:7px;margin:0 0 8px;padding:0 2px;
+  font-size:11.5px;line-height:1.3;color:var(--dim)}
+.dieline b{color:var(--ink);font-weight:700}
 
 /* ---- 彈窗 ---- */
 #mask{position:fixed;inset:0;background:rgba(20,17,12,.72);z-index:60;display:flex;
@@ -273,7 +289,7 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed}
   </div>
 </div>
 
-<script src="kernel.js?v=9"></script>
+<script src="kernel.js?v=10"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用舊版：呈現層一律禁止呼叫內核的亂數——
@@ -288,7 +304,7 @@ let g=null, benchHist=[], navHist=[];
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源
    （file 文件的 origin 是不透明的），所以直接雙擊打開會載不到內核。
    與其讓畫面停在一片空白，不如講清楚怎麼跑。 */
-const NEED_VERSION=9;
+const NEED_VERSION=10;
 /* GitHub Pages 送的是 cache-control: max-age=600。兩次發布相隔不到十分鐘，
    瀏覽器就會拿新的 play.html 配快取裡的舊 kernel.js——舊內核沒有 beat()，
    renderActs() 一呼叫就丟 TypeError，面板從此空著，而且畫面上什麼都不說。
@@ -318,10 +334,8 @@ if(typeof KERNEL==='undefined'){
 const DIE=['','⚀','⚁','⚂','⚃','⚄','⚅'];
 /* 骰子不決定你能不能做，決定的是做出來什麼樣。這句話要寫在你按之前看得到的地方——
    每個選項後面那句是它在那個選項上的實際數字，這一行是它的方向。 */
-const DIETIP=['',
-  '點數低，這一手會做得比較勉強','點數低，這一手會做得比較勉強',
-  '點數普通，中規中矩','點數普通，中規中矩',
-  '點數高，這一手做得特別到位','點數高，這一手做得特別到位'];
+const DIETIP=['','低，這一手會做得勉強','低，這一手會做得勉強',
+  '普通','普通','高，這一手做得特別到位','高，這一手做得特別到位'];
 function money(v){
   const a=Math.abs(v);
   if(a>=10000) return (v/10000).toFixed(2)+'億';
@@ -625,12 +639,11 @@ function renderBeat(){
   if(!b){ doneYear(); return; }
   setAct('還有 '+r.apLeft+' 件事',
     '<div class="q">'+esc(b.q)+'</div>'+
-    '<div class="dietip"><span class="die">'+DIE[b.die]+'</span><span class="tx">'+
-      '<b>第 '+(r.dieAt+1)+' 顆，'+b.die+' 點</b>'+DIETIP[b.die]+'</span></div>'+
+    '<div class="dieline"><span class="die">'+DIE[b.die]+'</span><span>'+
+      '<b>第 '+(r.dieAt+1)+'／'+r.dice.length+' 顆・'+b.die+' 點</b>　'+DIETIP[b.die]+'</span></div>'+
     b.opts.map(o=>'<button'+(o.warn?' class="warn"':'')+'>'+esc(o.t)+
       (o.s?'<span class="s">'+esc(o.s)+'</span>':'')+'</button>').join('')+
-    '<button class="skipall">今年就這樣<span class="s">剩下的 '+r.apLeft+
-      ' 點不用了</span></button>');
+    '<button class="skipall">今年就這樣，剩下的 '+r.apLeft+' 點不用了</button>');
   const bs=$('act').querySelectorAll('button');
   b.opts.forEach((o,i)=>{ bs[i].onclick=()=>{
     if(o.skip){ g.pass(b.id); render(); return; }

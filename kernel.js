@@ -1052,14 +1052,12 @@ function dieFace(die){ return (DIEC[die]||'')+' '; }
 /* 三段都要有話講。原本 3～4 點回空字串——那是六面裡的兩面，
    三分之一的機率讓畫面看起來像「這顆骰子沒有作用」，
    但 +0.6% 的滑價是真的在扣你的錢。 */
+/* 短到能跟前面那句擠在同一行。「這顆低，你會拖到比較差的價位（+2.0%）」
+   在窄螢幕上自己就折成第二行，五個選項因此多出五行，最後一個掉出畫面。
+   骰子高低的解釋改印在題目下面那一行，這裡只留數字。 */
 function slipNote(die){
-  /* 分段要照點數走，不能照滑價的數值走：3～4 點的 +0.6% 也 >0.5，
-     用數值判斷會把「普通」講成「低」，那比不印還糟——畫面在說謊。 */
-  const v=(slip(die)*100).toFixed(1);
-  return '　'+dieFace(die)+(
-      die<=2 ? '這顆低，你會拖到比較差的價位（+'+v+'%）'
-    : die<=4 ? '這顆普通，價位小虧一點（+'+v+'%）'
-    :          '這顆高，說到做到，價位還不錯（'+v+'%）');
+  const v=slip(die)*100;
+  return '　'+dieFace(die)+'價位 '+(v>0?'+':'')+v.toFixed(1)+'%';
 }
 const BEATS=[
   /* 停利：帳面很好看的時候，賣不賣得下手 */
@@ -1111,9 +1109,9 @@ const BEATS=[
     if(cover>=185) return null;
     const o=[];
     if(g.cash>MIN_TRADE)
-      o.push({t:'用現金還掉一部分', s:'維持率直接拉高——這是唯一真的有用的動作。跟骰子無關', mv:'repay'});
+      o.push({t:'用現金還掉一部分', s:'維持率直接拉高，唯一真的有用的動作', mv:'repay'});
     const h=held(g)[0];
-    if(h) o.push({t:'賣掉'+h.n+'，先把錢換回來', s:'賣了還不會降維持率，但下一步才還得了錢'+slipNote(curDie(g)),
+    if(h) o.push({t:'賣掉'+h.n+'，先把錢換回來', s:'先換成現金，下一步才還得了錢'+slipNote(curDie(g)),
                   mv:'sell:'+h.id, arg:{frac:1}});
     o.push({t:'撐著，它會回來', s:'跌破 130% 就是強制平倉，一次結清', skip:1, warn:1});
     return {q:'維持率 '+cover.toFixed(0)+'%。券商的簡訊今天發了第二封。', opts:o};
@@ -1138,24 +1136,25 @@ const BEATS=[
     if(inv<=MIN_TRADE) return null;
     const hot='th_'+g.hotGuess, hs=held(g);
     const die=curDie(g), o=[];
-    o.push({t:'買'+g.hotGuess+'概念股', s:'現在誰都在講這個。上車要快，下車更要快'+slipNote(die),
+    o.push({t:'買'+g.hotGuess+'概念股', s:'上車要快，下車更要快'+slipNote(die),
             mv:'buy:'+hot, arg:{frac:0.6}});
-    o.push({t:'買市值型 ETF', s:'跟著大盤走，無聊——這是它最大的優點'+slipNote(die),
+    o.push({t:'買市值型 ETF', s:'跟著大盤走，無聊是它的優點'+slipNote(die),
             mv:'buy:wide', arg:{frac:1}});
     /* 防守端：手上已經有東西就退到債券，什麼都沒有就先進高股息 */
     const def = hs.length ? 'bond' : 'div';
     o.push({t:'買'+BY_ID[def].n,
-            s:(def==='bond'?'跟大盤幾乎不連動。指數垮的時候它不太動'
-                           :'每季配息，漲得慢，但錢會一直進來')+slipNote(die),
+            s:(def==='bond'?'指數垮的時候它不太動'
+                           :'漲得慢，但每季有錢進來')+slipNote(die),
             mv:'buy:'+def, arg:{frac:1}});
     /* 融資不是常駐按鈕。只有在你正得意的時候它才會自己冒出來——那才是它真正的樣子。
        沒得意的年份，那一格讓給「加碼已經有的部位」。 */
+    /* 「加碼手上最大的部位」拿掉了：買題材已經包含加碼題材，
+       往下攤平則在停損那一格問過，它夾在中間只是把選項變成五個。
+       實測有一半的題目是五個選項，小螢幕上最後一個會被切掉——
+       一個看不到的選項，比沒有這個選項更糟。 */
     if(g.tilt>=70 && g.debt<=0)
-      o.push({t:'融資追'+g.hotGuess, s:'借淨值六成。維持率跌破 130% 就是斷頭。跟骰子無關',
+      o.push({t:'融資追'+g.hotGuess, s:'借淨值六成，跌破 130% 就是斷頭',
               mv:'margin:'+hot, warn:1});
-    else if(hs.length && hs[0].id!==hot)
-      o.push({t:'加碼'+hs[0].n, s:'已經有的部位再壓上去'+slipNote(die),
-              mv:'buy:'+hs[0].id, arg:{frac:0.6}});
     o.push({t:'先放著', s:'現金一年 1.5%，以及一整年的「早知道」', skip:1});
     return {q:'帳上有 '+inv.toFixed(0)+' 萬。今年市場在講的是'+g.hotGuess+'。', opts:o};
   }},
@@ -1173,8 +1172,7 @@ const BEATS=[
        而副標原本只寫效果，一個字都沒提骰子，玩家因此看不出
        「今年開這個特別划算」。這是骰子最不明顯的一次，也是最大的一次。 */
     const die=curDie(g);
-    const note='　'+dieFace(die)+(die>=5 ? '這顆高，今年抵兩年（進度 +2）'
-                                        : '這顆普通，一年算一年（進度 +1）');
+    const note='　'+dieFace(die)+(die>=5 ? '進度 +2（抵兩年）' : '進度 +1');
     const o=cand.map(function(k){ return {t:'開始'+HABITS[k].n, s:HABITS[k].fx+note, mv:'habit:'+k}; });
     o.push({t:'今年不開新的', s:'槽位留著。你也不確定自己撐不撐得住', skip:1});
     return {q:'還有一個槽位空著（'+act.length+'／'+slotsAt(g.age)+'）。要固定做點什麼嗎？', opts:o};
@@ -1541,7 +1539,7 @@ function wrap(g){
 
 /* 頁面用這個數字確認自己拿到的不是快取裡的舊內核。
    改了對外介面就 +1，並同步改 play.html 的 ?v= 與 NEED_VERSION。 */
-const VERSION=9;
+const VERSION=10;
 
 return {newGame:newGame, VERSION:VERSION, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
