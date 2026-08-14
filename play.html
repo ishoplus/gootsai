@@ -117,6 +117,9 @@ table.book td{padding:7px 0;border-bottom:1px solid var(--edge);text-align:right
 table.book td:first-child{text-align:left;font-family:var(--sans);font-size:13.5px}
 table.book tr:last-child td{border-bottom:none}
 .empty{color:var(--dim);font-size:13px;padding:8px 0}
+.card.end{border-color:var(--accent)}
+.endt{font-family:var(--serif);font-size:26px;font-weight:900;line-height:1.15;
+  margin:-2px 0 10px;color:var(--accent)}
 .scout{font-size:10px;font-family:var(--mono);padding:1px 5px;border:1px solid currentColor;
   border-radius:6px;margin-left:5px}
 
@@ -764,14 +767,14 @@ function modal(title,body,opts,extra){
 function ending(){
   const e=g.ending;
   const cell=(k,v)=>'<tr><td>'+k+'</td><td style="text-align:right"><b>'+v+'</b></td></tr>';
-  modal(e.t,'四十歲，結算。',[{t:'再來一次（同一顆種子）',main:1,f:()=>location.reload()}]);
   const box=document.createElement('div');
-  box.className='card';
-  box.innerHTML='<h3>結算</h3><table class="book">'+
+  box.className='card end';
+  box.innerHTML='<h3>四十歲 · 結算</h3><div class="endt">'+esc(e.t)+'</div><table class="book">'+
     cell('淨值',money(e.nav))+
     cell('二十五年存進去的錢',money(e.inflow))+
     cell('同樣的錢全買市值型 ETF',money(e.bench))+
     cell('你贏它','<b class="'+(e.edge>=0?'up':'dn')+'">'+sgn(e.edge)+'%</b>')+
+    cell('年化報酬','<b class="'+(e.cagr>=0?'up':'dn')+'">'+sgn(e.cagr)+'%</b>')+
     cell('繳出去的稅費',money(e.tax))+
     cell('收到的股利',money(e.div))+
     cell('交易次數',e.trades)+
@@ -781,9 +784,18 @@ function ending(){
   const col=$('p-now');
   if(col) col.insertBefore(box,col.firstChild);
   showPage('now');
-  $('act-h').textContent='　';
-  $('act').innerHTML='';
-  setDock(true);
+  /* 結算表插進「現況」最上面，然後彈窗只報結局的名字。
+     原本這裡唯一的按鈕是「再來一次」，而它會 location.reload()——
+     等於這張表插進去之後，沒有任何一條路徑看得到它。
+     現在按掉彈窗就是結算表，重玩改放在下面的選單裡。 */
+  modal(e.t,'四十歲，結算。二十四年就這樣過完了。',
+        [{t:'看結算', main:1, f:()=>{}}]);
+  actOnly([
+    {t:'再玩一次（同一顆種子）', main:1, f:()=>location.reload()},
+    {t:'換一顆種子', f:()=>{ location.href=location.pathname; }}
+  ]);
+  $('act-h').textContent='四十歲，結束了';
+  setDock(false);
 }
 </script>
 </body>
