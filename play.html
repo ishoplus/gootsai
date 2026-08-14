@@ -294,7 +294,7 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed;min-h
   </div>
 </div>
 
-<script src="kernel.js?v=11"></script>
+<script src="kernel.js?v=12"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用舊版：呈現層一律禁止呼叫內核的亂數——
@@ -309,7 +309,7 @@ let g=null, benchHist=[], navHist=[];
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源
    （file 文件的 origin 是不透明的），所以直接雙擊打開會載不到內核。
    與其讓畫面停在一片空白，不如講清楚怎麼跑。 */
-const NEED_VERSION=11;
+const NEED_VERSION=12;
 /* GitHub Pages 送的是 cache-control: max-age=600。兩次發布相隔不到十分鐘，
    瀏覽器就會拿新的 play.html 配快取裡的舊 kernel.js——舊內核沒有 beat()，
    renderActs() 一呼叫就丟 TypeError，面板從此空著，而且畫面上什麼都不說。
@@ -339,8 +339,11 @@ if(typeof KERNEL==='undefined'){
 const DIE=['','⚀','⚁','⚂','⚃','⚄','⚅'];
 /* 骰子不決定你能不能做，決定的是做出來什麼樣。這句話要寫在你按之前看得到的地方——
    每個選項後面那句是它在那個選項上的實際數字，這一行是它的方向。 */
-const DIETIP=['','低，這一手會做得勉強','低，這一手會做得勉強',
-  '普通','普通','高，這一手做得特別到位','高，這一手做得特別到位'];
+/* 這一行講的是「這顆骰子在買賣上值多少」，選項後面那句講的是
+   「換算成這一手的錢是多少」。一個是規則，一個是這次的金額。 */
+const DIETIP=['','低・買賣價差 2.0%','低・買賣價差 2.0%',
+  '普通・買賣價差 0.6%','普通・買賣價差 0.6%',
+  '高・價位比市價好 0.4%','高・價位比市價好 0.4%'];
 function money(v){
   const a=Math.abs(v);
   if(a>=10000) return (v/10000).toFixed(2)+'億';

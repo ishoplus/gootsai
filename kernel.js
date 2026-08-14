@@ -1059,6 +1059,37 @@ function slipNote(die){
   const v=slip(die)*100;
   return '　'+dieFace(die)+'價位 '+(v>0?'+':'')+v.toFixed(1)+'%';
 }
+/* ---- 把「會變成什麼」直接算給他看 ----
+   百分比不是直覺：「價位 +2.0%」要玩家自己乘一次才知道那是六百還是六千，
+   而「實現 +2.1 萬」是他真的會多出來的錢。選項的影響與骰子的影響
+   都用同一個單位講，一眼就比得出來。 */
+function amt(v){
+  /* 精度跟著數量級走：小數點在幾百塊的時候有意義，在一百多萬的時候
+     只是把副標撐長一行。實測「139.7 萬」那種寫法會把選項擠成兩行。 */
+  const a=Math.abs(v);
+  if(a<1)      return Math.round(v*10000)+' 元';   /* 一萬以下講「元」——「0.2 萬」沒有人在心裡換算 */
+  if(a<10)     return v.toFixed(1)+' 萬';
+  if(a<10000)  return Math.round(v)+' 萬';
+  return (v/10000).toFixed(2)+' 億';
+}
+function buyNote(g,frac,die){
+  const gross=investable(g)*(frac==null?1:frac), sl=gross*slip(die);
+  return '投入 '+amt(gross)+'　'+dieFace(die)+(sl>=0?'多付 ':'少付 ')+amt(Math.abs(sl));
+}
+function sellNote(g,id,frac,die){
+  const b=g.book[id]; if(!b) return '';
+  const sh=b.sh*(frac==null?1:frac);
+  const gross=sh*g.price[id]*(1-slip(die));
+  const net=gross-gross*(TAX_SELL+FEE), pl=net-sh*b.cost;
+  const lost=sh*g.price[id]*slip(die);
+  return '拿回 '+amt(net)+'・'+(pl>=0?'賺 ':'賠 ')+amt(Math.abs(pl))+
+         '　'+dieFace(die)+(lost>=0?'少收 ':'多收 ')+amt(Math.abs(lost));
+}
+function coverNote(g,dDebt,dAssets){
+  const d=g.debt+(dDebt||0);
+  if(d<=0) return '債務清空';
+  return '維持率 '+((assets(g)+(dAssets||0))/d*100).toFixed(0)+'%';
+}
 const BEATS=[
   /* 停利：帳面很好看的時候，賣不賣得下手 */
   {id:'take', ask:1, pick:function(g){
@@ -1066,8 +1097,8 @@ const BEATS=[
     if(!h) return null;
     return {q:h.n+'已經幫你'+pctText(h.pl)+'。你每天打開軟體第一個看的就是它。',
       opts:[
-        {t:'賣一半，先把本金抽回來', s:'剩下的讓它跑'+slipNote(curDie(g)), mv:'sell:'+h.id, arg:{frac:0.5}},
-        {t:'全部落袋', s:'證交稅 0.3%，但你不會再看它了'+slipNote(curDie(g)), mv:'sell:'+h.id, arg:{frac:1}},
+        {t:'賣一半，先把本金抽回來', s:sellNote(g,h.id,0.5,curDie(g)), mv:'sell:'+h.id, arg:{frac:0.5}},
+        {t:'全部落袋', s:sellNote(g,h.id,1,curDie(g)), mv:'sell:'+h.id, arg:{frac:1}},
         {t:'一張都不賣', s:'會賺的部位不該賣——你是這樣告訴自己的', skip:1}
       ]};
   }},
@@ -1076,8 +1107,8 @@ const BEATS=[
     const h=held(g).filter(function(x){ return x.pl<=-28; })[0];
     if(!h) return null;
     const can=investable(g)>MIN_TRADE;
-    const o=[{t:'認賠出場', s:'實現虧損，這筆帳就結了'+slipNote(curDie(g)), mv:'sell:'+h.id, arg:{frac:1}}];
-    if(can) o.push({t:'往下攤平', s:'成本會被拉低，前提是它真的會回來'+slipNote(curDie(g)),
+    const o=[{t:'認賠出場', s:sellNote(g,h.id,1,curDie(g)), mv:'sell:'+h.id, arg:{frac:1}}];
+    if(can) o.push({t:'往下攤平', s:buyNote(g,0.6,curDie(g))+'，成本拉低',
                     mv:'buy:'+h.id, arg:{frac:0.6}});
     o.push({t:'放著不管', s:'沒賣就不算賠', skip:1});
     return {q:h.n+'已經'+pctText(h.pl)+'。你打開對帳單的次數變少了。', opts:o};
@@ -1095,8 +1126,8 @@ const BEATS=[
     const die=curDie(g);
     return {q:prev+'概念股是去年的題材，今年沒有人在講了。它現在'+pctText(h.pl)+'。',
       opts:[
-        {t:'認了，全部賣掉', s:'換回現金，這筆帳就結了'+slipNote(die), mv:'sell:'+h.id, arg:{frac:1}},
-        {t:'賣一半，留一點', s:'萬一它真的回來，你還在車上'+slipNote(die), mv:'sell:'+h.id, arg:{frac:0.5}},
+        {t:'認了，全部賣掉', s:sellNote(g,h.id,1,die), mv:'sell:'+h.id, arg:{frac:1}},
+        {t:'賣一半，留一點', s:sellNote(g,h.id,0.5,die), mv:'sell:'+h.id, arg:{frac:0.5}},
         {t:'再等等，它會回來', s:'去年這個時候，它讓你賺了很多', skip:1}
       ]};
   }},
@@ -1109,9 +1140,15 @@ const BEATS=[
     if(cover>=185) return null;
     const o=[];
     if(g.cash>MIN_TRADE)
-      o.push({t:'用現金還掉一部分', s:'維持率直接拉高，唯一真的有用的動作', mv:'repay'});
+      o.push({t:'用現金還掉一部分', s:(function(){
+        const a=Math.min(g.cash,g.debt);
+        return '還 '+amt(a)+'・維持率 '+(assets(g)/g.debt*100).toFixed(0)+'% → '+
+               coverNote(g,-a,-a).replace('維持率 ','');
+      })(), mv:'repay'});
     const h=held(g)[0];
-    if(h) o.push({t:'賣掉'+h.n+'，先把錢換回來', s:'先換成現金，下一步才還得了錢'+slipNote(curDie(g)),
+    /* 賣出不寫維持率——因為它不動。上面那個選項寫了前後值，
+       兩個放在一起，「賣了不會救到維持率」自己就看得出來。 */
+    if(h) o.push({t:'賣掉'+h.n+'，先把錢換回來', s:sellNote(g,h.id,1,curDie(g)),
                   mv:'sell:'+h.id, arg:{frac:1}});
     o.push({t:'撐著，它會回來', s:'跌破 130% 就是強制平倉，一次結清', skip:1, warn:1});
     return {q:'維持率 '+cover.toFixed(0)+'%。券商的簡訊今天發了第二封。', opts:o};
@@ -1136,15 +1173,14 @@ const BEATS=[
     if(inv<=MIN_TRADE) return null;
     const hot='th_'+g.hotGuess, hs=held(g);
     const die=curDie(g), o=[];
-    o.push({t:'買'+g.hotGuess+'概念股', s:'上車要快，下車更要快'+slipNote(die),
+    o.push({t:'買'+g.hotGuess+'概念股', s:buyNote(g,0.6,die)+'，上車要快',
             mv:'buy:'+hot, arg:{frac:0.6}});
-    o.push({t:'買市值型 ETF', s:'跟著大盤走，無聊是它的優點'+slipNote(die),
+    o.push({t:'買市值型 ETF', s:buyNote(g,1,die)+'，跟著大盤走',
             mv:'buy:wide', arg:{frac:1}});
     /* 防守端：手上已經有東西就退到債券，什麼都沒有就先進高股息 */
     const def = hs.length ? 'bond' : 'div';
     o.push({t:'買'+BY_ID[def].n,
-            s:(def==='bond'?'指數垮的時候它不太動'
-                           :'漲得慢，但每季有錢進來')+slipNote(die),
+            s:buyNote(g,1,die)+'，'+(def==='bond'?'跟大盤不連動':'漲得慢但每季配息'),
             mv:'buy:'+def, arg:{frac:1}});
     /* 融資不是常駐按鈕。只有在你正得意的時候它才會自己冒出來——那才是它真正的樣子。
        沒得意的年份，那一格讓給「加碼已經有的部位」。 */
@@ -1153,8 +1189,10 @@ const BEATS=[
        實測有一半的題目是五個選項，小螢幕上最後一個會被切掉——
        一個看不到的選項，比沒有這個選項更糟。 */
     if(g.tilt>=70 && g.debt<=0)
-      o.push({t:'融資追'+g.hotGuess, s:'借淨值六成，跌破 130% 就是斷頭',
-              mv:'margin:'+hot, warn:1});
+      o.push({t:'融資追'+g.hotGuess, s:(function(){
+        const b=nav(g)*0.6;
+        return '借 '+amt(b)+'・'+coverNote(g,b,b)+'，跌破 130% 斷頭';
+      })(), mv:'margin:'+hot, warn:1});
     o.push({t:'先放著', s:'現金一年 1.5%，以及一整年的「早知道」', skip:1});
     return {q:'帳上有 '+inv.toFixed(0)+' 萬。今年市場在講的是'+g.hotGuess+'。', opts:o};
   }},
@@ -1172,7 +1210,10 @@ const BEATS=[
        而副標原本只寫效果，一個字都沒提骰子，玩家因此看不出
        「今年開這個特別划算」。這是骰子最不明顯的一次，也是最大的一次。 */
     const die=curDie(g);
-    const note='　'+dieFace(die)+(die>=5 ? '進度 +2（抵兩年）' : '進度 +1');
+    /* 習慣的副標前面已經有「這個習慣會做什麼」（HABITS.fx，最長十七字），
+       骰子那句再長就會折行。只留骰子真正給的那個數字。 */
+    const gain=die>=5?2:1;
+    const note='　'+dieFace(die)+'進度 +'+gain+(gain>1?'（抵兩年）':'');
     const o=cand.map(function(k){ return {t:'開始'+HABITS[k].n, s:HABITS[k].fx+note, mv:'habit:'+k}; });
     o.push({t:'今年不開新的', s:'槽位留著。你也不確定自己撐不撐得住', skip:1});
     return {q:'還有一個槽位空著（'+act.length+'／'+slotsAt(g.age)+'）。要固定做點什麼嗎？', opts:o};
@@ -1544,7 +1585,7 @@ function wrap(g){
 
 /* 頁面用這個數字確認自己拿到的不是快取裡的舊內核。
    改了對外介面就 +1，並同步改 play.html 的 ?v= 與 NEED_VERSION。 */
-const VERSION=11;
+const VERSION=12;
 
 return {newGame:newGame, VERSION:VERSION, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
