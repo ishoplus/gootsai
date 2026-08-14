@@ -184,6 +184,46 @@ svg.chart{width:100%;height:130px;display:block}
   color:var(--dim);text-align:center;font-weight:500;cursor:pointer;border-radius:0}
 #tabs button.on{color:var(--accent);border-top-color:var(--accent);font-weight:700}
 
+/* ---- 處境卡：今年還能決定的事，一次全部攤開 ---- */
+.card.sit{padding:11px 12px 9px}
+.sq{font-size:15px;line-height:1.55;margin:0 0 6px}
+.dhint{display:flex;align-items:center;gap:6px;font-size:11px;line-height:1.3;
+  color:var(--dim);margin:0 0 8px}
+.opt{display:flex;align-items:baseline;gap:0 8px;width:100%;text-align:left;
+  background:var(--card2);border:1px solid var(--edge);border-radius:10px;padding:9px 11px;
+  min-height:40px;margin-bottom:6px;font-family:var(--sans);cursor:pointer}
+.opt:last-child{margin-bottom:0}
+.opt .on{font-size:14.5px;line-height:1.35}
+.opt .ov{margin-left:auto}
+.opt .ov{font-family:var(--mono);font-size:12.5px;font-weight:700;white-space:nowrap}
+/* 口氣跟名稱同一行（不是自己一行）：八個選項就是省下一百多 px，
+   而中間那格總共只有三百多 */
+.opt .of{font-size:10.5px;color:var(--dim);font-family:var(--mono);line-height:1.35;
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:11em}
+.opt.warn{border-color:var(--dn)} .opt.warn .on,.opt.warn .ov{color:var(--dn)}
+.opt:hover{border-color:var(--accent)}
+
+/* 收起來的處境：看得到它在，點一下換過去 */
+.sit-head{display:flex;align-items:center;gap:8px;width:100%;text-align:left;
+  background:var(--card);border:1px solid var(--edge);border-radius:var(--r);
+  padding:9px 12px;margin-bottom:9px;min-height:42px;cursor:pointer}
+.sit-head .hq{flex:1 1 auto;min-width:0;font-size:13.5px;line-height:1.35;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sit-head .hc{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--accent)}
+
+/* ---- 骰子盤：點一顆，上面的數字就照那一顆重算 ---- */
+#tray{display:flex;gap:5px;margin:0 0 8px}
+.dz{flex:1 1 0;min-width:0;text-align:center;background:var(--card2);
+  border:1px solid var(--edge);border-radius:10px;padding:3px 2px;margin:0;min-height:0;
+  cursor:pointer}
+.dz i{display:block;font-style:normal;font-size:21px;line-height:1.1;color:var(--accent)}
+.dz em{display:block;font-style:normal;font-size:8.5px;line-height:1.3;color:var(--dim);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dz.sel{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--card)}
+.dz.sel em{color:var(--accent);font-weight:700}
+.dz.used{opacity:.45}
+.dz.used i{color:var(--edge)}
+
 /* ---- 出牌 ---- */
 /* 五個選項要在一個螢幕裡全部看得到，所以每一顆都壓到最省：
    標題一行、副標一行、上下各 9px。再省就按不準了。 */
@@ -271,16 +311,19 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed;min-h
       <div class="chip"><span>心態</span><span id="h-tilt">—</span></div>
       <div class="chip"><span>生活</span><span id="h-life">—</span></div>
     </div>
-    <div class="dicebar" id="h-ap"></div>
+
   </div>
 
   <!-- 中：顯示面板。一次只看一頁，由下面的分頁列切換 -->
   <div id="stage">
     <div id="p-now">
-      <!-- 「剛剛」不在這裡：它搬到選項的正上方去了（#last）。
-           留在這裡的話，選項展開時中間只剩三十幾 px，等於印在畫面外，
-           而且跟 dock 上那條講同一件事。這一頁只留這一年的風向。 -->
-      <div class="card" id="c-sig"><h3>風向</h3><div id="sigs"></div></div>
+      <!-- 今年還能決定的事，一次全部攤在這裡。
+           以前是一次問一個處境（beat()），骰子照順序被吃掉，你只能承受；
+           現在 beats() 把它們一起給出來，下面挑哪一顆骰子，這裡的數字就跟著換。 -->
+      <div id="sits"></div>
+    </div>
+    <div id="p-sig" style="display:none">
+      <div class="card" id="c-sig"><h3>今年的風向</h3><div id="sigs"></div></div>
     </div>
     <div id="p-book" style="display:none">
       <div class="card"><h3>持股</h3><div id="book"></div></div>
@@ -303,16 +346,17 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed;min-h
 
   <!-- 下：選單。把手可以把它收起來 -->
   <div id="dock">
-    <button id="grab"><i class="bar"></i><span class="t" id="act-h">可以做的事</span><span class="c" id="grab-c">▾</span></button>
+    <button id="grab"><i class="bar"></i><span class="t" id="act-h">今年的骰子</span><span class="c" id="grab-c">▾</span></button>
     <div id="dock-body">
-      <!-- 上一步的結果，就放在下一步的正上方。
-           放在中間那格的話，選項一多它就被擠到畫面外——
-           實測選項展開時中間只剩 94px，結果那行剛好落在切線下面。 -->
+      <!-- 上一步的結果，放在你的手邊 -->
       <div id="last" class="last" style="display:none"></div>
+      <!-- 骰子盤：點一顆，上面的數字跟著換；再點處境裡的選項，就是把它放上去 -->
+      <div id="tray"></div>
       <div id="act"></div>
     </div>
     <div id="tabs">
-      <button data-p="now" class="on">現況</button>
+      <button data-p="now" class="on">決定</button>
+      <button data-p="sig">風向</button>
       <button data-p="book">持股</button>
       <button data-p="chart">走勢</button>
       <button data-p="log">紀錄</button>
@@ -320,7 +364,7 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed;min-h
   </div>
 </div>
 
-<script src="kernel.js?v=15"></script>
+<script src="kernel.js?v=17"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用舊版：呈現層一律禁止呼叫內核的亂數——
@@ -335,7 +379,7 @@ let g=null, benchHist=[], navHist=[];
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源
    （file 文件的 origin 是不透明的），所以直接雙擊打開會載不到內核。
    與其讓畫面停在一片空白，不如講清楚怎麼跑。 */
-const NEED_VERSION=15;
+const NEED_VERSION=17;
 /* GitHub Pages 送的是 cache-control: max-age=600。兩次發布相隔不到十分鐘，
    瀏覽器就會拿新的 play.html 配快取裡的舊 kernel.js——舊內核沒有 beat()，
    renderActs() 一呼叫就丟 TypeError，面板從此空著，而且畫面上什麼都不說。
@@ -433,8 +477,8 @@ function openYear(){
   flashClear();          /* 「剛剛」講的是今年，跨年就清掉 */
   /* 骰子的去處是今年的帳，跨年重來。心態太高的年份，
      第一顆在你看到第一題之前就被「手癢」花掉了——那一顆也要標出來。 */
-  dieUse=[];
-  for(let i=0;i<g.raw.dieAt;i++) dieUse[i]='手癢';
+  dieUse=[]; pickIdx=null;
+  g.raw.dieUsed.forEach((u,i)=>{ if(u) dieUse[i]='手癢'; });
   logRow('mkt', o.age+' 歲 · 第 '+(g.raw.year+1)+' 年',
     (o.income>0?'今年存下 <b class="up">'+money(o.income)+'</b>。':'全職操盤，沒有薪水。'));
   g.raw.notes.forEach(n=>logRow('bad','', esc(n)));
@@ -550,7 +594,6 @@ function paint(){
   $('h-tilt').innerHTML=Math.round(r.tilt)+
     (r.tilt>=80?' <b class="dn">手癢</b>':r.tilt<=20?' <b class="dn">不敢</b>':'');
   $('h-life').innerHTML=Math.round(r.life)+(r.life<=30?' <b class="dn">撐不住</b>':'');
-  renderDice();
   renderSignals(); renderBook(); renderChart();
 }
 /* 每一顆骰子底下寫它的去處。
@@ -560,15 +603,7 @@ const DIETAG={buy:'買',sell:'賣',margin:'融資',repay:'還錢',scout:'研究'
   habit:'習慣',life:'休息',work:'加班',itch:'手癢',skip:'沒用'};
 let dieUse=[];
 function markDie(kind,at){ dieUse[at==null?g.raw.dieAt:at]=DIETAG[kind]||'做事'; }
-function renderDice(){
-  const r=g.raw, bar=$('h-ap');
-  if(!bar) return;
-  bar.innerHTML='<span class="k">骰子</span>'+r.dice.map((d,i)=>{
-    const cls = i<r.dieAt ? 'used' : (i===r.dieAt ? 'now' : '');
-    const lab = i<r.dieAt ? (dieUse[i]||'用掉') : (i===r.dieAt ? '現在' : '·');
-    return '<span class="d'+(cls?' '+cls:'')+'"><i>'+DIE[d]+'</i><em>'+esc(lab)+'</em></span>';
-  }).join('');
-}
+
 function renderSignals(){
   $('sigs').innerHTML=g.raw.signals.map(s=>
     '<div class="sig'+(s.id==='theme'?' theme':'')+'"><i>'+(s.id==='theme'?'★':'▸')+'</i><span>'+
@@ -615,7 +650,7 @@ function renderChart(){
 /* ---- 分頁：中間那格一次只顯示一頁 ----
    四張卡疊在一起要捲三個螢幕，而其中三張（持股、走勢、紀錄）
    是你想看才看的東西。攤開來只是把「現在的處境」擠出畫面。 */
-const PAGES=['now','book','chart','log'];
+const PAGES=['now','sig','book','chart','log'];
 function showPage(name){
   PAGES.forEach(p=>{ const el=$('p-'+p); if(el) el.style.display = p===name ? '' : 'none'; });
   const tabs=$('tabs');
@@ -654,17 +689,34 @@ function setDock(min){
   if(gb) gb.onclick=()=>setDock(!docked);
 })();
 
-/* ---- 出牌：一次一個問題 ----
-   moves() 是完整的合法空間，全部攤出來實測平均 42 個選項、最多 58 個——那是報表。
-   借野球模擬器的節奏改成 beat()：一次一個處境、2～4 個選項，
-   而且每個選項都是那個處境裡你真的能做的事。 */
+/* ---- 一次攤開，自己分配骰子 ----
+   以前是一次問一個處境，骰子照順序被吃掉。KERNEL.md:41 把這種隨機列在
+   「壞的隨機」那一節：玩家只能承受，不能反應——你看得到那顆 6，
+   卻不能決定它去哪裡。
+
+   現在 beats() 一次給出今年還問得到的全部處境（實測 88% 的年份是 1～2 個），
+   下面的骰子盤點哪一顆，上面每個選項的數字就照那一顆重算。
+   選骰子不消耗任何亂數，所以同種子同選擇仍然是同一條人生。 */
+let pickIdx=null, openSit=0;
+function freeIdx(){
+  const u=g.raw.dieUsed;
+  for(let i=0;i<u.length;i++) if(!u[i]) return i;
+  return -1;
+}
+function curIdx(){
+  const u=g.raw.dieUsed;
+  if(pickIdx!=null && pickIdx<u.length && !u[pickIdx]) return pickIdx;
+  return freeIdx();
+}
 function renderActs(){
-  try{ renderBeat(); }
+  try{ autoRun(); renderTray(); renderSits(); renderEnd(); }
   catch(err){
-    /* 出牌面板是唯一「空著也看不出壞掉」的地方——寧可把錯誤印在臉上 */
+    /* 這一格空著也看不出壞掉——寧可把錯誤印在臉上 */
     $('act-h').textContent='壞掉了';
-    $('act').innerHTML='<div class="q">這一格炸了：'+esc(err&&err.message||err)+
-      '</div><button class="main" onclick="location.reload(true)">重新載入</button>';
+    $('act').innerHTML='<button class="main" onclick="location.reload(true)">重新載入</button>';
+    const h=$('sits');
+    if(h) h.innerHTML='<div class="card sit"><div class="sq">這一格炸了：'+
+      esc(err&&err.message||err)+'</div></div>';
     setDock(false);
     throw err;
   }
@@ -673,76 +725,121 @@ function renderActs(){
    餵既有的習慣、讀財報、撐不住的時候休息、缺錢的時候接案——
    這些不是決定，是照做。停下來問，一年就變成六次點擊的雜事清單。
 
-   內核早就寫好 autoTick() 了，但沒有任何地方呼叫它，
-   所以這三件事在畫面上從來沒有發生過——連帶讓骰子只剩「滑價」一個作用。
-
    永遠留一顆骰子給你：實測不留的話有 27% 的年份你一句話都插不上，
-   那一年不是你在過。留一顆之後掉到 1%，而習慣照樣養得起來
-   （四十歲時槽位一樣是滿的，固化 3.92 個對 3.95 個）。 */
+   那一年不是你在過。留一顆之後掉到 0.6%。 */
 function autoRun(){
+  const r=g.raw;
+  if(r.phase!=='act') return;
   let guard=0;
-  while(g.raw.apLeft>0 && guard++<12){
-    if(g.raw.apLeft<=1 && g.beat()) return;   /* 最後一顆，而且有事要問你——留著 */
-    const at=g.raw.dieAt;      /* autoTick 跑完 dieAt 就往前了，先記下花掉的是哪一顆 */
+  while(r.apLeft>0 && guard++<12){
+    if(r.apLeft<=1 && g.beat()) return;   /* 最後一顆，而且有事要問你——留著 */
+    const at=freeIdx();
     const b4=snap();
     const say=g.autoTick();
     if(!say) return;
     markDie(say.kind, at);
     nextFx=delta(b4);
-    /* 標籤用骰子那一列同一套字（加班／習慣／研究…）：
-       選項上方那條只留標籤與數字，沒有標籤就只剩一串數字，看不出是誰做的。 */
     logRow('auto', DIETAG[say.kind]||'', esc(say.text));
   }
 }
-function renderBeat(){
-  const r=g.raw;
-  /* 卡還沒處理就不能出牌。彈窗被關掉或載入到一半的時候，這裡是唯一的回頭路——
-     不然畫面會給你一顆「結束這一年」，而那張卡就這樣消失了。 */
+/* ---- 中間：處境卡 ---- */
+function renderSits(){
+  const r=g.raw, host=$('sits');
+  if(!host) return;
+  /* 卡還沒處理就不能出牌。彈窗被關掉的時候，這裡是唯一的回頭路 */
   if(r.phase==='event'){
-    setAct('今年發生了一件事','<button class="main">看看是什麼</button>');
-    $('act').querySelector('button').onclick=eventModal;
+    host.innerHTML='<div class="card sit"><div class="sq">今年發生了一件事。</div>'+
+      '<button class="opt"><span class="on">看看是什麼</span></button></div>';
+    const b=host.querySelector('button');
+    if(b) b.onclick=eventModal;
     return;
   }
-  autoRun();
-  if(r.apLeft<=0){ doneYear(); return; }
-  const b=g.beat();
-  if(!b){ doneYear(); return; }
-  setAct('還有 '+r.apLeft+' 件事',
-    '<div class="q">'+esc(b.q)+'</div>'+
-    '<div class="dieline"><span class="die">'+DIE[b.die]+'</span><span>'+
-      '<b>'+b.die+' 點</b>　'+DIETIP[b.die]+'</span></div>'+
-    b.opts.map(o=>'<button'+(o.warn?' class="warn"':'')+'>'+esc(o.t)+
-      ((o.n||o.s)?'<span class="s">'+(o.n?'<b>'+esc(o.n)+'</b>':'')+
-        (o.n&&o.s?'　':'')+esc(o.s||'')+'</span>':'')+'</button>').join('')+
-    '<button class="skipall">今年就這樣</button>');
-  const bs=$('act').querySelectorAll('button');
-  b.opts.forEach((o,i)=>{ bs[i].onclick=()=>{
-    if(o.skip){ g.pass(b.id); render(); return; }
-    doPlay(o.mv,o.arg);
-  };});
-  bs[b.opts.length].onclick=()=>{
-    for(let i=g.raw.dieAt;i<g.raw.dice.length;i++) dieUse[i]='沒用';
-    g.skipRest(); render();
+  const idx=curIdx();
+  const bs = idx<0 ? [] : g.beats(idx);
+  if(!bs.length){
+    host.innerHTML='<div class="card sit"><div class="sq">'+
+      (r.apLeft>0?'今年沒有別的事要決定了。':'今年的骰子用完了。')+'</div></div>';
+    return;
+  }
+  /* 兩個處境攤開就是八顆按鈕，光按鈕本身就 320px，而中間那格只有 336px——
+     667px 的螢幕放不下，這是算術問題不是排版問題。
+     所以：全部的處境都看得到（標題那一行），但一次只展開一個。
+     實測 54% 的年份只有一個處境，那些年份完全不受影響。 */
+  if(openSit>=bs.length) openSit=0;
+  host.innerHTML=bs.map((b,bi)=>{
+    if(bi!==openSit)
+      return '<button class="sit-head" data-h="'+bi+'"><span class="hq">'+esc(b.q)+'</span>'+
+             '<span class="hc">展開</span></button>';
+    return '<div class="card sit"><div class="sq">'+esc(b.q)+'</div>'+
+    '<div class="dhint"><span class="die">'+DIE[b.die]+'</span><span>'+
+      esc(b.dieNote||'')+'</span></div>'+
+    b.opts.map((o,oi)=>'<button class="opt'+(o.warn?' warn':'')+'" data-b="'+bi+'" data-o="'+oi+'">'+
+      '<span class="on">'+esc(o.t)+'</span>'+
+      (o.s?'<span class="of">'+esc(o.s)+'</span>':'')+
+      (o.n?'<span class="ov">'+esc(o.n)+'</span>':'')+
+      '</button>').join('')+'</div>';
+  }).join('');
+  host.querySelectorAll('button').forEach(btn=>{
+    btn.onclick=()=>{
+      if(btn.dataset && btn.dataset.h!=null && btn.dataset.h!==''){
+        openSit=+btn.dataset.h; renderSits(); scrollTop(); return;
+      }
+      const b=bs[+(btn.dataset.b||0)], o=b.opts[+(btn.dataset.o||0)];
+      if(!b||!o) return;
+      if(o.skip){ g.pass(b.id); openSit=0; render(); return; }
+      const arg={};
+      if(o.arg) for(const k in o.arg) arg[k]=o.arg[k];
+      arg.dieIdx=curIdx();
+      openSit=0;
+      doPlay(o.mv,arg);
+    };
+  });
+}
+/* ---- 底部：骰子盤 ---- */
+function renderTray(){
+  const r=g.raw, tray=$('tray');
+  if(!tray) return;
+  const cur=curIdx();
+  tray.innerHTML=r.dice.map((d,i)=>{
+    if(r.dieUsed[i])
+      return '<span class="dz used"><i>'+DIE[d]+'</i><em>'+esc(dieUse[i]||'用掉')+'</em></span>';
+    const on=(i===cur);
+    return '<button class="dz'+(on?' sel':'')+'" data-i="'+i+'"><i>'+DIE[d]+'</i><em>'+
+      (on?'用這顆':d+' 點')+'</em></button>';
+  }).join('');
+  tray.querySelectorAll('button').forEach(b=>{
+    b.onclick=()=>{ pickIdx=+(b.dataset.i||0); renderTray(); renderSits(); };
+  });
+  $('act-h').textContent = r.apLeft>0 ? '今年的骰子（還有 '+r.apLeft+' 顆）' : '今年的骰子用完了';
+}
+/* ---- 底部：結束這一年 ---- */
+function renderEnd(){
+  const r=g.raw;
+  if(r.phase==='event'){ $('act').innerHTML=''; return; }
+  const more = r.apLeft>0 && g.beats().length>0;
+  $('act').innerHTML='<button class="main">'+(more?'今年就這樣':'結束這一年')+'</button>';
+  const b=$('act').querySelector('button');
+  if(!b) return;
+  b.onclick=()=>{
+    if(g.raw.apLeft>0){
+      for(let i=0;i<g.raw.dice.length;i++) if(!g.raw.dieUsed[i]) dieUse[i]='沒用';
+      g.skipRest();
+    }
+    endTurn();
   };
-}
-/* 選單一有新東西要你決定就自己拉開。收納是你的選擇，
-   但「輪到你了」這件事不該藏在一條把手後面。 */
-function setAct(title,html){
-  $('act-h').textContent=title;
-  $('act').innerHTML=html;
-  setDock(false);
-}
-function doneYear(){
-  setAct('這一年做完了','<button class="main">結束這一年</button>');
-  $('act').querySelector('button').onclick=endTurn;
 }
 function doPlay(id,arg){
   const cut=id.indexOf(':');
   const m={id:id, kind:cut<0?id:id.slice(0,cut), inst:cut<0?null:id.slice(cut+1)};
-  markDie(m.kind);        /* 標在 play() 之前——之後 dieAt 已經往前一顆了 */
   const b4=snap();
   const res=g.play(id,arg);
-  if(res){ nextFx=delta(b4); reportPlay(m,res); }
+  if(res){
+    /* 標在回傳的 dieIdx 上：玩家挑的那一顆不一定是下一顆 */
+    markDie(m.kind, res.dieIdx);
+    pickIdx=null;
+    nextFx=delta(b4);
+    reportPlay(m,res);
+  }
   render();
 }
 function reportPlay(m,res){

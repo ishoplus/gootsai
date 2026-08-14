@@ -221,7 +221,79 @@ ok('結局有頁面要印的欄位',
     .map(k=>k+' '+(seen[k]/asks*100).toFixed(0)+'%').join('　'));
 })();
 
+/* ---------- 3.5 骰子分配：一次攤開、自己挑哪一顆 ----------
+   以前骰子照順序被吃掉，玩家只能承受。現在 beats() 一次給出全部處境，
+   play(id,{dieIdx}) 可以指定花哪一顆。這條路徑是畫面真正走的路，必須自己測。 */
+(function(){
+  let years=0, multi=0, mx=0, badOpt=0, outOfOrder=0, mismatch=0;
+  for(let i=0;i<200;i++){
+    const a=K.newGame('alloc-'+i);
+    a.setPlan(K.PLAN_K[i%K.PLAN_K.length]);
+    let guard=0;
+    while(!a.over && guard++<40){
+      if(a.raw.year===6) a.career('job');
+      if(!a.openYear()) break;
+      years++;
+      answerCard(a,i+years);
+      let s=0;
+      while(a.raw.apLeft>0 && s++<20){
+        if(!(a.raw.apLeft<=1 && a.beat()) && a.autoTick()) continue;
+        /* 故意挑最後一顆還沒用的，而不是下一顆 */
+        let want=-1;
+        for(let k=a.raw.dice.length-1;k>=0;k--) if(!a.raw.dieUsed[k]){ want=k; break; }
+        if(want<0) break;
+        const bs=a.beats(want);
+        if(!bs.length) break;
+        if(bs.length>1) multi++;
+        if(bs.length>mx) mx=bs.length;
+        /* 預覽用的必須真的是我指定的那一顆 */
+        bs.forEach(b=>{ if(b.die!==a.raw.dice[want]) mismatch++; });
+        const b=bs[(i+s)%bs.length];
+        const o=b.opts[(i+s)%b.opts.length];
+        if(o.skip){ a.pass(b.id); continue; }
+        const arg={dieIdx:want};
+        if(o.arg) for(const k in o.arg) arg[k]=o.arg[k];
+        const r=a.play(o.mv,arg);
+        if(!r){ badOpt++; break; }
+        /* 花掉的必須正好是那一顆 */
+        if(r.dieIdx!==want || !a.raw.dieUsed[want]) outOfOrder++;
+      }
+      const w=a.midWindow(); if(w) a.playMid(w.options[0].id);
+      a.closeYear();
+    }
+  }
+  ok('beats() 一次給出全部處境（同時 '+mx+' 個、'+multi+' 次不只一個）', mx>=2 && multi>0);
+  ok('預覽用的就是你挑的那一顆骰子（對不上 '+mismatch+' 次）', mismatch===0);
+  ok('指定的骰子真的被花掉（錯 '+outOfOrder+' 次）', outOfOrder===0);
+  ok('攤開的選項都做得動（做不動 '+badOpt+' 次）', badOpt===0);
+})();
+
 /* ---------- 4. 相同種子＋相同選擇＝相同人生 ---------- */
+/* 挑哪一顆骰子也是一種選擇：同樣的挑法必須得到同樣的人生。
+   挑骰子不擲任何亂數，所以種子流不該被動到。 */
+function replayAlloc(seed){
+  const a=K.newGame(seed); let n=0;
+  while(!a.over && n++<40){
+    if(a.raw.year===6) a.career('job');
+    if(!a.openYear()) break;
+    answerCard(a,n);
+    let s=0;
+    while(a.raw.apLeft>0 && s++<20){
+      let want=-1;
+      for(let k=a.raw.dice.length-1;k>=0;k--) if(!a.raw.dieUsed[k]){ want=k; break; }
+      if(want<0) break;
+      const bs=a.beats(want); if(!bs.length) break;
+      const b=bs[0], o=b.opts[(n+s)%b.opts.length];
+      if(o.skip){ a.pass(b.id); continue; }
+      const arg={dieIdx:want};
+      if(o.arg) for(const k in o.arg) arg[k]=o.arg[k];
+      if(!a.play(o.mv,arg)) break;
+    }
+    const w=a.midWindow(); if(w) a.playMid(w.options[0].id);
+    a.closeYear();
+  }
+  return a.ending;
+}
 function replay(seed){
   const a=K.newGame(seed); let n=0;
   while(!a.over && n++<40){
@@ -242,5 +314,7 @@ function replay(seed){
 const r1=replay('determinism'), r2=replay('determinism');
 ok('同種子同選擇＝同人生', JSON.stringify(r1)===JSON.stringify(r2));
 ok('換種子就換人生', JSON.stringify(replay('other'))!==JSON.stringify(r1));
+ok('挑骰子的那條路徑也是決定論的',
+   JSON.stringify(replayAlloc('alloc-det'))===JSON.stringify(replayAlloc('alloc-det')));
 
 process.exit(bad?1:0);

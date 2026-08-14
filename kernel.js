@@ -633,7 +633,7 @@ function newGame(seed,opts){
     year:0, age:16, phase:'idle',
     cash:0, debt:0, book:{},          /* book[id] = {sh, cost} */
     tilt:55, life:70, habits:{}, career:'none', plan:'craft',
-    ap:0, apLeft:0, dice:[], dieAt:0, declined:{}, signals:[], hotGuess:null, yr:null, mid:null, scouted:{},
+    ap:0, apLeft:0, dice:[], dieUsed:[], dieAt:0, declined:{}, signals:[], hotGuess:null, yr:null, mid:null, scouted:{},
     blowups:0, taxPaid:0, divTotal:0, realized:0, trades:0,
     inflow:0, benchSh:0,
     trust:50, fame:0, honors:[],           /* 事件卡寫得進來的三個外部狀態 */
@@ -757,14 +757,17 @@ function openYear(g){
      它不決定你能不能做，決定的是你今年做這件事做得多到位。
      舊版的骰子點數只換成熟練度，那是一個看不見的數字；
      這裡它直接改你眼前那個選項的後果。 */
-  g.dice=[]; for(let i=0;i<g.ap;i++) g.dice.push(1+Math.floor(g.R()*6));
+  /* 用掉的不一定是連號的：玩家可以挑那顆 6 去養習慣、把 1 丟給「先放著」。
+     所以記的是「哪幾顆用掉了」，不是「用到第幾顆」。 */
+  g.dice=[]; g.dieUsed=[];
+  for(let i=0;i<g.ap;i++){ g.dice.push(1+Math.floor(g.R()*6)); g.dieUsed.push(0); }
   g.dieAt=0;
 
   /* 手癢：心態太高，年初就有一點被你自己花掉了 */
   if(g.tilt>=80 && fold('itch',1,{g:g})){
     const th=BY_ID['th_'+g.hotGuess];
     const amt=investable(g)*0.3;
-    if(amt>MIN_TRADE && th){ buy(g,th.id,amt); g.apLeft--; g.dieAt++; g.notes.push('你手癢，年初就先追了 '+g.hotGuess+'——這一點不是你決定的'); }
+    if(amt>MIN_TRADE && th){ buy(g,th.id,amt); useDie(g,0); g.notes.push('你手癢，年初就先追了 '+g.hotGuess+'——這一點不是你決定的'); }
   }
   g.scouted={}; g.autoDone={};
   /* 第 2 拍：今年發生在你身上的事。抽得到就先問它，抽不到才直接進出牌。
@@ -822,13 +825,17 @@ function moves(g){
   return out;
 }
 
+/* arg.dieIdx：這一手要花掉哪一顆骰子。不給就用下一顆沒用的——
+   舊的呼叫方式（play(id,arg)）因此完全不受影響。 */
 function play(g,moveId,arg){
   if(g.phase!=='act'||g.apLeft<=0) return null;
   arg=arg||{};
   const cut=moveId.indexOf(':');
   const kind=cut<0?moveId:moveId.slice(0,cut);
   const target=cut<0?null:moveId.slice(cut+1);
-  const die=curDie(g), sl=slip(die);
+  const idx=pickDie(g,arg.dieIdx);
+  if(idx<0) return null;
+  const die=g.dice[idx], sl=slip(die);
   let res=null;
   if(kind==='buy'){
     res=buy(g,target,investable(g)*(arg.frac==null?1:arg.frac), g.price[target]*(1+sl));
@@ -875,7 +882,8 @@ function play(g,moveId,arg){
     income(g,amt); g.life=clamp(g.life-7,0,100);
     res={earned:amt, die:die};
   } else return null;
-  g.apLeft--; g.dieAt++;
+  useDie(g,idx);
+  res.dieIdx=idx; res.die=die;
   return res;
 }
 
@@ -1018,7 +1026,27 @@ function answerEvent(g,i){
   return row;
 }
 
-function curDie(g){ const d=g.dice[g.dieAt]; return d==null?3:d; }
+/* 下一顆還沒用的骰子（沒有指定的時候就用它） */
+function freeDie(g){
+  for(let i=0;i<g.dice.length;i++) if(!g.dieUsed[i]) return i;
+  return -1;
+}
+/* 指定的那一顆能不能用；不能就退回下一顆沒用的 */
+function pickDie(g,idx){
+  if(idx!=null && idx>=0 && idx<g.dice.length && !g.dieUsed[idx]) return idx;
+  return freeDie(g);
+}
+function useDie(g,idx){
+  if(idx<0||idx>=g.dice.length||g.dieUsed[idx]) return false;
+  g.dieUsed[idx]=1; g.apLeft--;
+  g.dieAt=freeDie(g); if(g.dieAt<0) g.dieAt=g.dice.length;
+  return true;
+}
+function curDie(g){
+  if(PREVIEW!=null) return PREVIEW;        /* beats() 正在用某一顆骰子預覽 */
+  const i=freeDie(g); const d=i<0?null:g.dice[i];
+  return d==null?3:d;
+}
 /* 執行滑價：擲得低就是拖到比較差的價位才動手，擲得高就是說到做到。
    這是散戶最真實的一種隨機——你決定要買，然後拖了三個月。 */
 function slip(die){ return die<=2 ? 0.020 : die<=4 ? 0.006 : -0.004; }
@@ -1075,18 +1103,18 @@ function amt(v){
   if(a<10000)  return Math.round(v)+' 萬';
   return (v/10000).toFixed(2)+' 億';
 }
+/* 骰子的影響改成在題目下面講一次，不再每個選項各印一次——
+   四個選項印四遍同一個 0.6%，而那筆錢通常是幾百塊。
+   選項上只留「這一手動用多少錢」，那才是你要比較的東西。 */
 function buyNote(g,frac,die){
-  const gross=investable(g)*(frac==null?1:frac), sl=gross*slip(die);
-  return '投入 '+amt(gross)+'　'+dieFace(die)+(sl>=0?'多付 ':'少付 ')+amt(Math.abs(sl));
+  return '花 '+amt(investable(g)*(frac==null?1:frac));
 }
 function sellNote(g,id,frac,die){
   const b=g.book[id]; if(!b) return '';
   const sh=b.sh*(frac==null?1:frac);
   const gross=sh*g.price[id]*(1-slip(die));
   const net=gross-gross*(TAX_SELL+FEE), pl=net-sh*b.cost;
-  const lost=sh*g.price[id]*slip(die);
-  return '拿回 '+amt(net)+'・'+(pl>=0?'賺 ':'賠 ')+amt(Math.abs(pl))+
-         '　'+dieFace(die)+(lost>=0?'少收 ':'多收 ')+amt(Math.abs(lost));
+  return '拿回 '+amt(net)+'・'+(pl>=0?'賺 ':'賠 ')+amt(Math.abs(pl));
 }
 function coverNote(g,dDebt,dAssets){
   const d=g.debt+(dDebt||0);
@@ -1098,7 +1126,7 @@ const BEATS=[
   {id:'take', ask:1, pick:function(g){
     const h=held(g).filter(function(x){ return x.pl>=45; })[0];
     if(!h) return null;
-    return {q:h.n+'已經幫你'+pctText(h.pl)+'。你每天打開軟體第一個看的就是它。',
+    return {q:h.n+' 已經幫你'+pctText(h.pl)+'。你每天打開軟體第一個看的就是它。',
       opts:[
         {t:'賣一半，先把本金抽回來', n:sellNote(g,h.id,0.5,curDie(g)), s:'剩下的讓它跑',
          mv:'sell:'+h.id, arg:{frac:0.5}},
@@ -1117,7 +1145,7 @@ const BEATS=[
     if(can) o.push({t:'往下攤平', n:buyNote(g,0.6,curDie(g)), s:'成本拉低',
                     mv:'buy:'+h.id, arg:{frac:0.6}});
     o.push({t:'放著不管', s:'沒賣就不算賠', skip:1});
-    return {q:h.n+'已經'+pctText(h.pl)+'。你打開對帳單的次數變少了。', opts:o};
+    return {q:h.n+' 已經'+pctText(h.pl)+'。你打開對帳單的次數變少了。', opts:o};
   }},
   /* 去年的題材 ----
      KERNEL.md 說這是新骨架最主要的張力來源：「你手上很可能還抱著去年的航運」。
@@ -1219,12 +1247,10 @@ const BEATS=[
     const die=curDie(g);
     /* 習慣的副標前面已經有「這個習慣會做什麼」（HABITS.fx，最長十七字），
        骰子那句再長就會折行。只留骰子真正給的那個數字。 */
-    const gain=die>=5?2:1;
-    const note=dieFace(die)+'進度 +'+gain+(gain>1?'（抵兩年）':'');
-    const o=cand.map(function(k){ return {t:'開始'+HABITS[k].n, n:note, s:HABITS[k].fx,
+    const o=cand.map(function(k){ return {t:'開始'+HABITS[k].n, s:HABITS[k].fx,
                                           mv:'habit:'+k}; });
-    o.push({t:'今年不開新的', s:'槽位先留著', skip:1});
-    return {q:'還有一個槽位空著（'+act.length+'／'+slotsAt(g.age)+'）。要固定做點什麼嗎？', opts:o};
+    o.push({t:'今年先不開', s:'位子留著', skip:1});
+    return {q:'你可以固定做的事還有一個空位（'+act.length+'／'+slotsAt(g.age)+'）。', opts:o};
   }},
   /* 研究：手上有東西才問 */
   {id:'scout', pick:function(g){
@@ -1355,36 +1381,63 @@ function autoTick(g){
   return null;
 }
 
-function beat(g){
-  if(g.phase!=='act' || g.apLeft<=0) return null;
-  const legal={}; moves(g).forEach(function(m){ legal[m.id]=1; });
-  /* 光看 moves() 不夠：它驗的是「這檔買得動嗎」，
-     但選項用的是六成、一半。可投入 0.8 萬時六成只有 0.48 萬，成交不了——
-     那顆按鈕在畫面上就是按了沒反應。所以連金額一起驗。 */
-  const doable=function(o){
-    if(o.skip) return true;
-    if(!legal[o.mv]) return false;
-    const cut=o.mv.indexOf(':');
-    const kind=cut<0?o.mv:o.mv.slice(0,cut), id=cut<0?null:o.mv.slice(cut+1);
-    const f=(o.arg&&o.arg.frac!=null)?o.arg.frac:1;
-    /* 用的必須是 play() 真正會成交的那個價——賣出走滑價後的價格，
-       邊界上的部位用原始價驗會過、實際卻賣不掉。同一個錯犯第二次了。 */
-    if(kind==='buy')  return investable(g)*f > MIN_TRADE;
-    if(kind==='sell') return g.book[id] &&
-      g.book[id].sh*g.price[id]*(1-slip(curDie(g)))*f > MIN_TRADE;
-    return true;
-  };
-  for(let i=0;i<BEATS.length;i++){
-    if(!BEATS[i].ask) continue;                      /* 不用問的，autoTick 處理掉了 */
-    if(g.declined[BEATS[i].id]===g.year) continue;   /* 今年已經回絕過這個處境 */
-    const b=BEATS[i].pick(g);
-    if(!b) continue;
-    const opts=b.opts.filter(doable);
-    if(opts.length<2) continue;          /* 只剩一個選項就不是選擇了 */
-    return {id:BEATS[i].id, q:b.q, opts:opts, die:curDie(g), left:g.apLeft};
-  }
-  return null;
+/* 這顆骰子在「這個」處境裡做什麼。以前畫面固定印「價差 0.6%」，
+   但開新習慣沒有價差——那一題印出來的是一句跟它無關的話。 */
+function dieNote(id,die){
+  if(id==='habit') return die>=5 ? '這顆高，進度 +2（一年抵兩年）' : '進度 +1';
+  const v=slip(die)*100;
+  return die<=2 ? '成交價差 +'+v.toFixed(1)+'%（比較差的價位）'
+       : die<=4 ? '成交價差 +'+v.toFixed(1)+'%'
+       :          '成交價位比市價好 '+Math.abs(v).toFixed(1)+'%';
 }
+/* 光看 moves() 不夠：它驗的是「這檔買得動嗎」，
+   但選項用的是六成、一半。可投入 0.8 萬時六成只有 0.48 萬，成交不了——
+   那顆按鈕在畫面上就是按了沒反應。所以連金額一起驗。 */
+function doable(g,legal,o){
+  if(o.skip) return true;
+  if(!legal[o.mv]) return false;
+  const cut=o.mv.indexOf(':');
+  const kind=cut<0?o.mv:o.mv.slice(0,cut), id=cut<0?null:o.mv.slice(cut+1);
+  const f=(o.arg&&o.arg.frac!=null)?o.arg.frac:1;
+  /* 用的必須是 play() 真正會成交的那個價——賣出走滑價後的價格，
+     邊界上的部位用原始價驗會過、實際卻賣不掉。同一個錯犯第二次了。 */
+  if(kind==='buy')  return investable(g)*f > MIN_TRADE;
+  if(kind==='sell') return g.book[id] &&
+    g.book[id].sh*g.price[id]*(1-slip(curDie(g)))*f > MIN_TRADE;
+  return true;
+}
+
+/* 今年還問得到的全部處境，一次給完——畫面要一次攤開讓你分配骰子。
+   dieIdx 指定要用哪一顆骰子預覽：金額、滑價、習慣進度都跟著那一顆算，
+   所以玩家把 6 點拿在手上的時候，看到的就是 6 點的數字。
+
+   PREVIEW 是給 pick() 裡的 curDie() 用的臨時替身。這裡不擲任何骰，
+   純粹是換一個「假設用這顆」的數字，所以種子流不動。 */
+let PREVIEW=null;
+function beats(g,dieIdx){
+  if(g.phase!=='act' || g.apLeft<=0) return [];
+  const idx=pickDie(g,dieIdx);
+  if(idx<0) return [];
+  const legal={}; moves(g).forEach(function(m){ legal[m.id]=1; });
+  const prev=PREVIEW;
+  PREVIEW=g.dice[idx];
+  const out=[];
+  try{
+    for(let i=0;i<BEATS.length;i++){
+      if(!BEATS[i].ask) continue;                      /* 不用問的，autoTick 處理掉了 */
+      if(g.declined[BEATS[i].id]===g.year) continue;   /* 今年已經回絕過這個處境 */
+      const b=BEATS[i].pick(g);
+      if(!b) continue;
+      const opts=b.opts.filter(function(o){ return doable(g,legal,o); });
+      if(opts.length<2) continue;          /* 只剩一個選項就不是選擇了 */
+      out.push({id:BEATS[i].id, q:b.q, opts:opts, die:g.dice[idx], dieIdx:idx,
+                left:g.apLeft, dieNote:dieNote(BEATS[i].id, g.dice[idx])});
+    }
+  } finally { PREVIEW=prev; }
+  return out;
+}
+/* 一次一個的舊路徑：照優先序回第一個 */
+function beat(g,dieIdx){ return beats(g,dieIdx)[0]||null; }
 /* 回答一個處境：做完就把它標成今年問過了。
    否則「錢放哪裡」買了六成還剩現金，同一年就會再問你一次、再一次——
    實測一年被問 2.68 次，其中大半是同一個問題重播。
@@ -1405,7 +1458,11 @@ function pass(g,beatId){
   if(beatId) g.declined[beatId]=g.year;
   return true;
 }
-function skipRest(g){ if(g.phase==='act'){ g.apLeft=0; g.dieAt=g.dice.length; return true; } return false; }
+function skipRest(g){
+  if(g.phase!=='act') return false;
+  for(let i=0;i<g.dice.length;i++) g.dieUsed[i]=1;
+  g.apLeft=0; g.dieAt=g.dice.length; return true;
+}
 
 /* 3. 年中窗口：崩盤與狂牛各插播一次免費行動。
    恐懼與貪婪各測一次——而且這是唯一一個「你知道走到一半了」的決策點。 */
@@ -1601,7 +1658,7 @@ function wrap(g){
     answerEvent:function(i){ return answerEvent(g,i); },
     moves:function(){ return moves(g); },
     play:function(id,arg){ return play(g,id,arg); },
-    beat:function(){ return beat(g); },
+    beat:function(d){ return beat(g,d); },
     pass:function(id){ return pass(g,id); },
     answer:function(id,mv,arg){ return answer(g,id,mv,arg); },
     skipRest:function(){ return skipRest(g); },
@@ -1610,13 +1667,14 @@ function wrap(g){
     closeYear:function(){ return closeYear(g); },
     career:function(w){ return careerChoice(g,w); },
     setPlan:function(k){ if(PLANS[k]) g.plan=k; return g.plan; },
-    autoTick:function(){ return autoTick(g); }
+    autoTick:function(){ return autoTick(g); },
+    beats:function(d){ return beats(g,d); }
   };
 }
 
 /* 頁面用這個數字確認自己拿到的不是快取裡的舊內核。
    改了對外介面就 +1，並同步改 play.html 的 ?v= 與 NEED_VERSION。 */
-const VERSION=15;
+const VERSION=17;
 
 return {newGame:newGame, VERSION:VERSION, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
