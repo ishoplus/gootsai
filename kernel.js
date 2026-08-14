@@ -1270,33 +1270,38 @@ function autoTick(g){
   const plan=PLANS[g.plan]||PLANS.craft;
   const done=g.autoDone||(g.autoDone={});
   /* 生活撐不住優先；再來照方針餵既有的習慣；然後研究；真的沒事做才加班 */
+  /* 回傳帶上 kind 與用掉的那顆點數：畫面要在骰子底下寫「這一顆做了什麼」。
+     只回一句敘述的話，玩家看到的是骰子少了三顆、外加三句對不起來的話。 */
+  const at=function(){ return g.dice[g.dieAt]; };
   if(g.life<48 && legal['life'] && !done.life){
     done.life=1;
-    const r=play(g,'life');
-    if(r) return vary(SAY.life, g.year+g.age);
+    const die=at(), r=play(g,'life');
+    if(r) return {kind:'life', die:die, text:vary(SAY.life, g.year+g.age)};
   }
   for(let i=0;i<plan.pr.length;i++){
     const k=plan.pr[i];
     /* 只餵已經有的。開一個新習慣是決定，不是照做——那一題留給玩家 */
     if(!g.habits[k] || g.habits[k].fed===g.year) continue;
     if(!legal['habit:'+k]) continue;
-    const r=play(g,'habit:'+k);
+    const die=at(), r=play(g,'habit:'+k);
     if(!r) continue;
     const st=g.habits[k]?g.habits[k].streak:0;
     const base = r.gain>1 ? fill(vary(SAY.big, g.year+i), {n:HABITS[k].n})
                           : fill(vary(SAY.keep, g.year+st), {n:HABITS[k].n, k:st});
-    return base + (r.stage>=3 ? vary(SAY.lock, g.year) : '');
+    return {kind:'habit', die:die, name:HABITS[k].n,
+            text:base + (r.stage>=3 ? vary(SAY.lock, g.year) : '')};
   }
   const hs=held(g).filter(function(x){ return g.scouted[x.id]==null; })[0];
   if(hs && legal['scout:'+hs.id]){
-    const r=play(g,'scout:'+hs.id);
-    if(r) return fill(vary(SAY.scout, g.year+hs.n.length),
-                      {n:hs.n, v:(r.beatsMarket?'會':'不會'), a:r.acc});
+    const die=at(), r=play(g,'scout:'+hs.id);
+    if(r) return {kind:'scout', die:die, name:hs.n,
+                  text:fill(vary(SAY.scout, g.year+hs.n.length),
+                            {n:hs.n, v:(r.beatsMarket?'會':'不會'), a:r.acc})};
   }
   if(g.cash<10 && legal['work'] && !done.work){
     done.work=1;
-    const r=play(g,'work');
-    if(r) return fill(vary(SAY.work, g.year+g.age), {m:r.earned.toFixed(1)});
+    const die=at(), r=play(g,'work');
+    if(r) return {kind:'work', die:die, text:fill(vary(SAY.work, g.year+g.age), {m:r.earned.toFixed(1)})};
   }
   return null;
 }
@@ -1539,7 +1544,7 @@ function wrap(g){
 
 /* 頁面用這個數字確認自己拿到的不是快取裡的舊內核。
    改了對外介面就 +1，並同步改 play.html 的 ?v= 與 NEED_VERSION。 */
-const VERSION=10;
+const VERSION=11;
 
 return {newGame:newGame, VERSION:VERSION, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,

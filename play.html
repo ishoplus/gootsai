@@ -73,15 +73,20 @@ input:focus{border-color:var(--accent)}
   white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 #hud .chip span{display:block;font-size:9px;letter-spacing:.16em;color:var(--dim);font-weight:400}
 #hud .chip b{font-size:10.5px;font-weight:700;margin-left:2px}
-/* 骰子從 chip 裡搬出來自己站一列。擠在 17px 的 chip 裡，
-   「用掉的」與「還沒用的」在那個尺寸上分不出來——等於沒有顯示。 */
-#hud .dicerow{display:flex;align-items:center;gap:8px;margin-top:6px;
-  background:var(--card2);border-radius:9px;padding:3px 9px 4px}
-#hud .dicerow .k{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--dim)}
-.dice{letter-spacing:2px;font-size:22px;line-height:1.15;color:var(--edge)}
-.dice b{color:var(--accent);font-weight:400}
-.dice b.now{color:var(--ink);border-bottom:2px solid var(--accent)}
-.dice s{color:var(--edge);text-decoration:line-through;text-decoration-thickness:1px}
+/* 骰子自己說話：每一顆底下寫它做了什麼。
+   只把用掉的劃掉是不夠的——超過一半的骰子是自動事務花掉的，
+   玩家按一次卻少三顆，看起來像跳號。標上去之後那三顆各有各的去處。 */
+#hud .dicebar{display:flex;gap:4px;margin-top:6px;background:var(--card2);
+  border-radius:9px;padding:4px 7px 3px;overflow:hidden}
+#hud .dicebar .k{font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--dim);
+  align-self:center;padding-right:2px;white-space:nowrap}
+.d{flex:1 1 0;min-width:0;text-align:center}
+.d i{display:block;font-style:normal;font-size:19px;line-height:1.15;color:var(--edge)}
+.d em{display:block;font-style:normal;font-size:8.5px;line-height:1.35;color:var(--dim);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.d.used i{color:var(--accent)}
+.d.now i{color:var(--ink)}
+.d.now em{color:var(--accent);font-weight:700}
 .die{display:inline-block;font-size:20px;line-height:1;color:var(--accent)}
 
 /* ---- 中間：顯示面板 ----
@@ -246,7 +251,7 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed;min-h
       <div class="chip"><span>心態</span><span id="h-tilt">—</span></div>
       <div class="chip"><span>生活</span><span id="h-life">—</span></div>
     </div>
-    <div class="dicerow"><span class="k">今年的骰子</span><span class="dice" id="h-ap">—</span></div>
+    <div class="dicebar" id="h-ap"></div>
   </div>
 
   <!-- 中：顯示面板。一次只看一頁，由下面的分頁列切換 -->
@@ -289,7 +294,7 @@ button.skipall{background:transparent;color:var(--dim);border-style:dashed;min-h
   </div>
 </div>
 
-<script src="kernel.js?v=10"></script>
+<script src="kernel.js?v=11"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用舊版：呈現層一律禁止呼叫內核的亂數——
@@ -304,7 +309,7 @@ let g=null, benchHist=[], navHist=[];
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源
    （file 文件的 origin 是不透明的），所以直接雙擊打開會載不到內核。
    與其讓畫面停在一片空白，不如講清楚怎麼跑。 */
-const NEED_VERSION=10;
+const NEED_VERSION=11;
 /* GitHub Pages 送的是 cache-control: max-age=600。兩次發布相隔不到十分鐘，
    瀏覽器就會拿新的 play.html 配快取裡的舊 kernel.js——舊內核沒有 beat()，
    renderActs() 一呼叫就丟 TypeError，面板從此空著，而且畫面上什麼都不說。
@@ -396,6 +401,10 @@ function openYear(){
   const o=g.openYear();
   if(!o){ ending(); return; }
   flashClear();          /* 「剛剛」講的是今年，跨年就清掉 */
+  /* 骰子的去處是今年的帳，跨年重來。心態太高的年份，
+     第一顆在你看到第一題之前就被「手癢」花掉了——那一顆也要標出來。 */
+  dieUse=[];
+  for(let i=0;i<g.raw.dieAt;i++) dieUse[i]='手癢';
   logRow('mkt', o.age+' 歲 · 第 '+(g.raw.year+1)+' 年',
     (o.income>0?'今年存下 <b class="up">'+money(o.income)+'</b>。':'全職操盤，沒有薪水。'));
   g.raw.notes.forEach(n=>logRow('bad','', esc(n)));
@@ -488,7 +497,15 @@ function settle(){
 }
 
 /* ================= 畫面 ================= */
+/* 順序有意義：renderActs() 裡的 autoRun() 會把不需要問你的事跑掉，
+   而那些事會動到現金、生活、心態，以及骰子用到第幾顆。
+   先畫再跑的話，上面那一排永遠慢一步——實際看到的是骰子只劃掉兩顆、
+   「剛剛」卻已經寫著第三件事。所以先跑，跑完再畫。 */
 function render(){
+  try{ renderActs(); }
+  finally{ paint(); }
+}
+function paint(){
   const r=g.raw;
   $('h-yr').textContent=r.age+' 歲';
   $('h-year').textContent='第 '+(r.year+1)+' 年';
@@ -497,13 +514,24 @@ function render(){
   $('h-tilt').innerHTML=Math.round(r.tilt)+
     (r.tilt>=80?' <b class="dn">手癢</b>':r.tilt<=20?' <b class="dn">不敢</b>':'');
   $('h-life').innerHTML=Math.round(r.life)+(r.life<=30?' <b class="dn">撐不住</b>':'');
-  /* 用完的骰子留在原地劃掉，下一顆底下畫一條線——
-     看得到今年擲出什麼、花掉了哪幾顆、接下來輪到哪一顆 */
-  $('h-ap').innerHTML = r.dice.length
-    ? r.dice.map((d,i)=> i<r.dieAt ? '<s>'+DIE[d]+'</s>'
-        : '<b'+(i===r.dieAt?' class="now"':'')+'>'+DIE[d]+'</b>').join('')
-    : '—';
-  renderSignals(); renderBook(); renderChart(); renderActs();
+  renderDice();
+  renderSignals(); renderBook(); renderChart();
+}
+/* 每一顆骰子底下寫它的去處。
+   「用掉了」不是答案——超過一半的骰子是自動事務花的，
+   玩家按一次卻少掉兩三顆，不標出來就是跳號。 */
+const DIETAG={buy:'買',sell:'賣',margin:'融資',repay:'還錢',scout:'研究',
+  habit:'習慣',life:'休息',work:'加班',itch:'手癢',skip:'沒用'};
+let dieUse=[];
+function markDie(kind,at){ dieUse[at==null?g.raw.dieAt:at]=DIETAG[kind]||'做事'; }
+function renderDice(){
+  const r=g.raw, bar=$('h-ap');
+  if(!bar) return;
+  bar.innerHTML='<span class="k">骰子</span>'+r.dice.map((d,i)=>{
+    const cls = i<r.dieAt ? 'used' : (i===r.dieAt ? 'now' : '');
+    const lab = i<r.dieAt ? (dieUse[i]||'用掉') : (i===r.dieAt ? '現在' : '·');
+    return '<span class="d'+(cls?' '+cls:'')+'"><i>'+DIE[d]+'</i><em>'+esc(lab)+'</em></span>';
+  }).join('');
 }
 function renderSignals(){
   $('sigs').innerHTML=g.raw.signals.map(s=>
@@ -619,9 +647,11 @@ function autoRun(){
   let guard=0;
   while(g.raw.apLeft>0 && guard++<12){
     if(g.raw.apLeft<=1 && g.beat()) return;   /* 最後一顆，而且有事要問你——留著 */
+    const at=g.raw.dieAt;      /* autoTick 跑完 dieAt 就往前了，先記下花掉的是哪一顆 */
     const say=g.autoTick();
     if(!say) return;
-    logRow('auto','', esc(say));
+    markDie(say.kind, at);
+    logRow('auto','', esc(say.text));
   }
 }
 function renderBeat(){
@@ -649,7 +679,10 @@ function renderBeat(){
     if(o.skip){ g.pass(b.id); render(); return; }
     doPlay(o.mv,o.arg);
   };});
-  bs[b.opts.length].onclick=()=>{ g.skipRest(); render(); };
+  bs[b.opts.length].onclick=()=>{
+    for(let i=g.raw.dieAt;i<g.raw.dice.length;i++) dieUse[i]='沒用';
+    g.skipRest(); render();
+  };
 }
 /* 選單一有新東西要你決定就自己拉開。收納是你的選擇，
    但「輪到你了」這件事不該藏在一條把手後面。 */
@@ -665,6 +698,7 @@ function doneYear(){
 function doPlay(id,arg){
   const cut=id.indexOf(':');
   const m={id:id, kind:cut<0?id:id.slice(0,cut), inst:cut<0?null:id.slice(cut+1)};
+  markDie(m.kind);        /* 標在 play() 之前——之後 dieAt 已經往前一顆了 */
   const res=g.play(id,arg);
   if(res) reportPlay(m,res);
   render();
