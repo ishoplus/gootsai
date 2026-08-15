@@ -352,7 +352,7 @@ svg.chart{width:100%;height:130px;display:block}
   </div>
 </div></div>
 
-<script src="kernel.js?v=41"></script>
+<script src="kernel.js?v=42"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用：呈現層一律禁止呼叫內核的亂數——
@@ -394,7 +394,7 @@ applyDisplay();
 
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源，
    直接雙擊打開會載不到內核。與其停在白畫面，不如講清楚怎麼跑。 */
-const NEED_VERSION=41;
+const NEED_VERSION=42;
 if(typeof KERNEL!=='undefined' && !(KERNEL.VERSION>=NEED_VERSION)){
   document.getElementById('start').innerHTML=
     '<h1>內核是舊的<em>STALE KERNEL '+(KERNEL.VERSION||0)+' &lt; '+NEED_VERSION+'</em></h1>'+
@@ -420,7 +420,7 @@ if(typeof KERNEL==='undefined'){
 /* 版本徽章：讀內核的 VERSION，不另外維護一個會忘記改的數字 */
 (function(){
   const vb=$('ver-badge');
-  if(vb) vb.textContent='v'+KERNEL.VERSION;
+  if(vb) vb.textContent='v'+(KERNEL.SEMVER||KERNEL.VERSION);
 })();
 
 /* ================= 開場 ================= */

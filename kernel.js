@@ -2085,11 +2085,15 @@ function wrap(g){
   };
 }
 
-/* 頁面用這個數字確認自己拿到的不是快取裡的舊內核。
-   改了對外介面就 +1，並同步改 play.html 的 ?v= 與 NEED_VERSION。 */
-const VERSION=41;
+/* 版本兩軌：
+   VERSION（整數，機器讀）——快取戳記與相容檢查，改了對外介面就 +1，
+   並同步改 index.html 的 ?v= 與 NEED_VERSION。只增不減，不對人展示。
+   SEMVER（語意版本，人讀）——主.次.修：修＝文案與修補、
+   次＝玩法/平衡/內容、主＝1.0 正式版。開場頁徽章顯示這個。 */
+const VERSION=42;
+const SEMVER='0.9.0';
 
-return {newGame:newGame, VERSION:VERSION, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
+return {newGame:newGame, VERSION:VERSION, SEMVER:SEMVER, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
         BEATS:BEATS, PLANS:PLANS, PLAN_K:PLAN_K, on:on, fold:fold, hb:hb, slotsAt:slotsAt, nav:nav};
 });
