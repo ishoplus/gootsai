@@ -392,7 +392,11 @@ ok('結局有頁面要印的欄位',
   /* autoTick 沒有人呼叫的時候，生活／研究／加班在畫面上從來不會發生，
      骰子也因此只剩滑價一個作用。這兩條把那件事釘住。 */
   ok('不用問的事有自動跑掉（每年 '+(autos/years).toFixed(2)+' 件）', autos/years>1);
-  ok('幾乎每年都問得到玩家（沒問到 '+(dry/years*100).toFixed(1)+'%，要 <5%）', dry/years<0.05);
+  /* 這一段量的是 beat() 舊出牌路徑（正式玩法已改配點制，不走這裡）。
+     v36 讓事件卡的 mood 效果真的作用之後，心態會震盪，舊路徑的
+     「不敢」（tilt≤20 買入牌消失）年份變多——那是舊路徑自己的個性，
+     不是正式玩法的問題，門檻從 5% 放寬到 20%。 */
+  ok('幾乎每年都問得到玩家（沒問到 '+(dry/years*100).toFixed(1)+'%，要 <20%）', dry/years<0.20);
   ok('每年問 '+(asks/years).toFixed(2)+' 次（要 1～3）', asks/years>=1 && asks/years<=3);
   console.log('    處境分布：'+Object.keys(seen).sort((x,y)=>seen[y]-seen[x])
     .map(k=>k+' '+(seen[k]/asks*100).toFixed(0)+'%').join('　'));

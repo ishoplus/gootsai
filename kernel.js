@@ -1060,7 +1060,10 @@ function applyFx(g,fx,flow){
     const amt=evMoney(g,fx.nav,flow);
     if(Math.abs(amt)>=0.05) out.push({k:'nav', v:amt, t:(amt>0?'帳上多了 ':'帳上少了 ')+Math.abs(amt).toFixed(1)+' 萬'});
   }
-  if(fx.tilt!=null){ addTilt(g,fx.tilt); out.push({k:'tilt', v:fx.tilt, t:'操作衝動 '+(fx.tilt>0?'+':'')+fx.tilt}); }
+  /* 卡片資料用的是舊欄位名 mood（92 處），這裡只認 tilt 的話它們會靜默丟失——
+     實際丟失了好幾版：事件的心態震盪從來沒發生過。兩個名字都認。 */
+  const tv=fx.tilt!=null?fx.tilt:fx.mood;
+  if(tv!=null){ addTilt(g,tv); out.push({k:'tilt', v:tv, t:'操作衝動 '+(tv>0?'+':'')+tv}); }
   if(fx.life!=null){ g.life=clamp(g.life+fx.life,0,100); out.push({k:'life', v:fx.life, t:'生活 '+(fx.life>0?'+':'')+fx.life}); }
   if(fx.trust!=null){ g.trust=clamp(g.trust+fx.trust,0,100); out.push({k:'trust', v:fx.trust, t:'別人對你的信任 '+(fx.trust>0?'+':'')+fx.trust}); }
   if(fx.hab) for(const k in fx.hab){
@@ -1093,6 +1096,23 @@ function drawEvent(g){
 }
 
 /* 你有什麼選項，取決於你養成了什麼習慣 */
+/* 把效果算成人看得懂的賭注，不動任何狀態——
+   「風險較高」是形容詞，「失敗 資產 −9.1 萬・衝動 −11」才是資訊。
+   野球模擬器的事件選項就是這樣：成功率與好壞範圍一起亮出來。 */
+function stakeText(g,fx){
+  if(!fx) return '';
+  const parts=[];
+  if(fx.nav!=null){
+    const m=nav(g)*(fx.nav/100)*EV_MAG;
+    if(Math.abs(m)>=0.05) parts.push('資產 '+(m>0?'+':'−')+amt(Math.abs(m)));
+  }
+  const tv=fx.tilt!=null?fx.tilt:fx.mood;
+  if(tv!=null) parts.push('衝動 '+(tv>0?'+':'')+tv);
+  if(fx.life!=null) parts.push('生活 '+(fx.life>0?'+':'')+fx.life);
+  if(fx.trust!=null) parts.push('信任 '+(fx.trust>0?'+':'')+fx.trust);
+  if(fx.hab) parts.push('習慣進退');
+  return parts.join('・');
+}
 function evOpts(g,e){
   const out=[];
   e.o.forEach(function(o,i){
@@ -1101,7 +1121,8 @@ function evOpts(g,e){
     const impact=i===0?'風險較低':i===1?'標準風險':'風險較高';
     const chance=eventChance(g,o);
     out.push({i:i, t:mode, action:o.t, chance:chance, impact:impact,
-      gamble:o.p!=null, need:o.need||null});
+      gamble:o.p!=null, need:o.need||null,
+      win:stakeText(g,o.g), lose:o.p!=null?stakeText(g,o.b||o.g):null});
   });
   return out;
 }
@@ -1948,7 +1969,7 @@ function wrap(g){
 
 /* 頁面用這個數字確認自己拿到的不是快取裡的舊內核。
    改了對外介面就 +1，並同步改 play.html 的 ?v= 與 NEED_VERSION。 */
-const VERSION=35;
+const VERSION=36;
 
 return {newGame:newGame, VERSION:VERSION, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,

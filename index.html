@@ -352,7 +352,7 @@ svg.chart{width:100%;height:130px;display:block}
   </div>
 </div></div>
 
-<script src="kernel.js?v=35"></script>
+<script src="kernel.js?v=36"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用：呈現層一律禁止呼叫內核的亂數——
@@ -394,7 +394,7 @@ applyDisplay();
 
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源，
    直接雙擊打開會載不到內核。與其停在白畫面，不如講清楚怎麼跑。 */
-const NEED_VERSION=35;
+const NEED_VERSION=36;
 if(typeof KERNEL!=='undefined' && !(KERNEL.VERSION>=NEED_VERSION)){
   document.getElementById('start').innerHTML=
     '<h1>內核是舊的<em>STALE KERNEL '+(KERNEL.VERSION||0)+' &lt; '+NEED_VERSION+'</em></h1>'+
@@ -759,8 +759,12 @@ function eventStep(){
     t:o.t,
     main:o.t==='照常執行',
     warn:o.t==='全力投入',
-    s:'<b>成功率 '+o.chance+'%</b>｜'+esc(o.impact)+'<br>'+esc(o.action)+
-      (o.need?'｜因為你有「'+esc(KERNEL.HABITS[o.need].n)+'」':''),
+    /* 成功率＋好壞範圍一起亮出來（借野球模擬器）——
+       「風險較高」是形容詞，賭注的具體數字才是資訊 */
+    s:esc(o.action)+(o.need?'｜因為你有「'+esc(KERNEL.HABITS[o.need].n)+'」':'')+'<br>'+
+      (o.gamble
+        ? '<b>成功率 '+o.chance+'%</b>｜成功 '+esc(o.win||'—')+'｜失敗 '+esc(o.lose||'—')
+        : '必然'+(o.win?'｜'+esc(o.win):'')),
     f:()=>{
       const r=g.answerEvent(o.i);
       if(r){
