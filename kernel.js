@@ -241,9 +241,8 @@ const EVENTS=[
   {t:'開著，但不用', p:56, g:{mood:3},
    gt:'額度在那裡，你一次都沒動過。你開始明白，能力跟用不用它是兩件事。',
    b:{hab:{cash:-3},mood:5}, bt:'額度在那裡三個月，你就用了。人不會放著工具不用。'},
-  {t:'開了就用滿', p:36, g:{nav:22,mood:8},
-   gt:'那一波你賺了兩倍。你開始覺得沒開融資的人只是膽子小。',
-   b:{nav:-27,mood:-12}, bt:'第一次追繳簡訊來的時候是禮拜五下午。那個週末很長。'}
+  {t:'開了就用滿', g:{borrow:0.6,mood:8},
+   gt:'額度下來那天你全用了。帳上的數字大了一圈——你告訴自己那也是你的錢。從今天起，每一根跌停都比別人痛一點六倍。'}
  ]},
 
 {n:'停損測試',stg:'*',
@@ -280,9 +279,9 @@ const EVENTS=[
   {t:'拿零用錢玩一點', p:47, g:{nav:11,mood:5},
    gt:'小賺跑掉。你發現自己其實只是想參與，不是想賺錢。',
    b:{nav:-9,mood:-5}, bt:'你進場那天就是最高點。金額不大，但那個時間點準得可怕。'},
-  {t:'借錢也要上車', p:26, g:{nav:34,mood:12},
+  {t:'借錢也要上車', p:26, g:{borrow:0.35,nav:34,mood:12},
    gt:'你上到了最後一段。那三個月你覺得自己是天才，這個錯覺持續了很久。',
-   b:{nav:-33,mood:-15,life:-2}, bt:'它從你買進那天開始跌，跌到你不敢跟任何人講數字。'}
+   b:{borrow:0.35,nav:-33,mood:-15,life:-2}, bt:'它從你買進那天開始跌，跌到你不敢跟任何人講數字。'}
  ]},
 
 {n:'假投資群',stg:'*',block:'quiet',
@@ -525,9 +524,9 @@ const EVENTS=[
   {t:'借最低額度', p:54, g:{nav:9},
    gt:'剛好夠你在低點多買一些。還款那天你算了一下，扣掉利息還是賺的。',
    b:{nav:-12,mood:-6}, bt:'市場沒有照你算的走。每個月的扣款日提醒你，這筆錢是借來的。'},
-  {t:'額度給多少借多少', p:36, g:{nav:24,mood:9},
+  {t:'額度給多少借多少', p:36, g:{borrow:0.4,nav:24,mood:9},
    gt:'一次到位。你開始覺得，不敢借的人只是不夠了解自己在做什麼。',
-   b:{nav:-31,life:-3,mood:-13}, bt:'部位縮水，貸款一毛沒少。你開始用信用卡的循環利息付信貸的月付金。'}
+   b:{borrow:0.4,nav:-31,life:-3,mood:-13}, bt:'部位縮水，貸款一毛沒少。你開始用信用卡的循環利息付信貸的月付金。'}
  ]},
 
 {n:'同學的告別式',stg:'pro',minAge:32,
@@ -1234,6 +1233,16 @@ function applyFx(g,fx,flow){
   }
   if(fx.life!=null){ g.life=clamp(g.life+fx.life,0,100); out.push({k:'life', v:fx.life, t:'生活 '+(fx.life>0?'+':'')+fx.life}); }
   if(fx.trust!=null){ g.trust=clamp(g.trust+fx.trust,0,100); out.push({k:'trust', v:fx.trust, t:'別人對你的信任 '+(fx.trust>0?'+':'')+fx.trust}); }
+  /* 融資借款：真的欠債。之後每年計息（資金能力可減），
+     維持率跌破 130% 被強制平倉——內核的債務機器一直都在，
+     只是槓桿卡以前給的是假槓桿（一次性 ±nav%），餵不到它。 */
+  if(fx.borrow){
+    const bAmt=nav(g)*fx.borrow;
+    if(bAmt>1){
+      g.debt+=bAmt; g.cash+=bAmt;
+      out.push({k:'debt',v:-1,t:'融資借入 '+amt(bAmt)+'——開始計息，跌破維持率會被斷頭'});
+    }
+  }
   /* 職涯轉換：辭職轉全職／回去上班。income、骰數、績效倍率
      全部讀 g.career，下一個開年自動生效 */
   if(fx.career&&(fx.career==='job'||fx.career==='pro')&&g.career!==fx.career){
@@ -1313,6 +1322,7 @@ function stakeText(g,fx){
   if(fx.trust!=null) parts.push('信任 '+(fx.trust>0?'+':'')+fx.trust);
   if(fx.love) parts.push({dating:'在一起',married:'結婚',baby:'孩子出生','break':'分手',divorce:'離婚'}[fx.love]||'感情變化');
   if(fx.career) parts.push(fx.career==='pro'?'轉全職':'回職場');
+  if(fx.borrow) parts.push('融資 '+Math.round(fx.borrow*100)+'%（欠債計息）');
   if(fx.hab) parts.push('習慣進退');
   return parts.join('・');
 }
@@ -2183,8 +2193,8 @@ function wrap(g){
    並同步改 index.html 的 ?v= 與 NEED_VERSION。只增不減，不對人展示。
    SEMVER（語意版本，人讀）——主.次.修：修＝文案與修補、
    次＝玩法/平衡/內容、主＝1.0 正式版。開場頁徽章顯示這個。 */
-const VERSION=48;
-const SEMVER='0.15.0';   /* 灰色地帶的另一側：共犯卡＋內線的牙齒 */
+const VERSION=49;
+const SEMVER='0.16.0';   /* 真槓桿：融資會殺人回來了 */
 
 return {newGame:newGame, VERSION:VERSION, SEMVER:SEMVER, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
