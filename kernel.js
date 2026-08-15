@@ -1685,6 +1685,11 @@ function riskCheck(g){
   if(major){
     addTilt(g,-12); g.life=clamp(g.life-5,0,100);
     if(g.debt>0)g.debt*=1.03;
+    /* 重大資金危機＝配點世界的「斷頭」。計入 blowups 之後，
+       「違約交割」（危機＋歸零）與「斷過頭，又爬回來」（危機後爬回大戶）
+       這兩個結局才有路可走——實測 3000 局它們原本一次都沒出現，
+       因為配點制沒有任何路徑會產生真的融資斷頭。 */
+    g.blowups++;
     return g.riskResult={kind:'major',p:p,loss:loss,
       text:'資金壓力同時爆發，被迫賣出部分持股，生活也受到影響。'};
   }
@@ -1835,8 +1840,11 @@ const ENDINGS=[
      留五年紀錄，2018 起 783 件裡四成不到 39 歲。 */
   {id:'default', c:function(x){return x.reason==='ruin'&&x.blowups>=1;}, t:'違約交割'},
   {id:'ruin',    c:function(x){return x.reason==='ruin';},    t:'歸零'},
-  {id:'phoenix', c:function(x){return x.blowups>=1&&x.nav>=3000;}, t:'斷過頭，又爬回來'},
+  /* 天花板在浴火之前：1.5 億的人生就算經歷過危機，也該叫隱形富豪。
+     phoenix 要求危機 ≥2 次——重大資金危機 25 年裡很常見（大戶池 75%
+     都至少中過一次），斷過「一次」不算浴火，反覆被擊倒又爬回來才算。 */
   {id:'whale',   c:function(x){return x.nav>=15000;},         t:'隱形富豪'},
+  {id:'phoenix', c:function(x){return x.blowups>=2&&x.nav>=3000;}, t:'斷過頭，又爬回來'},
   {id:'big',     c:function(x){return x.nav>=3000&&x.life>=55;}, t:'大戶，而且沒把自己弄丟'},
   {id:'rich',    c:function(x){return x.nav>=3000;},          t:'大戶'},
   {id:'mid',     c:function(x){return x.nav>=600;},           t:'中實戶'},
@@ -1940,7 +1948,7 @@ function wrap(g){
 
 /* 頁面用這個數字確認自己拿到的不是快取裡的舊內核。
    改了對外介面就 +1，並同步改 play.html 的 ?v= 與 NEED_VERSION。 */
-const VERSION=34;
+const VERSION=35;
 
 return {newGame:newGame, VERSION:VERSION, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
