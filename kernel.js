@@ -580,6 +580,22 @@ const EVENTS=[
    b:{nav:-20,life:-4,mood:-11}, bt:'升息那年你才知道，兩邊都要的意思是兩邊都撐。'}
  ]},
 
+/* 小三是財富的伴生物：已婚＋淨值千萬才會出現——
+   跟「帳戶破千萬那天」同一個人生階段，錢會招來的不只掌聲。 */
+{n:'她說想跟你學投資',stg:'pro',loveSt:'married',minNav:1000,
+ d:'法說會後的聚餐認識的。訊息越來越晚，問題越來越不像投資。',
+ o:[
+  {t:'把對話拿給另一半看', g:{trust:6,life:4},
+   gt:'另一半看完笑了：「她想學的不是投資。」那晚你們聊到很晚，聊的是十年前你們怎麼開始的。'},
+  {t:'繼續聊，只聊投資', p:50, g:{mood:5,hab:{stop:2}},
+   gt:'你守住了界線，但你發現自己開始期待訊息聲。你把她靜音了——這是你今年做過最難的一次停損。',
+   b:{life:-4,trust:-5,mood:-6}, bt:'另一半看到訊息的那天，你解釋了很久。「只聊投資」四個字，你自己都不信。'},
+  {t:'赴約', p:35, g:{mood:12},
+   gt:'沒有人知道。你把這件事和你的融資單放在同一個抽屜——都是你以為你控制得住的東西。',
+   b:{love:'divorce',life:-7,trust:-15,mood:-10},
+   bt:'她的限時動態拍到了你的手錶。離婚協議書上，另一半只圈了一句：「孩子的帳戶不動。」'}
+ ]},
+
 /* ---- 時事原型三部曲：引用現象，不引用日期——
    ETF 開募之亂（婆媽排隊）、幣圈朋友（跨資產誘惑）、
    新高恐懼（空手等崩盤的機會成本）。 */
@@ -1172,6 +1188,8 @@ function applyFx(g,fx,flow){
       out.push({k:'love',v:1,t:'第 '+L.kids+' 個孩子出生了'}); }
     else if(fx.love==='break'&&L.st==='dating'){ L.st='single'; L.dyrs=0; L.exes++;
       out.push({k:'love',v:-1,t:'這段感情結束了'}); }
+    else if(fx.love==='divorce'&&L.st==='married'){ L.st='single'; L.dyrs=0; L.exes++;
+      out.push({k:'love',v:-1,t:'婚姻結束了'}); }
   }
   if(fx.hab) for(const k in fx.hab){
     const r=evHabit(g,k,fx.hab[k]);
@@ -1226,7 +1244,7 @@ function stakeText(g,fx){
   if(tv!=null) parts.push('衝動 '+(tv>0?'+':'')+tv);
   if(fx.life!=null) parts.push('生活 '+(fx.life>0?'+':'')+fx.life);
   if(fx.trust!=null) parts.push('信任 '+(fx.trust>0?'+':'')+fx.trust);
-  if(fx.love) parts.push({dating:'在一起',married:'結婚',baby:'孩子出生','break':'分手'}[fx.love]||'感情變化');
+  if(fx.love) parts.push({dating:'在一起',married:'結婚',baby:'孩子出生','break':'分手',divorce:'離婚'}[fx.love]||'感情變化');
   if(fx.hab) parts.push('習慣進退');
   return parts.join('・');
 }
@@ -2090,8 +2108,8 @@ function wrap(g){
    並同步改 index.html 的 ?v= 與 NEED_VERSION。只增不減，不對人展示。
    SEMVER（語意版本，人讀）——主.次.修：修＝文案與修補、
    次＝玩法/平衡/內容、主＝1.0 正式版。開場頁徽章顯示這個。 */
-const VERSION=42;
-const SEMVER='0.9.0';
+const VERSION=43;
+const SEMVER='0.10.0';   /* 新內容：外遇線 */
 
 return {newGame:newGame, VERSION:VERSION, SEMVER:SEMVER, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,

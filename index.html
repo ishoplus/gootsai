@@ -352,7 +352,7 @@ svg.chart{width:100%;height:130px;display:block}
   </div>
 </div></div>
 
-<script src="kernel.js?v=42"></script>
+<script src="kernel.js?v=43"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用：呈現層一律禁止呼叫內核的亂數——
@@ -394,7 +394,7 @@ applyDisplay();
 
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源，
    直接雙擊打開會載不到內核。與其停在白畫面，不如講清楚怎麼跑。 */
-const NEED_VERSION=42;
+const NEED_VERSION=43;
 if(typeof KERNEL!=='undefined' && !(KERNEL.VERSION>=NEED_VERSION)){
   document.getElementById('start').innerHTML=
     '<h1>內核是舊的<em>STALE KERNEL '+(KERNEL.VERSION||0)+' &lt; '+NEED_VERSION+'</em></h1>'+
@@ -908,6 +908,7 @@ function ending(){
         tile('家庭',(function(L){ if(!L)return '—';
           if(L.st==='married')return '已婚'+(L.kids?'·'+L.kids+'孩':'');
           if(L.st==='dating')return '交往中';
+          if(L.exes&&L.kids)return '離婚·'+L.kids+'孩';
           return L.exes?'分過手':'單身'; })(e.love))+
         tile('存進去',money(e.inflow))+
         tile('ETF 對照',money(e.bench))+
