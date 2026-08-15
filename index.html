@@ -755,13 +755,16 @@ function eventStep(){
   const e=g.event();
   if(!e){ riskStep(); return; }
   setLamp(1);
+  /* 選項標題用卡片原文——「退群，不玩這個」是一件事，「保守應對」是
+     把同一件事縮放三次的難度旋鈕外皮（設計文件自己批評過的模式）。
+     風險姿態交給按鈕顏色與賭注數字，不用形容詞。 */
   ask('市場事件 · '+esc(e.n),esc(e.d),e.opts.map(o=>({
-    t:o.t,
+    t:o.action,
     main:o.t==='照常執行',
     warn:o.t==='全力投入',
     /* 成功率＋好壞範圍一起亮出來（借野球模擬器）——
        「風險較高」是形容詞，賭注的具體數字才是資訊 */
-    s:esc(o.action)+(o.need?'｜因為你有「'+esc(KERNEL.HABITS[o.need].n)+'」':'')+'<br>'+
+    s:(o.need?'因為你有「'+esc(KERNEL.HABITS[o.need].n)+'」<br>':'')+
       (o.gamble
         ? '<b>成功率 '+o.chance+'%</b>｜成功 '+esc(o.win||'—')+'｜失敗 '+esc(o.lose||'—')
         : '必然'+(o.win?'｜'+esc(o.win):'')),
@@ -769,7 +772,7 @@ function eventStep(){
       const r=g.answerEvent(o.i);
       if(r){
         const fx=r.eff.length?'<br>'+r.eff.map(x=>'<b class="'+(x.v>=0?'up':'dn')+'">'+esc(x.t)+'</b>').join('　'):'';
-        card(r.gamble?(r.ok?'good':'bad'):'info',esc(r.card)+'｜'+esc(r.mode),
+        card(r.gamble?(r.ok?'good':'bad'):'info',esc(r.card),
           '<b>'+esc(r.opt)+'</b><br>'+esc(r.text)+fx);
       }
       paint();
