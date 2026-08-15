@@ -1066,7 +1066,14 @@ function applyFx(g,fx,flow){
   /* 卡片資料用的是舊欄位名 mood（92 處），這裡只認 tilt 的話它們會靜默丟失——
      實際丟失了好幾版：事件的心態震盪從來沒發生過。兩個名字都認。 */
   const tv=fx.tilt!=null?fx.tilt:fx.mood;
-  if(tv!=null){ addTilt(g,tv); out.push({k:'tilt', v:tv, t:'操作衝動 '+(tv>0?'+':'')+tv}); }
+  if(tv!=null){
+    const before=g.tilt;
+    addTilt(g,tv);
+    /* 衝動不是越高越好，是離 55 越遠越危險的鐘擺——
+       away 告訴呈現層這次變化是在回中還是在膨脹/嚇壞，顏色照它塗。 */
+    out.push({k:'tilt', v:tv, away:Math.abs(g.tilt-55)>Math.abs(before-55),
+      t:'操作衝動 '+(tv>0?'+':'')+tv});
+  }
   if(fx.life!=null){ g.life=clamp(g.life+fx.life,0,100); out.push({k:'life', v:fx.life, t:'生活 '+(fx.life>0?'+':'')+fx.life}); }
   if(fx.trust!=null){ g.trust=clamp(g.trust+fx.trust,0,100); out.push({k:'trust', v:fx.trust, t:'別人對你的信任 '+(fx.trust>0?'+':'')+fx.trust}); }
   if(fx.hab) for(const k in fx.hab){
@@ -1972,7 +1979,7 @@ function wrap(g){
 
 /* 頁面用這個數字確認自己拿到的不是快取裡的舊內核。
    改了對外介面就 +1，並同步改 play.html 的 ?v= 與 NEED_VERSION。 */
-const VERSION=37;
+const VERSION=38;
 
 return {newGame:newGame, VERSION:VERSION, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
