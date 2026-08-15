@@ -1996,7 +1996,10 @@ function closeYear(g){
 
   /* 生活 */
   let dl=fold('life',0,{g:g});
-  dl += g.career==='pro' ? -3 : (g.age>=22 ? -2 : 1);
+  /* 全職的生活消耗按「輸得起程度」分段：沒錢盯盤是煎熬（−3），
+     資本夠了盯盤是從容（+2）——辭職買的不是錢，是生活。
+     600 萬同時是辭職卡的門檻：跨過去，同一份工作換一種人生。 */
+  dl += g.career==='pro' ? (nav(g)>=600 ? 2 : -3) : (g.age>=22 ? -2 : 1);
   g.life=clamp(g.life+dl,0,100);
 
   /* 習慣：沒餵就退，退到 0 斷掉；固化的不退 */
@@ -2151,8 +2154,8 @@ function wrap(g){
    並同步改 index.html 的 ?v= 與 NEED_VERSION。只增不減，不對人展示。
    SEMVER（語意版本，人讀）——主.次.修：修＝文案與修補、
    次＝玩法/平衡/內容、主＝1.0 正式版。開場頁徽章顯示這個。 */
-const VERSION=46;
-const SEMVER='0.13.0';   /* 職涯雙向轉換 */
+const VERSION=47;
+const SEMVER='0.14.0';   /* 全職的生活分段：辭職買的是生活 */
 
 return {newGame:newGame, VERSION:VERSION, SEMVER:SEMVER, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
