@@ -253,6 +253,10 @@ const EVENTS=[
   {t:'再等一根看看', p:44, g:{nav:4},
    gt:'它止跌了。這次對了——但你心裡有個聲音說，這種對法不能常常用。',
    b:{nav:-15,mood:-6,hab:{stop:-2}}, bt:'再一根，然後又一根。你當初想的那個價位，現在看起來像天花板。'},
+  /* 指數派的第四個答案：這卡原本逼所有人在「等」和「砍」裡選，
+     連指數玩家都被迫玩擇時——但被動的紀律也是紀律。 */
+  {t:'這是指數，我不停損', g:{hab:{dca:3},mood:-2},
+   gt:'你把 App 關掉。停損是給個股用的，你買的是整個市場——它跌，你就再買一點。這句話說出來很簡單，忍住不動比較難。'},
   {t:'不但不賣，還加碼', p:29, g:{nav:20,mood:9},
    gt:'你賭對了。它翻上來的那天，你覺得停損根本是給沒把握的人用的。',
    b:{nav:-27,mood:-12,hab:{stop:-4}}, bt:'加碼的部位跟原本的一起躺平。學費是你原本打算認賠金額的三倍。'}
@@ -681,6 +685,35 @@ const EVENTS=[
    bt:'第二封不是函，是傳票。'}
  ]},
 
+/* ---- 本業經營線：年輕時最大的部位是薪水，這條線讓它可以玩 ---- */
+{n:'獵頭的電話',stg:'pro',career:'job',minAge:26,
+ d:'對方報出的數字比你現在多三成。「他們點名要你，下週能不能聊聊？」',
+ o:[
+  {t:'接受，跳過去', p:55, g:{sal:0.22,mood:5},
+   gt:'新名片的抬頭多了兩個字。前三個月你加班到懷疑人生，然後你發現自己真的值這個價。',
+   b:{sal:0.05,life:-5,mood:-6},
+   bt:'進去才知道缺人的原因。薪水是多了一點，但你開始羨慕以前的自己。'},
+  {t:'拿去跟現在的公司談', p:50, g:{sal:0.12,mood:3},
+   gt:'主管隔天約你一對一，加薪單走得比你想像中快。原來你的價格一直在，只是沒人逼他們看。',
+   b:{mood:-5,trust:-3},
+   bt:'主管笑著說「我們再研究」。從此你的名字進了「不穩定」的名單。'},
+  {t:'婉拒——現在的團隊值得', g:{life:3,trust:3},
+   gt:'你婉拒了。對方說三個月後再打來。老闆不知道這通電話，但你自己知道你選了什麼。'}
+ ]},
+
+{n:'下班後的課',stg:'*',career:'job',minAge:23,
+ d:'同事轉了一個進修課程給你。一年的晚上，學費六位數的零頭。',
+ o:[
+  {t:'報名，把晚上交出去', g:{sal:0.10,life:-3,hab:{read:2}},
+   gt:'一年後你的報價不一樣了。學費是你付過最划算的一筆——年化報酬率比你的股票好。'},
+  {t:'買了，有空再看', p:40, g:{sal:0.06,mood:2},
+   gt:'你居然真的看完了。零碎的晚上加起來，比你以為的多。',
+   b:{nav:-2,mood:-4},
+   bt:'課在收藏夾裡吃灰。你為「有一天會看」付了錢——這筆你沒有記在對帳單上。'},
+  {t:'不了，下班要生活', g:{life:4,mood:2},
+   gt:'你把晚上留給自己。有些報酬率不會打在薪資單上。'}
+ ]},
+
 /* ---- 時事原型三部曲：引用現象，不引用日期——
    ETF 開募之亂（婆媽排隊）、幣圈朋友（跨資產誘惑）、
    新高恐懼（空手等崩盤的機會成本）。 */
@@ -846,6 +879,7 @@ function newGame(seed,opts){
     trust:50, fame:0, honors:[],           /* 事件卡寫得進來的三個外部狀態 */
     love:{st:'single',dyrs:0,kids:0,exes:0}, /* 感情線：狀態轉移全部由事件卡觸發 */
     cls:0, clsMax:0,                          /* 資本階級：現在／最高到過 */
+    salMult:1,                                /* 本業薪資乘數：跳槽/談薪/進修堆出來 */
     seenEv:{}, yearEv:{}, pendEv:null, eventsLeft:0, evLog:[], riskChecked:false, riskResult:null,
     hist:[], log:[], over:false, ending:null, notes:[]
   };
@@ -980,7 +1014,7 @@ function openYear(g){
   if(g.age<19) inc=g.ri(1,3);
   else if(g.age<22) inc=g.ri(4,9);
   else if(g.career==='pro') inc=g.ri(5,9);   /* 接案與講課：全職者的兼差現金流，約上班的四成 */
-  else inc=Math.round(g.ri(13,26)*(1+0.03*(g.age-22)));
+  else inc=Math.round(g.ri(13,26)*(1+0.03*(g.age-22))*(g.salMult||1));
   income(g,inc); g.income=inc;
 
   /* 每月定額：薪水的六成自動進場，不受心態影響 */
@@ -1267,6 +1301,12 @@ function applyFx(g,fx,flow){
   }
   if(fx.life!=null){ g.life=clamp(g.life+fx.life,0,100); out.push({k:'life', v:fx.life, t:'生活 '+(fx.life>0?'+':'')+fx.life}); }
   if(fx.trust!=null){ g.trust=clamp(g.trust+fx.trust,0,100); out.push({k:'trust', v:fx.trust, t:'別人對你的信任 '+(fx.trust>0?'+':'')+fx.trust}); }
+  /* 本業薪資成長：跳槽、談薪、進修的回報。加在年收入的乘數上，
+     上限 2 倍——本業才是年輕時最大的部位，這條線讓它可以經營。 */
+  if(fx.sal){
+    g.salMult=Math.min(2,(g.salMult||1)+fx.sal);
+    out.push({k:'sal',v:fx.sal,t:'本業薪資 +'+Math.round(fx.sal*100)+'%（每年生效）'});
+  }
   /* 融資借款：真的欠債。之後每年計息（資金能力可減），
      維持率跌破 130% 被強制平倉——內核的債務機器一直都在，
      只是槓桿卡以前給的是假槓桿（一次性 ±nav%），餵不到它。 */
@@ -1368,6 +1408,7 @@ function stakeText(g,fx){
   if(fx.love) parts.push({dating:'在一起',married:'結婚',baby:'孩子出生','break':'分手',divorce:'離婚'}[fx.love]||'感情變化');
   if(fx.career) parts.push(fx.career==='pro'?'轉全職':'回職場');
   if(fx.borrow) parts.push('融資 '+Math.round(fx.borrow*100)+'%（欠債計息）');
+  if(fx.sal) parts.push('薪資 +'+Math.round(fx.sal*100)+'%');
   if(fx.hab) parts.push('習慣進退');
   return parts.join('・');
 }
@@ -2248,8 +2289,8 @@ function wrap(g){
    並同步改 index.html 的 ?v= 與 NEED_VERSION。只增不減，不對人展示。
    SEMVER（語意版本，人讀）——主.次.修：修＝文案與修補、
    次＝玩法/平衡/內容、主＝1.0 正式版。開場頁徽章顯示這個。 */
-const VERSION=53;
-const SEMVER='0.19.0';   /* 玩家體驗四修：存檔續玩、結算摺疊、閘門合併、衝動狀態字 */
+const VERSION=54;
+const SEMVER='0.20.0';   /* 本業經營線＋指數派的第四個答案 */
 
 return {newGame:newGame, VERSION:VERSION, SEMVER:SEMVER, CLASSES:CLASSES, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
