@@ -40,15 +40,15 @@
 ---
 
 > 這份文件描述 `kernel.js`（純邏輯內核）、`kernel-sim.js`（平衡模擬器）
-> 與 `play.html`（可玩的試玩頁）。**舊的 `index.html` 一個字沒動。**
+> 與首頁 `index.html`。**舊版完整遊戲保留在 `v1.html`。**
 >
 > ```bash
 > node kernel-sim.js 1000    # 平衡模擬
 > node play-smoke.js         # 載入期冒煙測試
-> python3 -m http.server 8000 && open http://localhost:8000/play.html
+> python3 -m http.server 8000 && open http://localhost:8000/
 > ```
 >
-> `play.html` 用 `<script src="kernel.js">` 載入內核——邏輯只有一份，
+> 首頁（原 `play.html`，已發佈為 `index.html`）用 `<script src="kernel.js">` 載入內核——邏輯只有一份，
 > 模擬器測的就是頁面跑的那份程式。代價是 CSP 的 `script-src 'self'`
 > 在 `file://` 底下比對不到來源，直接雙擊會載不到內核（頁面會告訴你怎麼跑）。
 > 部署到靜態主機不受影響。

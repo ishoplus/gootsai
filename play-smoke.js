@@ -13,12 +13,12 @@ let bad=0;
 const ok=(n,c)=>{ if(c) console.log('  ✓ '+n); else { bad++; console.error('  ✗ '+n); } };
 
 /* ---------- 1. 假 DOM 載入 ---------- */
-const html=fs.readFileSync(path.join(__dirname,'play.html'),'utf8');
+const html=fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
 const inline=[];
 const RE=/<script(\b[^>]*)>([\s\S]*?)<\/script>/g;
 let mm;
 while((mm=RE.exec(html))) if(mm[1].indexOf('src=')<0 && mm[2].trim().length>40) inline.push(mm[2]);
-ok('play.html 裡有一段 inline 腳本', inline.length===1);
+ok('index.html 裡有一段 inline 腳本', inline.length===1);
 
 const el=()=>({style:{},dataset:{},value:'',textContent:'',innerHTML:'',id:'',className:'',
   classList:{add(){},remove(){},toggle(){},contains:()=>false},
@@ -34,7 +34,7 @@ const sandbox={console,Math,JSON,Object,Array,String,Number,Boolean,Date,isNaN,p
     querySelector:()=>el(),querySelectorAll:()=>[]}};
 sandbox.window=sandbox; sandbox.globalThis=sandbox;
 vm.createContext(sandbox);
-try{ vm.runInContext(inline[0],sandbox,{filename:'play.html'}); console.log('  ✓ 腳本載入不拋錯'); }
+try{ vm.runInContext(inline[0],sandbox,{filename:'index.html'}); console.log('  ✓ 腳本載入不拋錯'); }
 catch(e){ bad++; console.error('  ✗ 載入期就炸了：'+e.message); }
 
 /* ---- 叫得到卻沒定義的函式 ----

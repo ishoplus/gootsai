@@ -1,0 +1,3333 @@
+<!DOCTYPE html>
+<html lang="zh-Hant-TW">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<!-- 縱深防禦。單檔遊戲全部是 inline，所以 script-src 必須留 'unsafe-inline'，
+     這代表 CSP 擋不住注入的 onerror 之類事件處理器——真正的防線是輸入端的白名單清洗。
+     這裡能擋的是：載入外部腳本、外掛物件、base 標籤劫持、表單外送。
+     frame-ancestors 只有 HTTP 標頭形式有效，meta 版會被忽略，故不列。 -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'none';
+  script-src 'self' 'unsafe-inline' https://gc.zgo.at;
+  style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
+  font-src https://fonts.gstatic.com;
+  img-src 'self' data: https://*.goatcounter.com;
+  connect-src https://*.goatcounter.com;
+  base-uri 'none';
+  form-action 'none'">
+<title>少年股神 — 一場種子化的韭菜養成</title>
+<meta name="description" content="16 歲用壓歲錢開戶，40 歲結算。24 年牛熊由種子生成，相同種子＋相同選擇＝相同人生。賺錢不難，難的是不變成另一個人。">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="少年股神">
+<meta property="og:title" content="少年股神 — 一場種子化的韭菜養成">
+<meta property="og:description" content="16 歲用壓歲錢開戶，40 歲結算：淨值、心態、還剩幾個朋友。相同種子＋相同選擇＝相同人生。">
+<meta property="og:url" content="https://ishoplus.github.io/gootsai/">
+<meta property="og:image" content="https://ishoplus.github.io/gootsai/og.png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="少年股神：淨值曲線與大盤、台積電的對照">
+<meta property="og:locale" content="zh_TW">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="少年股神 — 一場種子化的韭菜養成">
+<meta name="twitter:description" content="16 歲用壓歲錢開戶，40 歲結算。賺錢不難，難的是不變成另一個人。">
+<meta name="twitter:image" content="https://ishoplus.github.io/gootsai/og.png">
+<meta name="theme-color" content="#e8e4da">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 fill=%22%23e8e4da%22/%3E%3Cpath d=%22M3 24 L10 16 L15 20 L22 8 L29 12%22 stroke=%22%238c2f2f%22 stroke-width=%222.5%22 fill=%22none%22 stroke-linejoin=%22round%22/%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@600;900&display=swap" rel="stylesheet">
+<style>
+/* ================= 主題變數 =================
+   財經報是預設，所以整套調色盤直接放在 :root——就算 JS 完全沒跑，
+   拿到的仍然是正確的一套顏色，而不是某個佈景的殘骸。 */
+:root{
+  --bg:#e8e4da; --panel:#f6f3ec; --panel2:#eeeae0; --edge:#c9c2b3;
+  --ink:#1d1a15; --dim:#6b6355; --accent:#8c2f2f; --accent2:#b04545;
+  --up:#1d6b3a; --dn:#a51e1e; --warn:#8a5a0c; --gold:#7d5f18;
+  --mono:'IBM Plex Mono',ui-monospace,Menlo,monospace;
+  --sans:'Noto Sans TC',system-ui,-apple-system,sans-serif;
+  --serif:'Noto Serif TC',Georgia,serif;
+  --radius:0px; --shadow:none;
+}
+body[data-theme="terminal"]{
+  --bg:#080c0a; --panel:#0e1512; --panel2:#131c18; --edge:#1e2c25;
+  --ink:#d8e6de; --dim:#6f8579; --accent:#34d17e; --accent2:#7de8b0;
+  --up:#3ddc84; --dn:#ff5c5c; --warn:#ffc043; --gold:#ffd166;
+  --radius:4px; --shadow:0 2px 0 rgba(0,0,0,.4);
+}
+body[data-theme="neon"]{
+  --bg:#0a0812; --panel:#140f22; --panel2:#1b1430; --edge:#2e2350;
+  --ink:#e6dcff; --dim:#8878b0; --accent:#b388ff; --accent2:#e0c8ff;
+  --up:#5ce1a0; --dn:#ff5f8f; --warn:#ffcb5c; --gold:#ffd166;
+  --radius:10px; --shadow:0 0 18px rgba(179,136,255,.14);
+}
+*{box-sizing:border-box}
+html,body{margin:0;padding:0}
+html{scroll-padding-top:120px}
+/* 紙張紋理：內嵌 SVG 雜訊，只在紙質佈景出現。深色佈景關掉，不然會髒 */
+:root{--grain:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3'/%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)' opacity='.045'/%3E%3C/svg%3E")}
+body[data-theme="terminal"],body[data-theme="neon"]{--grain:none}
+body{
+  background-color:var(--bg); background-image:var(--grain);
+  color:var(--ink); font-family:var(--sans);
+  font-size:15px; line-height:1.65; -webkit-text-size-adjust:100%;
+  padding-bottom:env(safe-area-inset-bottom);
+}
+body.big{font-size:17px}
+a{color:var(--accent)}
+b.up{color:var(--up)} b.dn{color:var(--dn)} b.hl{color:var(--accent)} b.gd{color:var(--gold)}
+.mono{font-family:var(--mono)}
+
+/* ================= 開場 ================= */
+#start{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:32px 24px 64px}
+#start .wrap{width:100%;max-width:460px}
+#ver{position:fixed;top:6px;right:10px;font-size:10px;letter-spacing:1px;color:var(--dim);
+  opacity:.5;font-family:var(--mono);z-index:50;pointer-events:none}
+h1{font-family:var(--serif);font-size:46px;line-height:1.06;margin:0 0 6px;
+  letter-spacing:.06em;font-weight:900}
+h1 em{display:block;font-family:var(--mono);font-style:normal;font-size:10.5px;letter-spacing:.42em;
+  color:var(--accent);margin-top:12px;font-weight:500;
+  padding-top:10px;border-top:1px solid var(--edge)}
+.tape{height:2px;background:linear-gradient(90deg,var(--up),var(--dn),var(--up));opacity:.7;margin:16px 0 20px}
+.sub{color:var(--dim);font-size:13px;line-height:1.8;margin:0 0 26px}
+.field{margin-bottom:18px}
+.field>label{display:block;font-size:9.5px;letter-spacing:.26em;color:var(--dim);
+  font-family:var(--mono);margin-bottom:8px;text-transform:uppercase;
+  border-bottom:1px solid var(--edge);padding-bottom:5px}
+input{width:100%;padding:11px 12px;background:var(--panel);color:var(--ink);
+  border:1px solid var(--edge);border-radius:var(--radius);font-size:15px;font-family:var(--sans);outline:none}
+input:focus{border-color:var(--accent)}
+.seg{display:flex;flex-wrap:wrap;gap:6px}
+.seg button{flex:1 1 auto;min-width:86px;padding:10px 6px;background:var(--panel);color:var(--dim);
+  border:1px solid var(--edge);border-radius:var(--radius);font-size:13px;cursor:pointer;font-family:var(--sans)}
+.seg button.on{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:700}
+.seedline{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:24px;line-height:1.9}
+.seedline b{color:var(--accent)}
+#seed-show{width:130px;display:inline-block;background:var(--panel);color:var(--accent);
+  border:1px solid var(--edge);padding:4px 7px;font-family:var(--mono);font-size:12px;vertical-align:middle}
+.byline{font-family:var(--mono);font-size:12px;color:var(--dim);margin-top:22px;
+  padding-top:14px;border-top:1px solid var(--edge);letter-spacing:.04em}
+.byline a{color:var(--accent);text-decoration:none;border-bottom:1px solid currentColor}
+.byline a:hover{color:var(--accent2)}
+.byline span{opacity:.5;margin:0 4px}
+.prefline{font-family:var(--mono);font-size:11px;color:var(--dim);margin-top:14px}
+.prefline a{color:var(--dim);text-decoration:none;border-bottom:1px dotted var(--dim);margin-right:14px}
+
+/* ================= 按鈕 =================
+   次要選項是留白的紙，主要選項是印上去的一塊實心油墨——層級靠明度差，不靠圓角。 */
+.btn{display:block;width:100%;padding:15px 20px;margin-top:9px;background:transparent;
+  color:var(--ink);border:1px solid var(--edge);border-radius:var(--radius);
+  font-size:15px;font-weight:500;text-align:left;cursor:pointer;font-family:var(--sans);
+  transition:background .14s,border-color .14s,transform .06s;box-shadow:var(--shadow);
+  position:relative}
+.btn:hover{background:var(--panel);border-color:var(--ink)}
+.btn:active{transform:translateY(1px)}
+.btn:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.btn.main{background:var(--accent);color:var(--bg);border-color:var(--accent);font-weight:700}
+.btn.main:hover{background:var(--accent2);border-color:var(--accent2)}
+.btn.warn{border-color:var(--warn);border-left-width:3px}
+.btn.warn:hover{border-color:var(--dn)}
+.btn .s{display:block;font-size:11.5px;color:var(--dim);margin-top:4px;
+  font-family:var(--mono);line-height:1.6;font-variant-numeric:tabular-nums}
+.btn.main .s{color:var(--bg);opacity:.72}
+#act .q{font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;
+  color:var(--dim);margin-bottom:10px;font-family:var(--mono);
+  border-bottom:1px solid var(--edge);padding-bottom:7px}
+
+/* ================= 遊戲畫面 ================= */
+/* 版面骨架（結構參考野球模擬器）：撐滿視窗的直欄，記分板黏頂、行動區黏底。
+   關鍵是行動區有自己的高度上限與內捲——太高就自己捲，永遠不吃掉整個畫面。
+   用 dvh 而非 vh：手機 Safari 的網址列會伸縮，vh 量到的是錯的高度。 */
+#game{display:none;max-width:720px;margin:0 auto;padding:0 20px;
+  min-height:100vh;min-height:100dvh;flex-direction:column}
+#game.on{display:flex}
+#log{flex:1 1 auto;min-height:0;padding-bottom:14px}
+/* 報頭：姓名用襯線體當報名，下方雙細線，數據列比照股市行情表 */
+#hud{position:sticky;top:0;z-index:30;background:var(--bg);
+  border-bottom:3px double var(--edge);padding:10px 0 8px;margin-bottom:16px}
+.hudtop{display:flex;align-items:baseline;gap:11px;flex-wrap:wrap;
+  font-family:var(--mono);font-size:11.5px;font-variant-numeric:tabular-nums}
+.hudtop .nm{font-family:var(--serif);font-weight:900;font-size:19px;letter-spacing:.04em;
+  padding-right:11px;border-right:1px solid var(--edge)}
+.hudtop .yr{color:var(--dim);letter-spacing:.06em}
+.hudtop .idn{font-size:11px;color:var(--dim);letter-spacing:.06em}
+.hudtop .nav{margin-left:auto;font-size:19px;font-weight:700;letter-spacing:-.01em}
+.hudtop .chg{font-size:12px;font-weight:700}
+.hudbars{display:flex;gap:16px;margin-top:8px;max-width:520px}
+.hb{flex:1;font-family:var(--mono);font-size:9.5px;color:var(--dim);
+  letter-spacing:.18em;text-transform:uppercase}
+.hb .bar{height:3px;background:var(--edge);overflow:hidden;margin-top:4px}
+.hb .bar i{display:block;height:100%;background:var(--accent)}
+.hb.mood .bar i{background:var(--warn)} .hb.life .bar i{background:var(--up)}
+#spark{margin-top:8px;display:block;width:100%;height:34px}
+#spark:empty{display:none}
+#menubtn{background:none;border:1px solid var(--edge);color:var(--dim);font-family:var(--mono);
+  font-size:11px;padding:2px 8px;border-radius:var(--radius);cursor:pointer}
+
+/* ================= 日誌卡（報紙結構）=================
+   眉標 → 襯線標題 → 內文，用細線分節。左側色條是深色 UI 的習慣，
+   在報紙版面上讀起來像錯誤；語意改由眉標的顏色與符號承擔。 */
+.c{border-top:1px solid var(--edge);padding:13px 0 14px;margin:16px 0 0;animation:fi .22s ease-out}
+@keyframes fi{from{opacity:0;transform:translateY(4px)}to{opacity:1;transform:none}}
+.c .kick{font-family:var(--mono);font-size:9.5px;letter-spacing:.24em;text-transform:uppercase;
+  color:var(--dim);margin-bottom:4px;display:flex;align-items:center;gap:6px}
+.c .kick::before{content:'';width:14px;height:1px;background:currentColor;flex:none;opacity:.7}
+.c .t{font-family:var(--serif);font-size:18px;font-weight:700;line-height:1.4;
+  margin-bottom:4px;text-wrap:balance;letter-spacing:.01em}
+.c .b{font-size:14.5px;line-height:1.8;color:var(--ink);opacity:.9}
+.c.good .kick{color:var(--up)}   .c.good .kick::before{width:0}
+.c.good .kick::after{content:'▲';font-size:8px;order:-1}
+.c.bad  .kick{color:var(--dn)}   .c.bad .kick::before{width:0}
+.c.bad  .kick::after{content:'▼';font-size:8px;order:-1}
+.c.gold .kick{color:var(--gold)} .c.gold .kick::before{width:0}
+.c.gold .kick::after{content:'★';font-size:9px;order:-1}
+.c.mkt  .kick{color:var(--accent)}
+.c.mkt  .t{font-size:20px}
+.c.info .kick{color:var(--dim)}
+/* 年份分節：報紙的雙細線 */
+.hr{height:0;border-top:3px double var(--edge);margin:26px 0 4px;position:relative}
+.hr span{position:absolute;left:0;top:-8px;background:var(--bg);padding-right:12px;
+  font-family:var(--mono);font-size:10px;letter-spacing:.28em;color:var(--dim)}
+/* 數據列：股票表的對齊感 */
+.tbl{font-family:var(--mono);font-size:12.5px;margin-top:8px;line-height:1.9;
+  font-variant-numeric:tabular-nums}
+.tbl .k{color:var(--dim);display:inline-block;min-width:5.2em;
+  font-size:10.5px;letter-spacing:.1em}
+
+/* ================= 行動區 ================= */
+#act{position:sticky;bottom:0;z-index:20;background:var(--bg);
+  border-top:1px solid var(--edge);box-shadow:0 -10px 26px rgba(0,0,0,.5);
+  max-height:52vh;max-height:52dvh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:12px 0 calc(14px + env(safe-area-inset-bottom));margin-top:16px;overscroll-behavior:contain}
+/* 分配骰子是需要整頁注意力的時刻，讓它長高 */
+#act.alloc{max-height:calc(100vh - 92px);max-height:calc(100dvh - 92px)}
+body[data-theme="terminal"] #act,body[data-theme="neon"] #act{box-shadow:0 -10px 26px rgba(0,0,0,.5)}
+#dice{display:flex;gap:7px;flex-wrap:nowrap;margin-bottom:12px}
+.die{width:38px;height:38px;flex:0 1 38px;border:1px solid var(--ink);border-radius:var(--radius);
+  background:transparent;display:flex;align-items:center;justify-content:center;
+  font-family:var(--mono);font-size:17px;font-weight:700;color:var(--ink)}
+.die.used{opacity:.22}
+.die.active{border-color:var(--accent);color:var(--bg);background:var(--accent)}
+.die.six{color:var(--gold)}
+.die.rolling{opacity:.6}
+.ab{display:flex;align-items:center;gap:11px;padding:11px 14px;border:1px solid var(--edge);
+  border-radius:var(--radius);margin-bottom:5px;cursor:pointer;background:transparent;
+  transition:background .12s,border-color .12s}
+.ab:hover{border-color:var(--ink);background:var(--panel)}
+.ab .v{font-variant-numeric:tabular-nums}
+.ab.cap{opacity:.4;cursor:not-allowed}
+.ab .n{width:3.5em;font-size:13px;font-weight:500}
+.ab .bar{flex:1;height:6px;background:var(--edge);border-radius:3px;overflow:hidden}
+.ab .bar i{display:block;height:100%;background:var(--accent)}
+.ab .v{font-family:var(--mono);font-size:12px;width:2.4em;text-align:right;color:var(--dim)}
+.ab.sink{border-style:dashed}
+.ab.sink .n{color:var(--warn);width:5.2em;white-space:nowrap}
+.ab .sd{flex:1;font-family:var(--mono);font-size:11.5px;color:var(--dim)}
+.cue{font-family:var(--mono);font-size:11px;color:var(--dim);margin:8px 0 6px;
+  font-variant-numeric:tabular-nums}
+.cue b{color:var(--ink)}
+.cue .rule{display:block;font-size:10px;opacity:.72;margin-top:3px;letter-spacing:.02em}
+.seprow .rule{display:none}
+
+/* ================= 結局 ================= */
+#fin{padding:8px 0 40px}
+#fin .hon{padding-bottom:26px}
+.share{margin-top:26px}
+.share .k{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--dim);margin-bottom:8px}
+.share img{width:100%;max-width:520px;display:block;border:1px solid var(--edge);border-radius:var(--radius)}
+.share .hint{font-size:12px;color:var(--dim);margin-top:10px;line-height:1.75;padding-bottom:28px}
+#fin h2{font-family:var(--serif);font-size:38px;font-weight:900;margin:8px 0 10px;
+  line-height:1.18;letter-spacing:-.01em;text-wrap:balance}
+#fin .rank{font-family:var(--mono);font-size:10px;letter-spacing:.34em;color:var(--gold);
+  padding-bottom:8px;border-bottom:1px solid var(--edge)}
+#fin>p{font-size:15.5px;line-height:1.85;max-width:60ch}
+@media(max-width:560px){#fin h2{font-size:28px}}
+#chart{width:100%;height:200px;display:block;margin:18px 0;border:1px solid var(--edge);background:var(--panel)}
+/* 結算表：報紙的財務摘要，用虛線 leader 對齊，不用一堆方塊 */
+.stats{margin:18px 0;border-top:1px solid var(--edge);border-bottom:3px double var(--edge);
+  padding:4px 0;columns:2;column-gap:34px}
+.st{display:flex;align-items:baseline;gap:6px;padding:5px 0;break-inside:avoid;
+  border-bottom:1px dotted var(--edge)}
+.st .k{font-family:var(--mono);font-size:10px;color:var(--dim);letter-spacing:.14em;
+  text-transform:uppercase;white-space:nowrap}
+.st .v{margin-left:auto;font-size:15px;font-weight:700;font-family:var(--mono);
+  font-variant-numeric:tabular-nums}
+@media(max-width:560px){.stats{columns:1}}
+.hon{font-size:13px;line-height:1.9}
+.hon i{font-style:normal;color:var(--gold)}
+
+.vsline{border:1px solid var(--gold);border-radius:var(--radius);padding:10px 12px;
+  margin-top:20px;font-size:13px;line-height:1.75;color:var(--ink)}
+.vsline b{color:var(--gold)}
+.modehint{font-size:11.5px;color:var(--dim);margin:8px 0 0;line-height:1.7;font-family:var(--mono)}
+.codexline{font-family:var(--mono);font-size:11.5px;color:var(--dim);margin-top:18px;line-height:1.9}
+.codexline b{color:var(--accent)}
+.codexline a{color:var(--dim);border-bottom:1px dotted var(--dim);text-decoration:none}
+.vs{border:1px dashed var(--edge);border-radius:var(--radius);padding:14px 16px;margin-top:18px;
+  font-size:13px;line-height:1.8}
+.vs .k{font-family:var(--mono);font-size:10px;letter-spacing:2px;color:var(--dim);margin-bottom:4px}
+.vs b{color:var(--ink)} .vs b.up{color:var(--up)} .vs b.dn{color:var(--dn)}
+.vs a{color:var(--accent)}
+.pr{display:flex;align-items:baseline;gap:8px;padding:4px 0;border-bottom:1px solid var(--edge);
+  font-size:13px}
+.pr:last-of-type{border-bottom:none}
+.pr .i{font-family:var(--mono);font-size:11px;color:var(--dim);width:1.4em}
+.pr b{min-width:3.4em}
+.pr .t{flex:1;font-size:11.5px;color:var(--dim)}
+.pr .v{font-family:var(--mono);font-size:13px;font-variant-numeric:tabular-nums}
+.pr.me{background:var(--panel);margin:0 -6px;padding:5px 6px;border-radius:var(--radius)}
+.pr.me b{color:var(--accent)}
+.bench .brow{display:flex;align-items:baseline;gap:10px;padding:3px 0;font-size:13.5px}
+.bench .brow span{width:6em;color:var(--dim);font-size:12px}
+.bench .brow b{flex:1;font-family:var(--mono);font-variant-numeric:tabular-nums}
+.bench .brow i{font-style:normal;font-family:var(--mono);font-size:12.5px}
+.bench .brow i.up{color:var(--up)} .bench .brow i.dn{color:var(--dn)}
+.lgd{display:flex;gap:14px;font-family:var(--mono);font-size:10.5px;color:var(--dim);margin:-8px 0 4px}
+.lgd span{display:flex;align-items:center;gap:5px}
+.lgd span::before{content:'';width:14px;height:2px;background:currentColor}
+.lgd .l1{color:var(--up)} .lgd .l2{color:var(--dim)}
+.lgd .l3{color:var(--warn)} .lgd .l4{color:var(--dim);opacity:.7}
+/* 圖鑑 */
+#mask .sheet.wide{max-width:min(540px,100%)}
+.cdxg{max-height:62vh;overflow-y:auto;margin-bottom:10px}
+.cdxg h4{font-family:var(--mono);font-size:10px;letter-spacing:3px;color:var(--dim);
+  margin:14px 0 6px;font-weight:500}
+.cdx{border-left:2px solid var(--edge);padding:7px 0 7px 13px;margin-bottom:8px;opacity:.45}
+.cdx.on{opacity:1;border-left-color:var(--accent)}
+.cdx b{display:block;font-size:13.5px}
+.cdx span{display:block;font-size:11.5px;color:var(--dim);line-height:1.6}
+
+/* ---- 生涯時間軸 ---- */
+#tl{display:none}
+.tl-k{font-family:var(--mono);font-size:9.5px;letter-spacing:.28em;text-transform:uppercase;
+  color:var(--dim);padding-bottom:6px;border-bottom:1px solid var(--edge);margin-bottom:2px}
+.tl-hd{display:flex;gap:8px;padding:5px 8px 6px;font-family:var(--mono);font-size:8.5px;
+  letter-spacing:.14em;color:var(--dim);text-transform:uppercase;
+  border-bottom:1px solid var(--edge);margin-bottom:3px}
+.tl-hd .a{width:1.7em} .tl-hd .m{width:1.6em} .tl-hd .r{width:3.4em;text-align:right}
+.tl-hd .n{flex:1;text-align:right}
+#tl-list{display:flex;flex-direction:column;gap:1px;overflow-y:auto;overscroll-behavior:contain}
+.tli{display:flex;align-items:baseline;gap:8px;padding:5px 8px;border-radius:var(--radius);
+  cursor:pointer;font-family:var(--mono);font-size:11.5px;line-height:1.6;
+  border-left:2px solid transparent;font-variant-numeric:tabular-nums;
+  border-bottom:1px dotted transparent}
+.tli:nth-child(even){background:linear-gradient(var(--panel),var(--panel))}
+.tli:hover{background:var(--panel)}
+.tli.on{background:var(--panel);border-left-color:var(--accent)}
+.tli .a{color:var(--dim);width:1.7em}
+.tli .m{width:1.6em;font-size:9px}
+.tli .m.up{color:var(--up)} .tli .m.dn{color:var(--dn)} .tli .m.mid{color:var(--dim)}
+.tli .r{width:3.4em;text-align:right}
+.tli .r.up{color:var(--up)} .tli .r.dn{color:var(--dn)}
+.tli .n{flex:1;text-align:right;color:var(--ink);opacity:.8}
+.tl-empty{font-size:12px;color:var(--dim);line-height:1.7}
+.tlmodal{max-height:60vh;margin-bottom:10px}
+
+/* 桌機雙欄：內容在左、選擇在右，兩欄各自黏住，就不用一直上下捲 */
+@media(min-width:900px){
+  #game{max-width:1080px;display:none;
+    grid-template-columns:minmax(0,1fr) 372px;
+    grid-template-areas:"hud hud" "log act";
+    column-gap:28px;align-items:start;align-content:start}
+  #game.on{display:grid}
+  #hud{grid-area:hud}
+  #log{grid-area:log;padding-bottom:40px}
+  #act{grid-area:act;position:sticky;top:132px;bottom:auto;
+    max-height:calc(100dvh - 152px);border-top:none;
+    border-left:1px solid var(--edge);box-shadow:none;
+    padding:0 0 0 22px;margin-top:0}
+  #act.alloc{max-height:calc(100dvh - 152px)}
+  #fin{grid-area:log}
+}
+/* 寬螢幕三欄：時間軸常駐在左，隨時看得到自己走過哪些年 */
+@media(min-width:1180px){
+  #game{max-width:1320px;
+    grid-template-columns:196px minmax(0,1fr) 372px;
+    grid-template-areas:"hud hud hud" "tl log act";
+    column-gap:26px}
+  #tl{display:flex;flex-direction:column;grid-area:tl;
+    position:sticky;top:132px;max-height:calc(100dvh - 152px);
+    border-right:1px solid var(--edge);padding-right:18px}
+  #tl-list{min-height:0}
+}
+
+/* ---- 分配骰子的整頁覆蓋層（窄螢幕）---- */
+#af{position:fixed;inset:0;z-index:80;background:var(--bg);background-image:var(--grain);
+  display:flex;flex-direction:column;animation:fi .16s ease-out}
+.af-in{display:flex;flex-direction:column;min-height:0;flex:1;
+  max-width:560px;width:100%;margin:0 auto;padding:0 20px}
+.af-head{flex:none;padding:calc(10px + env(safe-area-inset-top)) 0 9px;
+  border-bottom:3px double var(--edge);background:var(--bg)}
+.af-t{font-family:var(--serif);font-size:17px;font-weight:700;line-height:1.4;margin-bottom:7px}
+.af-stat{display:flex;gap:16px;font-family:var(--mono);font-size:11px;color:var(--dim);
+  letter-spacing:.06em;font-variant-numeric:tabular-nums}
+.af-stat b{color:var(--ink);font-size:12.5px}
+.af-stat b.up{color:var(--up)} .af-stat b.dn{color:var(--dn)}
+.af-body{flex:1;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  overscroll-behavior:contain;padding:12px 0 calc(16px + env(safe-area-inset-bottom))}
+#af #dice{position:sticky;top:0;z-index:2;background:var(--bg);padding:2px 0 10px;margin-bottom:2px}
+#af .abgrid{display:grid;grid-template-columns:1fr 1fr;gap:5px}
+#af .sinkgrid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:5px}
+#af .ab{padding:13px 15px}
+#af .ab.sink{flex-direction:column;align-items:flex-start;gap:2px}
+#af .ab.sink .n{width:auto}
+#af .btn{margin-top:10px}
+
+/* ================= 選單疊加層 ================= */
+/* 彈窗要讀起來像「疊在紙上的另一張紙」。
+   原本背景與頁面同色、邊框又用最淺的 --edge，兩側縫隙露出底下的卡片線條，
+   看起來像頁面被切開——分層必須靠底色差、深邊框與投影三者一起做。 */
+#mask{position:fixed;inset:0;background:rgba(24,18,10,.58);z-index:100;
+  display:flex;align-items:center;justify-content:center;
+  padding:20px calc(14px + env(safe-area-inset-right)) calc(20px + env(safe-area-inset-bottom))
+          calc(14px + env(safe-area-inset-left));
+  animation:fi .14s ease-out}
+#mask .sheet{width:100%;max-width:min(376px,100%);background:var(--panel);
+  border:1px solid var(--dim);border-radius:var(--radius);padding:22px 22px 20px;
+  box-shadow:0 20px 56px rgba(0,0,0,.42);max-height:calc(100dvh - 40px);
+  overflow-y:auto;overscroll-behavior:contain}
+#mask .q{font-family:var(--mono);font-size:9.5px;color:var(--dim);letter-spacing:.26em;
+  text-transform:uppercase;margin-bottom:10px;padding-bottom:7px;
+  border-bottom:1px solid var(--edge)}
+
+@media(max-width:520px){
+  h1{font-size:32px}
+  /* HUD 在 664px 高的機身上原本佔掉 116px，壓到 ~78px */
+  #hud{padding:6px 0 5px;margin-bottom:10px}
+  .hudtop{font-size:11px;gap:7px}
+  .hudtop .nm{font-size:14px}
+  .hudtop .nav{font-size:15px}
+  .hudtop{flex-wrap:nowrap;overflow:hidden}
+  .hudtop .yr{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .hudtop .idn{display:none}      /* 身分改在年份列裡一起顯示，省一整行 */
+  .hudbars{margin-top:4px}
+  #spark{height:18px;margin-top:4px}
+  #menubtn{padding:1px 6px;font-size:10px}
+  /* 底部面板的底色與投影延伸到螢幕邊，內容仍維持外距——
+     這樣它讀起來是一條工具列，而不是一排貼著邊的按鈕 */
+  #act{max-height:50dvh;margin:14px -20px 0;
+    padding:12px 20px calc(14px + env(safe-area-inset-bottom))}
+  #act.alloc{max-height:calc(100dvh - 84px)}
+  .die{width:31px;height:31px;flex:0 1 31px;font-size:14px}
+  /* 早期為了把分配硬塞進 664px 而壓縮的規則已經移除——
+     分配現在走整頁覆蓋層（#af 有自己的尺寸），面板不必再委屈。
+     留在這裡只會把全站放寬的留白又蓋回去。 */
+  .ab .n{font-size:12.5px;width:3.1em}
+  .ab .v{font-size:11.5px;width:2em}
+  .btn{margin-top:8px;font-size:14.5px}
+  .btn .s{font-size:11px}
+  .c{margin:14px 0 0;padding:12px 0 13px}
+}
+</style>
+</head>
+<body data-theme="paper">
+
+<div id="ver">v1.0.0</div>
+
+<div id="start">
+  <div class="wrap">
+    <h1>少年股神<em>THE TEENAGE ORACLE</em></h1>
+    <div class="tape"></div>
+    <p class="sub">
+      十六歲，你拿壓歲錢開了戶。<br>
+      二十四年後結算：淨值、心態、還剩幾個朋友。<br>
+      <b style="color:var(--warn)">賺錢不難，難的是不變成另一個人。</b>
+    </p>
+
+    <div class="field">
+      <label>姓名</label>
+      <input id="in-name" maxlength="8" placeholder="例如：王小明">
+    </div>
+
+    <div class="field">
+      <label>你為什麼進場</label>
+      <div class="seg" id="seg-org">
+        <button data-v="greed" class="on">想快點有錢</button>
+        <button data-v="proof">證明給家裡看</button>
+        <button data-v="curio">純粹好奇</button>
+        <button data-v="debt">家裡需要錢</button>
+      </div>
+    </div>
+
+    <div class="field">
+      <label>節奏</label>
+      <div class="seg" id="seg-mode">
+        <button data-v="full" class="on">完整　約 12 分鐘</button>
+        <button data-v="fast">快速　約 3 分鐘</button>
+      </div>
+      <p class="modehint" id="mode-hint">每年親手分配骰子、逐張回應事件卡。</p>
+    </div>
+
+    <button class="btn main" id="btn-start">開戶 ▸ 十六歲的春天</button>
+
+    <p class="seedline">
+      世界種子 <input id="seed-show" maxlength="24"> · <a href="#" id="seed-re">換一個</a><br>
+      相同種子＋相同選擇＝相同人生。<br>
+      <span style="opacity:.75">種子決定了這二十四年的牛熊——把它傳給朋友，看誰活得下來。</span>
+    </p>
+
+    <p class="vsline" id="vs-line" style="display:none"></p>
+    <p class="codexline" id="codex-line"></p>
+
+    <p class="byline">
+      by <a href="https://www.threads.com/@ishoplus" target="_blank" rel="noopener noreferrer">@ishoplus</a>
+    </p>
+
+    <p class="prefline">
+      <a href="#" data-th="terminal">終端綠</a>
+      <a href="#" data-th="paper">財經報</a>
+      <a href="#" data-th="neon">霓虹夜</a>
+      <a href="#" id="big-t">大字級</a>
+    </p>
+  </div>
+</div>
+
+<div id="game">
+  <div id="hud">
+    <div class="hudtop">
+      <span class="nm" id="h-name">—</span>
+      <span class="yr" id="h-year">—</span>
+      <span class="idn" id="h-idn"></span>
+      <span class="nav" id="h-nav">—</span>
+      <span class="chg" id="h-chg"></span>
+      <button id="menubtn">MENU</button>
+    </div>
+    <div class="hudbars">
+      <div class="hb mood">心態 <span id="h-mood-v"></span><div class="bar"><i id="h-mood"></i></div></div>
+      <div class="hb life">生活 <span id="h-life-v"></span><div class="bar"><i id="h-life"></i></div></div>
+    </div>
+    <svg id="spark" viewBox="0 0 300 34" preserveAspectRatio="none"></svg>
+  </div>
+  <aside id="tl"><div class="tl-k">生涯</div>
+    <div class="tl-hd"><span class="a">歲</span><span class="m"></span><span class="r">報酬</span><span class="n">淨值</span></div>
+    <div id="tl-list"></div></aside>
+  <div id="log"></div>
+  <div id="act"></div>
+</div>
+
+<script>
+/* ================================================================
+   少年股神 / THE TEENAGE ORACLE
+   單檔案、無依賴、種子化。所有遊戲數值來自 R()；
+   任何純呈現層（動畫、圖表、HUD）一律禁止呼叫 R()，否則破壞復現。
+   ================================================================ */
+
+/* ================= RNG（種子化：xmur3 + mulberry32）================= */
+/* ---- 輸入清洗 ----
+   種子與對手姓名都會流進 innerHTML，而戰帖連結本來就是設計來給別人點的。
+   所以在「入口」白名單化，而不是在十幾個輸出點各自逃逸——少一處就破功。
+   ishoplus.github.io 是所有 Pages 專案共用的來源，這裡被打，
+   同來源其他專案的 localStorage 也一起賠進去。 */
+const SAFE_RE=/[^\w\u3400-\u4dbf\u4e00-\u9fff\u3040-\u30ff-]/g;
+function clean(s,max){ return String(s==null?'':s).replace(SAFE_RE,'').slice(0,max||24); }
+function esc(s){ return String(s==null?'':s)
+  .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
+  .replace(/"/g,'&quot;').replace(/'/g,'&#39;'); }
+
+const _Q = new URLSearchParams(location.search);
+let SEED = clean(_Q.get('seed'),24) || Math.random().toString(36).slice(2,10);
+const VSCODE = (_Q.get('vs')||'').replace(/[^\w~%.-]/g,'').slice(0,400);
+let CHALLENGE = null;   /* 別人下的戰帖，boot() 時解碼 */
+let _s = 0;
+function seedInit(str){
+  _s = 1779033703;
+  for(let i=0;i<str.length;i++){ _s = Math.imul(_s ^ str.charCodeAt(i), 3432918353); _s = _s<<13 | _s>>>19; }
+}
+function R(){
+  _s|=0; _s = _s + 0x6D2B79F5 |0;
+  let t = Math.imul(_s ^ _s>>>15, 1|_s);
+  t = t + Math.imul(t ^ t>>>7, 61|t) ^ t;
+  return ((t ^ t>>>14)>>>0)/4294967296;
+}
+const ri=(a,b)=>a+Math.floor(R()*(b-a+1));
+const pick=a=>a[Math.floor(R()*a.length)];
+const chance=p=>R()*100<p;
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const N0=sd=>(R()+R()+R()+R()-2)/2*sd*2;   /* 近似常態 */
+
+/* ================= 靜態資料 ================= */
+/* ================= 習慣 =================
+   能力值是「存量」：只會往上加，加滿就沒事做了。投資的結果本來也不是來自一個技能數字，
+   是來自你持續在做什麼。所以改成習慣——
+
+   · 槽位有限（2 → 3 → 4），永遠不夠用
+   · 熟練度每年自然衰退，不練就退，低於 15 自動脫落
+   · 彼此排斥：不可能同時「不看群組」又「消息靈通」
+
+   於是骰子每年的工作變成「維持哪些、養成什麼、放棄什麼」——這件事做不完。 */
+const HABITS={
+  log:   {n:'寫交易日誌',     d:'每一筆為什麼買、為什麼賣，寫下來',
+          fx:'看得到自己的報酬拆解；檢討類選項成功率 +15%'},
+  close: {n:'只在收盤後下單',  d:'盤中不看，收盤後才決定',
+          fx:'換手率 −60%（證交稅省下來）；但盤中的機會與你無關'},
+  stop:  {n:'停損寫在紙上',    d:'進場前先寫好出場價，貼在螢幕邊',
+          fx:'崩盤年虧損 −25%；反彈年也少賺'},
+  dca:   {n:'每月定額',       d:'薪水一進來就自動扣，什麼都不用想',
+          fx:'薪水的七成自動進場，不受心態影響'},
+  quiet: {n:'不看群組',       d:'退掉所有報明牌的群',
+          fx:'明牌那類事件不再出現；但你也不會先知道什麼'},
+  gym:   {n:'固定運動',       d:'一週三次，不管盤怎麼走',
+          fx:'生活 +5／年；心態不會低於 25'},
+  read:  {n:'每季讀財報',     d:'一年四次，一次讀完一整份',
+          fx:'選股的超額報酬 +9%'},
+  family:{n:'每年跟家人對帳',  d:'把數字攤開來講一次，好的壞的都講',
+          fx:'生活 +6／年；受託的人信任你多一點'},
+  broker:{n:'跟營業員喝咖啡',  d:'一季一次，不談單子',
+          fx:'風向判斷的準確率 +18%'},
+  cash:  {n:'永遠留三成現金',  d:'不管多有把握都留',
+          fx:'不可能斷頭；多頭年少賺'}
+};
+const HK=Object.keys(HABITS);
+const PROF_MAX=100, PROF_DECAY=10, PIP_PROF=5, PROF_DROP=15;
+function slotsAt(age){ return age>=32?4 : age>=26?3 : 2; }
+/* 熟練度換算成效果強度 0～1；低於 15 等於沒有 */
+function hb(k){ const v=S.habits[k]||0; return v<PROF_DROP ? 0 : v/PROF_MAX; }
+function hasH(k){ return (S.habits[k]||0)>=PROF_DROP; }
+
+
+const ORG={
+  greed:{n:'想快點有錢', hab:'broker', mood:5,  life:0,  d:'同學都在打工，你覺得那太慢了。'},
+  proof:{n:'證明給家裡看',hab:'log',    mood:0,  life:-3, d:'他們說你不是讀書的料。你想讓他們閉嘴。'},
+  curio:{n:'純粹好奇',   hab:'read',   mood:0,  life:5,  d:'你只是想知道，那些數字到底在動什麼。'},
+  debt: {n:'家裡需要錢', hab:'stop',   mood:-5, life:-5, d:'桌上那疊帳單，你看過一次就記住了。'}
+};
+
+/* ---- 行情體制 ---- */
+/* 引數經過校準：穩態下算術年均 ≈11.9%、幾何年化 ≈7.8%（長期複利真正拿到的），
+   熊市以上跌幅年份佔 25%，25 年期望約 1.5 次崩盤（下方另有最低兩次的保底）。
+   幾何 < 算術 是刻意的——波動本身就在吃掉報酬，這是整個遊戲想講的第一件事。 */
+const REGIME={
+  boom: {n:'狂牛',  lo: 44, hi: 90, c:'up',  icon:'▲▲'},
+  bull: {n:'牛市',  lo: 11, hi: 39, c:'up',  icon:'▲'},
+  chop: {n:'震盪',  lo: -9, hi: 18, c:'mid', icon:'—'},
+  bear: {n:'熊市',  lo:-31, hi: -9, c:'dn',  icon:'▼'},
+  crash:{n:'崩盤',  lo:-58, hi:-33, c:'dn',  icon:'▼▼'}
+};
+const TRANS={
+  boom: [['boom',15],['bull',28],['chop',22],['bear',21],['crash',14]],
+  bull: [['boom',18],['bull',34],['chop',28],['bear',15],['crash',5]],
+  chop: [['boom',9], ['bull',33],['chop',34],['bear',20],['crash',4]],
+  bear: [['boom',8], ['bull',25],['chop',37],['bear',23],['crash',7]],
+  crash:[['boom',30],['bull',32],['chop',26],['bear',10],['crash',2]]
+};
+const HEADLINE={
+  boom:['散戶開戶數創歷史新高，券商系統一早就塞爆',
+        '菜市場的婆婆媽媽開始跟你討論選股',
+        '「這次不一樣」登上財經雜誌封面',
+        '小黃司機報給你三支明牌，其中兩支漲停',
+        '大學生投資社團人數超過籃球社'],
+  bull:['法人連續買超，分析師紛紛調高目標價',
+        '你的對帳單第一次變得很好看',
+        '財經頻道請了一整排西裝說「長線仍看好」',
+        '公司同事開始在茶水間比對帳單'],
+  chop:['指數在同一個區間來回，像在耍人',
+        '成交量萎縮，市場安靜得讓人不安',
+        '分析師說「震盪整理，逢低佈局」，講了一整年',
+        '你開始懷疑自己是不是浪費了時間'],
+  bear:['融資餘額連三月下降，套牢盤開始認賠',
+        '「基本面沒變」成為最常見的自我安慰',
+        '你認識的人開始不談股票了',
+        '投顧老師默默關閉了直播間的留言功能'],
+  crash:['開盤跌停鎖死，賣不掉',
+         '券商斷頭通知像雪片一樣發出',
+         '財經版頭條換成「誰該負責」',
+         '有人在營業廳哭，那畫面上了新聞',
+         '你的看盤軟體當機了，但你其實慶幸看不到']
+};
+
+/* ---- 部位 ---- */
+/* ---- 今年買什麼 ----
+   原本這裡是「押多少」——三成倉／半倉／滿倉。那是一個抽象的曝險刻度，不是股票市場：
+   真實的散戶不會想「我要 62% 曝險」，他想的是「我要買 0050 還是台積電還是航運」。
+   改成標的之後，配息、換手（證交稅）、波動、流動性都自然跟著標的走，
+   不必再靠流派另外補規則——同時更像那件事，也更少東西要記。 */
+const POSN=[
+  {k:'zero', n:'空手，先看看',  mult:0,    div:0,   turn:0,   vol:0,   rate:0,
+   s:'錢放定存，一年 1.5%。以及一整年的「早知道」'},
+  {k:'div',  n:'高股息 ETF',    mult:0.72, div:5.4, turn:0.2, vol:0.72, rate:0,
+   s:'每季配息，存股族的最愛。漲得慢，但錢會一直進來'},
+  {k:'wide', n:'市值型 ETF',    mult:1.00, div:2.8, turn:0.15,vol:1.0,  rate:0,
+   s:'跟著大盤走，不用選股。無聊——這是它最大的優點'},
+  {k:'tsmc', n:'權值龍頭',      mult:1.25, div:1.8, turn:0.4, vol:1.18, rate:0,
+   s:'把身家押在那一檔護國神山。它漲你就漲，它咳嗽全市場感冒'},
+  {k:'theme',n:'今年的題材股',  mult:1.75, div:0,   turn:4.5, vol:1.85, rate:0,
+   s:'現在誰都在講這個。上車要快，下車更要快'},
+  {k:'lev',  n:'融資追題材',    mult:2.55, div:0,   turn:6.0, vol:2.6,  rate:7.5, risk:2,
+   s:'借券商的錢去追。維持率跌破 130% 就是斷頭'}
+];
+const THEMES=['航運','AI 伺服器','生技','軍工','重電','記憶體','觀光','綠能'];
+
+/* ---- 特質 ---- */
+const TRAITS={
+  gambler:  {n:'賭狗',      fx:'重倉成功時收益 +30%，但心態波動加倍',      good:0},
+  value:    {n:'價值派',    fx:'熊市與崩盤的虧損 −30%，牛市收益 −15%',    good:1},
+  quant:    {n:'量化腦',    fx:'研究與紀律成長 +1／年，事件卡好結果率 −10%',good:1},
+  leek:     {n:'韭菜之王',  fx:'連三年跑輸大盤。基礎收益永久 −6%',        good:0},
+  topper:   {n:'逃頂天才',  fx:'崩盤年若非滿倉，額外 +12% 收益',          good:1},
+  insider:  {n:'內線之友',  fx:'情報事件收益翻倍，但每年 4% 機率東窗事發',  good:0},
+  zen:      {n:'佛系',      fx:'生活每年 +3，心態下限保護在 25',          good:1},
+  steel:    {n:'鋼鐵心',    fx:'崩盤不再扣心態，且虧損時紀律不失效',       good:1},
+  influ:    {n:'財經網紅',  fx:'每年額外業外收入，但生活 −2、心態易膨脹',  good:0},
+  burnt:    {n:'驚弓之鳥',  fx:'經歷兩次爆倉。永久無法使用槓桿',          good:0}
+};
+
+/* ---- 流派：19 歲一次不可逆的選擇，決定往後二十一年的規則 ----
+   特質要能力練到 70+ 才解鎖，也就是第 15 年以後；流派把「你是哪種人」提前到第 3 年，
+   而且同一顆種子換流派＝五條完全不同的路。 */
+const SCHOOL={
+  hold: {n:'存股派', tag:'DIVIDEND',
+    fx:'熊市與崩盤虧損打 55 折、多頭漲幅打 82 折，每年領淨值 2.5% 現金股利',
+    d:'你不打算賣。你只想每年收到那筆錢。'},
+  swing:{n:'波段派', tag:'SWING',
+    fx:'情報準確率 +15%，但心態的漲跌都放大 1.6 倍',
+    d:'你相信轉折是看得出來的，只是大部分人看得不夠仔細。'},
+  day:  {n:'當沖派', tag:'INTRADAY',
+    fx:'每年多抽一張事件卡、盤感每年 +1，但手續費永久吃掉 4% 年報酬',
+    d:'不留倉。你要的是每一天都有結果。'},
+  arb:  {n:'套利派', tag:'ARBITRAGE',
+    fx:'年報酬被壓進 −12%～+22% 之間、底層 +5%，幾乎不可能斷頭也不可能暴富',
+    d:'你不預測方向，你只賺那個不該存在的價差。'},
+  long: {n:'長線派', tag:'LONG GAME',
+    fx:'前十年 alpha −6%；第十一年起 alpha 放大 1.8 倍',
+    d:'你打算用十年學會一件事，然後用剩下的時間收割它。'}
+};
+
+/* ---- 快速模式的分配方針：先定一次，之後每年自動落骰 ---- */
+const PLANS={
+  craft:{n:'練功夫', d:'讀財報 → 寫日誌 → 停損紀律', pr:['read','log','stop','close','cash','gym']},
+  safe: {n:'求穩',   d:'停損 → 留現金 → 收盤後才下單', pr:['stop','cash','close','log','gym','read']},
+  info: {n:'拚消息', d:'營業員 → 讀財報 → 寫日誌', pr:['broker','read','log','stop','gym','family']},
+  life: {n:'顧生活', d:'先餵飽生活與心態，剩下才練功夫', pr:['_fam','_rest','gym','family','stop','log']}
+};
+const STANCE={safe:'能不冒險就不冒險', norm:'看情況，中間偏穩', bold:'該賭的時候就賭'};
+
+/* ---- 生涯路線 ---- */
+const CAREER={
+  none:  {n:'學生',     inc:()=>ri(1,4),   life:0,  dice:0},
+  job:   {n:'上班族',   inc:()=>ri(38,72), life:-2, dice:0},
+  fin:   {n:'金融業',   inc:()=>ri(55,110),life:-4, dice:0, info:1},
+  pro:   {n:'全職操盤', inc:()=>0,         life:-7, dice:1},
+  side:  {n:'斜槓',     inc:()=>ri(15,40), life:-3, dice:0}
+};
+
+/* 有些卡的敘述斷言了玩家的狀態——帳上八萬的人不該抽到「帳戶破千萬那天」，
+   全職操盤的人也不該遇到「老闆發現你上班看盤」。EVENTS 裡的 if 就是那道檢查。
+   這個常數必須宣告在 EVENTS 之前：陣列是在載入時就建構的，
+   放在後面會讓它落在暫時死區，整份腳本會在那一行當掉。 */
+const EMPLOYED=s=>['job','fin','side'].indexOf(s.career)>=0;
+
+/* ================= 事件卡 ================= */
+/* g/b 的 nav 是淨值百分比（會被 mag 縮放一半），其餘是能力/心態/生活點數 */
+/* ================= 事件 =================
+   規則只有一條：**選項必須是那個處境裡你真的能做的事，而且各有各的後果。**
+   沒有「保守／照常／全力」這種難度旋鈕——那是把同一件事縮放三次，
+   跟卡片講什麼沒有關係。
+
+   need：有這個習慣，才會多出某個選項（你做得到什麼，取決於你養成了什麼）
+   block：有這個習慣，這張卡根本不會發生（退了群就不會有人報明牌給你）
+   p 省略＝確定發生，不擲骰——不是每個決定都是賭局 */
+const EVENTS=[
+
+/* ---- 學生時期 ---- */
+{n:'群組明牌',stg:'young',block:'quiet',
+ d:'高中同學群裡有人貼了一張圖：「下週有大訊息，懂的自己上車。」下面已經十幾個人說謝謝。',
+ o:[
+  {t:'問他訊息哪來的', g:{hab:{log:2}},
+   gt:'他說是「朋友的朋友在裡面」。你笑笑沒再追問，也沒有買。群組裡從此少了一個人找你講話。'},
+  {t:'小買一點試試', p:52, g:{nav:7},
+   gt:'漲了兩天你就跑了，賺一個便當錢。但你記住了那個感覺——那才是危險的地方。',
+   b:{nav:-8,mood:-4}, bt:'你買在那兩天的最高點。它現在還在你的庫存裡，你已經很久沒點開那一頁。'},
+  {t:'照他說的全押', p:33, g:{nav:26,mood:9},
+   gt:'真的漲停了。你在群組裡連發三個貼圖，那天晚上睡不著，但是是好的那種。',
+   b:{nav:-28,mood:-11}, bt:'隔天開盤跌停。你回頭去看那則訊息，發現貼圖的人已經退群了。'},
+  {t:'退群，不玩這個', need:null, g:{hab:{quiet:5},mood:-3},
+   gt:'你按了退出。手指停了兩秒——你知道自己以後會少聽到很多東西。'}
+ ]},
+
+{n:'教官搜書包',stg:'young',
+ d:'全班的手機都被收走。你的股票軟體停在一個很難解釋的畫面。',
+ o:[
+  {t:'承認，交出手機', g:{hab:{log:2},life:2},
+   gt:'記了一支小過。教官在辦公室問你為什麼要做這個，你講了十分鐘，他聽完了。'},
+  {t:'說是幫爸爸看的', p:48, g:{mood:3},
+   gt:'他將信將疑，手機還你了。你走出辦公室的時候腿有點軟。',
+   b:{life:-6,mood:-5}, bt:'他打了電話回家。那通電話之後，家裡的氣氛有半年不太對。'},
+  {t:'把畫面切掉，裝沒事', p:34, g:{mood:4},
+   gt:'你切得夠快。那天之後你養成了鎖螢幕的習慣，這習慣跟了你很多年。',
+   b:{life:-7,mood:-7}, bt:'他看到了你切畫面的動作。事情從「看盤」變成「說謊」。'}
+ ]},
+
+{n:'大夜班',stg:'young',
+ d:'便利商店的大夜班，時薪一百八。你算過，做滿三個月可以多買兩張。',
+ o:[
+  {t:'做滿三個月', g:{nav:16,life:-5},
+   gt:'三個月後你真的多買了兩張。你也第一次知道，凌晨四點的便利商店是什麼樣子。'},
+  {t:'做一個月就好', g:{nav:5,life:-1},
+   gt:'錢少一點，但你還睡得著。'},
+  {t:'不做，把時間拿來讀', g:{hab:{read:4}},
+   gt:'你把那三個月拿去把一本厚書讀完。當下覺得虧了，很多年後才知道沒有。'}
+ ]},
+
+{n:'壓歲錢全砸進去',stg:'young',
+ d:'過年拿到的紅包，你一毛都沒留。',
+ o:[
+  {t:'留一半，另一半進場', g:{nav:6,hab:{cash:3}},
+   gt:'你留了一半在戶頭。那筆錢後來在某個很低的位置派上用場。'},
+  {t:'全部進場', p:50, g:{nav:17,mood:6},
+   gt:'開學前它漲了三成。你在班上什麼都沒說，但走路有風。',
+   b:{nav:-16,mood:-8}, bt:'開學前它跌了三成。你連午餐都改吃最便宜的那種。'}
+ ]},
+
+{n:'她問你在忙什麼',stg:'young',
+ d:'你想了三種講法，每一種聽起來都像在炫耀或像個怪人。',
+ o:[
+  {t:'照實說', p:55, g:{life:5,mood:6},
+   gt:'她說「聽起來很酷欸」，然後真的問了兩個問題。你們聊到打烊。',
+   b:{life:-4,mood:-6}, bt:'她「喔」了一聲，話題就轉走了。你那天回家路上想了很久。'},
+  {t:'說在打工', g:{life:2,mood:-2},
+   gt:'安全。也就只是安全而已。'}
+ ]},
+
+/* ---- 進場之後 ---- */
+{n:'第一次開融資',stg:'*',
+ d:'營業員打來：「你的額度下來了，要不要開？開了不用也沒關係。」',
+ o:[
+  {t:'不開', g:{hab:{cash:4}},
+   gt:'你說不用。他愣了一下，說很少人這樣回答。'},
+  {t:'開著，但不用', p:56, g:{mood:3},
+   gt:'額度在那裡，你一次都沒動過。你開始明白，能力跟用不用它是兩件事。',
+   b:{hab:{cash:-3},mood:5}, bt:'額度在那裡三個月，你就用了。人不會放著工具不用。'},
+  {t:'開了就用滿', p:36, g:{nav:22,mood:8},
+   gt:'那一波你賺了兩倍。你開始覺得沒開融資的人只是膽子小。',
+   b:{nav:-27,mood:-12}, bt:'第一次追繳簡訊來的時候是禮拜五下午。那個週末很長。'}
+ ]},
+
+{n:'停損測試',stg:'*',
+ d:'它跌破了你當初心裡想的那個價位。手指停在賣出鍵上。',
+ o:[
+  {t:'照紙上寫的做', need:'stop', g:{nav:-6,hab:{stop:3}},
+   gt:'你按下賣出。三天後它跌得更深，你沒有告訴任何人，你其實鬆了一口氣。'},
+  {t:'再等一根看看', p:44, g:{nav:4},
+   gt:'它止跌了。這次對了——但你心裡有個聲音說，這種對法不能常常用。',
+   b:{nav:-15,mood:-6,hab:{stop:-2}}, bt:'再一根，然後又一根。你當初想的那個價位，現在看起來像天花板。'},
+  {t:'不但不賣，還加碼', p:29, g:{nav:20,mood:9},
+   gt:'你賭對了。它翻上來的那天，你覺得停損根本是給沒把握的人用的。',
+   b:{nav:-27,mood:-12,hab:{stop:-4}}, bt:'加碼的部位跟原本的一起躺平。學費是你原本打算認賠金額的三倍。'}
+ ]},
+
+{n:'抄底',stg:'*',
+ d:'它已經跌了六成。有人說接刀子，有人說千載難逢。',
+ o:[
+  {t:'再等等，讓它落底', p:58, g:{nav:9,hab:{stop:2}},
+   gt:'你等到量縮才進。買在不是最低但夠低的地方——這通常比買在最低更難。',
+   b:{mood:-6}, bt:'它從你不敢買的那天起就沒再回頭。你看著它漲回去，一張都沒有。'},
+  {t:'分批往下承接', g:{nav:-3,hab:{log:3}},
+   gt:'你分了四批。最後平均成本比一次買進好一點，心臟也好過一點。'},
+  {t:'一次買滿', p:38, g:{nav:26,mood:8},
+   gt:'你買在了那根最長的下影線上。這種事一輩子會發生一兩次，問題是你不知道是哪次。',
+   b:{nav:-24,mood:-11}, bt:'你買完之後它又跌了四成。原來六成不是底，八成才是。'}
+ ]},
+
+{n:'今年的當紅題材',stg:'*',
+ d:'一個你完全看不懂的東西三個月漲了八倍。所有人都在裡面，包括你以為很保守的那個同事。',
+ o:[
+  {t:'看不懂就不碰', g:{hab:{read:3},mood:-4},
+   gt:'你沒有買。接下來三個月，每一次它漲停你都會知道——因為有人會告訴你。'},
+  {t:'拿零用錢玩一點', p:47, g:{nav:11,mood:5},
+   gt:'小賺跑掉。你發現自己其實只是想參與，不是想賺錢。',
+   b:{nav:-9,mood:-5}, bt:'你進場那天就是最高點。金額不大，但那個時間點準得可怕。'},
+  {t:'借錢也要上車', p:26, g:{nav:34,mood:12},
+   gt:'你上到了最後一段。那三個月你覺得自己是天才，這個錯覺持續了很久。',
+   b:{nav:-33,mood:-15,life:-4}, bt:'它從你買進那天開始跌，跌到你不敢跟任何人講數字。'}
+ ]},
+
+{n:'假投資群',stg:'*',block:'quiet',
+ d:'一個自稱基金經理的人加你好友，兩週沒推銷任何東西，只是每天分享行情。今天他給了你一個 App 連結。',
+ o:[
+  {t:'直接封鎖', g:{hab:{quiet:3}},
+   gt:'你封鎖了他。三天後另一個人加你，開場白幾乎一模一樣。'},
+  {t:'先查一下這個人', p:72, g:{hab:{read:3,log:2}},
+   gt:'照片是網路上抓的，公司地址查無此號。你把截圖丟到反詐騙的社團，底下一堆人說也遇過。',
+   b:{life:-3,mood:-4}, bt:'查了半天查不出所以然。你把對話刪掉，但那個連結你還留著。'},
+  {t:'小額試水溫', p:20, g:{nav:8,mood:5},
+   gt:'第一筆真的出金了。你後來才知道，那是他們的成本——用來換你下一筆大的。',
+   b:{nav:-32,mood:-15,life:-4}, bt:'出金要先繳「保證金」。你才發現整個平台的數字都是畫出來的。'}
+ ]},
+
+{n:'當沖上癮',stg:'*',
+ d:'你發現每天進出十幾趟很爽，輸贏都爽。手續費單據你已經不看了。',
+ o:[
+  {t:'把當沖權限關掉', g:{hab:{close:6},life:3},
+   gt:'你打電話去券商。營業員問你是不是遇到什麼事，你說沒有。'},
+  {t:'限制自己每週兩次', p:46, g:{hab:{close:3}},
+   gt:'次數少了，勝率反而高了。你開始懷疑之前那些單子到底是在做什麼。',
+   b:{nav:-10,life:-3,hab:{close:-2}}, bt:'第一週兩次，第二週五次，第三週你不再算了。'},
+  {t:'加大部位，這才有搞頭', p:27, g:{nav:18,mood:10},
+   gt:'那個月你賺得比上班一年多。你開始認真考慮辭職。',
+   b:{nav:-25,life:-6,mood:-9}, bt:'部位大了虧損也大了，而手續費是照倍數算的。那個月的稅費比伙食費高。'}
+ ]},
+
+{n:'從不看盤的朋友',stg:'*',
+ d:'他十年前買了幾檔就沒再動過，也說不出理由。他的報酬率比你高。',
+ o:[
+  {t:'照做，什麼都不動', g:{hab:{close:5},mood:-3},
+   gt:'你把通知關掉。第一個禮拜很難熬，第三個禮拜你就忘記自己關過。'},
+  {t:'參考一下，做點調整', p:64, g:{hab:{log:3,close:2}},
+   gt:'你把週轉率砍了一半。年底一看，省下來的手續費比你那年的價差還多。',
+   b:{mood:-5}, bt:'你調整了兩個月又調回去。人要改變一個習慣，比想像中難得多。'},
+  {t:'他只是運氣好', p:38, g:{nav:8,mood:4},
+   gt:'你證明了自己那年比他強。只有那一年。',
+   b:{nav:-11,mood:-8}, bt:'年底對帳，他還是贏你。他甚至說不出自己買了什麼。'}
+ ]},
+
+{n:'一本很厚的書',stg:'*',
+ d:'很舊、沒有任何 K 線圖。你翻到第三章開始覺得哪裡不對——不對的是你。',
+ o:[
+  {t:'讀完', g:{hab:{read:6}},
+   gt:'花了兩個月。讀完之後你把自己過去三年的交易重看一遍，看不下去。'},
+  {t:'翻一翻就好', g:{hab:{read:2}},
+   gt:'你抓到幾個概念，其他的留在書架上。'},
+  {t:'太慢了，去看影片', p:40, g:{mood:5},
+   gt:'十分鐘的濃縮版。你確實學到了東西，只是那些東西別人也都知道。',
+   b:{hab:{read:-2},mood:-3}, bt:'演算法接著推了二十支類似的。兩小時後你什麼都沒記得。'}
+ ]},
+
+{n:'看到財富自由影片',stg:'*',
+ d:'演算法推播給你一支影片：《我 25 歲退休，只做對了這一件事》。',
+ o:[
+  {t:'關掉', g:{mood:2,hab:{quiet:2}},
+   gt:'你關掉了。三秒後它又推了一支類似的。'},
+  {t:'看完，記下他說的方法', p:52, g:{hab:{log:3}},
+   gt:'方法其實不新，但他講得很清楚。你把它寫進日誌，之後真的用上了。',
+   b:{mood:6,hab:{stop:-2}}, bt:'你記住的不是方法，是那個數字。接下來一個月你的部位都開得比平常大。'}
+ ]},
+
+{n:'停利之後又漲了',stg:'*',
+ d:'你在 +30% 出場，它接著又漲了一倍。你每天還是會點進去看一次。',
+ o:[
+  {t:'關掉，不看了', g:{mood:3,hab:{close:3}},
+   gt:'你把那檔從自選股刪掉。刪的時候手指停了一下，但還是刪了。'},
+  {t:'記下來，寫進檢討', need:'log', g:{hab:{log:3,read:2}},
+   gt:'你把當初賣出的理由重讀一次，發現理由沒錯，只是市場比你有耐心。'},
+  {t:'追回去', p:34, g:{nav:14,mood:6},
+   gt:'你追回去了，而且還有第三段。那次之後你更難賣得掉任何東西。',
+   b:{nav:-17,mood:-9,hab:{stop:-3}}, bt:'你買在那一段的頂點。同一檔股票，你賺過也賠過，賠的比賺的多。'}
+ ]},
+
+{n:'健康檢查紅字',stg:'*',
+ d:'醫生指著報告：「你這個年紀不該有這種數字。你晚上都幾點睡？」',
+ o:[
+  {t:'照醫生說的做', g:{hab:{gym:6},life:6},
+   gt:'你開始十一點睡。盤中發生什麼你都慢一步知道了——後來發現這樣也沒差。'},
+  {t:'先把這一季撐完', p:52, g:{nav:6},
+   gt:'你撐完了，而且那一季做得不錯。年底回診，有幾個數字自己降下來了。',
+   b:{life:-8,mood:-4}, bt:'那一季結束的時候你掛了急診。醫生翻著上一份報告，什麼都沒說。'},
+  {t:'報告收起來，不要想它', g:{life:-7,mood:4},
+   gt:'你把那張紙折起來塞進抽屜。心情確實好一點——這是這件事最麻煩的地方。'}
+ ]},
+
+{n:'營業員來電',stg:'*',
+ d:'「這檔我們自己人都有買。」他壓低聲音說。',
+ o:[
+  {t:'謝謝，但我自己看', g:{hab:{read:3}},
+   gt:'你查了那家公司，發現負債比高得離譜。你沒有問他為什麼推。'},
+  {t:'買一點，順便維持關係', p:50, g:{nav:6,hab:{broker:3}},
+   gt:'不算賺，但他記住了你。年底他真的先打給你。',
+   b:{nav:-8,hab:{broker:2}}, bt:'賠了一點。他後來換到別家去了，也沒有再聯絡。'},
+  {t:'既然是自己人，就重壓', p:34, g:{nav:20,hab:{broker:3}},
+   gt:'那檔真的走了一段。你開始相信那句「我們自己人」。',
+   b:{nav:-24,mood:-9,hab:{broker:-3}}, bt:'你後來才知道，同一句話他跟很多人講過。'}
+ ]},
+
+/* ---- 成年之後 ---- */
+{n:'過年被問收益率',stg:'pro',
+ d:'三姑六婆圍成一圈。「聽說你在做股票？今年賺多少？」',
+ o:[
+  {t:'含糊帶過', g:{mood:2,life:2},
+   gt:'你說「還好啦」，然後把話題轉到表弟的婚事上。這招你以後每年都會用。'},
+  {t:'照實說', p:54, g:{life:3,hab:{family:3}},
+   gt:'你把賺的賠的都講了。三舅說他也賠過，兩個人聊到十二點。',
+   b:{life:-5,mood:-6}, bt:'數字說出口的那一刻，桌上安靜了兩秒。那兩秒你記了很久。'},
+  {t:'講得比實際好聽', p:46, g:{mood:6},
+   gt:'那頓飯你是主角。回家的路上你在心裡把數字又算了一次，還是不對。',
+   b:{life:-4,mood:-8,trust:-6}, bt:'有人真的拿錢來找你操作。你才發現吹過的牛是要還的。'}
+ ]},
+
+{n:'老闆發現你上班看盤',stg:'pro',need_job:1,
+ d:'他沒有罵你，只是把你的座位調到了他辦公室門口。',
+ o:[
+  {t:'收起來，上班就上班', g:{hab:{close:6},life:3},
+   gt:'你把 App 從手機首頁移走。盤中發生什麼你都不知道了——後來發現這樣也沒差。'},
+  {t:'改成只看收盤', p:60, g:{hab:{close:3,log:2}},
+   gt:'一天看一次，決定反而變少、變好。你開始懷疑盤中那些單子是在做什麼的。',
+   b:{life:-4,mood:-4}, bt:'撐了三週。第四週你又開始每隔十分鐘翻一次手機。'},
+  {t:'照看，反正他不敢怎樣', p:38, g:{nav:9,mood:5},
+   gt:'那年你盤中抓到幾波，賺的比年終多。你開始覺得這份工作只是個地方坐。',
+   b:{nav:-6,life:-6,mood:-9}, bt:'考績出來，你被調到一個沒有窗戶的位子。沒有人跟你說原因。'}
+ ]},
+
+{n:'朋友要跟單',stg:'pro',
+ d:'他把定存解約了，說要跟你一起做。金額是你的三倍。',
+ o:[
+  {t:'勸他別做', g:{life:2,mood:2},
+   gt:'你把可能虧多少講完，他有點失望。三年後他還是會提起這件事，語氣是感謝的。'},
+  {t:'照實告訴他風險', p:58, g:{nav:5,hab:{log:2}},
+   gt:'他聽懂了，自己減碼一半。賺的時候他請你吃飯，賠的時候他沒有怪你。',
+   b:{life:-4}, bt:'他只聽到「有機會」三個字。賠掉之後，他覺得你早就知道會這樣。'},
+  {t:'帶他一起，賺賠一起扛', p:40, g:{nav:12,life:3},
+   gt:'一起賺到了。那頓慶功宴他堅持要買單，你們兩個都喝多了。',
+   b:{life:-9,mood:-11}, bt:'他的定存是解約的。你把錢賠給他，他收下了，但你們沒有再一起吃過飯。'}
+ ]},
+
+{n:'另一半說該買房了',stg:'pro',minAge:26,
+ d:'「你的錢都在股票裡，我知道。可是我們要住哪裡？」',
+ o:[
+  {t:'先看房，部位砍一半', g:{life:8,nav:-11,hab:{cash:4}},
+   gt:'頭期款轉出去那天，帳戶少了一半。那天晚上你們睡得很好。'},
+  {t:'兩邊各退一步', p:60, g:{life:4,hab:{family:3}},
+   gt:'你們談了一個折衷的數字。這種對話往後還會有很多次，但這次你們都沒有大聲。',
+   b:{life:-6,mood:-5}, bt:'折衷的意思是兩個人都不滿意。這件事之後被提起過很多次。'},
+  {t:'再等一年，我算過的', p:38, g:{nav:14,mood:6},
+   gt:'那一年市場真的漲了。你把試算表拿給他看，他沒有說話。',
+   b:{life:-11,mood:-10}, bt:'房價漲得比你的部位快。「我算過的」這四個字，你以後不敢再講。'}
+ ]},
+
+{n:'父母生病',stg:'pro',minAge:28,
+ d:'電話是半夜打來的。醫藥費的數字，剛好是你這檔股票的浮虧。',
+ o:[
+  {t:'賣股，先顧人', g:{nav:-14,life:6,hab:{family:4}},
+   gt:'你賣在一個很難看的價位。後來它漲回去了，但你沒有後悔過這件事。'},
+  {t:'借錢週轉，部位不動', p:50, g:{nav:-4},
+   gt:'你借了一筆，兩年還完。部位撐住了，人也顧到了——這次算你運氣好。',
+   b:{nav:-18,life:-6,mood:-9}, bt:'借的錢跟賠的錢一起來。那半年你沒有一天睡超過五小時。'},
+  {t:'撐著，我算得出來還撐得住', p:34, g:{nav:8},
+   gt:'你算對了。但那段時間你每天都在算，算到自己都覺得不對勁。',
+   b:{life:-12,mood:-13}, bt:'你算錯了。錢是後來湊到的，但你記得自己猶豫過那幾秒。'}
+ ]},
+
+{n:'岳家的錢',stg:'pro',minAge:28,
+ d:'「我們退休金放定存也是放著，你幫我們操作嘛。」',
+ o:[
+  {t:'不接', g:{life:4,mood:3},
+   gt:'你說自己都還沒想清楚。他們有點失望，但你晚上睡得著。'},
+  {t:'接，但講清楚可能會賠', p:56, g:{trust:6,hab:{family:3}},
+   gt:'你寫了一張紙，把最壞的情況列出來給他們簽。他們笑你太誇張，但簽了。',
+   b:{life:-6,trust:-8}, bt:'話講在前面沒有用。數字一綠，前面講的都不算了。'},
+  {t:'接下來，一定會賺', p:34, g:{nav:10,trust:8},
+   gt:'第一年就賺了。過年時你是全家最會做人的那一個。',
+   b:{life:-10,mood:-12,trust:-20}, bt:'那筆錢賠了三成。他們一句重話都沒說，這件事因此更難過去。'}
+ ]},
+
+{n:'同學會',stg:'pro',
+ d:'有人問你在做什麼。你想了兩秒，決定要不要講實話。',
+ o:[
+  {t:'輕描淡寫', g:{life:3,mood:2},
+   gt:'你說在上班。那天晚上你聽了很多別人的事，講了很少自己的。'},
+  {t:'照實講，包括賠的', p:58, g:{life:4,hab:{log:2}},
+   gt:'有兩個人下場問你細節。其中一個後來變成你少數會討論部位的人。',
+   b:{mood:-6}, bt:'桌上安靜了一下。有人說「還好我沒碰」。'},
+  {t:'講得像那麼一回事', p:44, g:{mood:7},
+   gt:'那晚你是話題中心。回家的計程車上你想起來自己漏講了哪些年。',
+   b:{life:-5,mood:-8}, bt:'有人拿出手機查了那檔的走勢，當場對不上。'}
+ ]},
+
+{n:'公司裁員',stg:'pro',need_job:1,
+ d:'名單還沒公佈，但會議室的百葉窗放下來一整個下午了。',
+ o:[
+  {t:'先把履歷更新好', g:{life:-2,hab:{log:2}},
+   gt:'你花了一個週末把這幾年做過的事列出來。列完發現比自己以為的多。'},
+  {t:'什麼都不做，等消息', p:52, g:{mood:2},
+   gt:'名單沒有你。你鬆了一口氣，然後發現隔壁桌空了。',
+   b:{life:-7,mood:-10}, bt:'名單有你。資遣費入帳那天，你把它全部丟進市場——這個決定日後你會反覆想起。'},
+  {t:'主動去談，換部門', p:44, g:{life:3},
+   gt:'你換到一個比較穩的位子。薪水少一點，但那一波沒有掃到你。',
+   b:{life:-5,mood:-6}, bt:'你去談了，主管的表情讓你知道自己本來不在名單上。'}
+ ]},
+
+{n:'年終獎金',stg:'pro',need_job:1,
+ d:'今年公司賺錢，年終比預期多。錢剛進戶頭。',
+ o:[
+  {t:'照原本的計畫投入', need:'dca', g:{nav:11},
+   gt:'錢一進來就照比例分掉了。你已經很久沒有為這種事煩惱過。'},
+  {t:'先放著，等機會', p:54, g:{nav:8,hab:{cash:3}},
+   gt:'你放了四個月，等到一個不錯的位置。等待也是一種部位。',
+   b:{mood:-5}, bt:'放到年底都沒等到「更好的位置」。那筆錢就這樣躺了一年。'},
+  {t:'加碼現在最強的那檔', p:42, g:{nav:15,mood:6},
+   gt:'追上去還有一段。你把這歸功於自己的判斷。',
+   b:{nav:-14,mood:-7}, bt:'你買在那一波的尾巴。年終獎金變成一個你不想再提的數字。'}
+ ]},
+
+{n:'開直播當老師',stg:'pro',
+ d:'有人問你能不能開個頻道。「你講得比那些人清楚多了。」',
+ o:[
+  {t:'不開', g:{mood:3,life:2},
+   gt:'你想了三天，回訊息說最近沒空。對方沒有再問。'},
+  {t:'開了但不收費', p:58, g:{hab:{log:3,read:2}}, fame:1,
+   gt:'講給別人聽，才發現自己有很多地方沒想清楚。頻道不大，但你變強了。',
+   b:{life:-5,mood:-5}, bt:'留言區開始有人問明牌，你不回，他們就說你藏私。'},
+  {t:'開課，一堂四萬八', p:50, g:{nav:14,mood:8}, fame:1,
+   gt:'第一梯就滿了。你發現教課的現金流比操作穩定得多——這件事你沒有跟學員說。',
+   b:{life:-5,mood:-9,trust:-6}, bt:'有學員把你的對帳單跟課程文宣放在一起比對，貼上網。'}
+ ]},
+
+{n:'借錢',stg:'pro',
+ d:'信貸利率 3.2%，你算過，只要報酬率超過它就是賺。銀行說今天下午就能核。',
+ o:[
+  {t:'不借', g:{hab:{cash:4},mood:2},
+   gt:'你把試算表關掉。那個 3.2%，你算了整整一個晚上。'},
+  {t:'借最低額度', p:54, g:{nav:9},
+   gt:'剛好夠你在低點多買一些。還款那天你算了一下，扣掉利息還是賺的。',
+   b:{nav:-12,mood:-6}, bt:'市場沒有照你算的走。每個月的扣款日提醒你，這筆錢是借來的。'},
+  {t:'額度給多少借多少', p:36, g:{nav:24,mood:9},
+   gt:'一次到位。你開始覺得，不敢借的人只是不夠了解自己在做什麼。',
+   b:{nav:-31,life:-5,mood:-13}, bt:'部位縮水，貸款一毛沒少。你開始用信用卡的循環利息付信貸的月付金。'}
+ ]},
+
+{n:'同學的告別式',stg:'pro',minAge:32,
+ d:'心肌梗塞，四十一歲。你在告別式上算了一下自己的年紀。',
+ o:[
+  {t:'從明天開始運動', g:{hab:{gym:6},life:5},
+   gt:'你真的從隔天開始。前三個月很痛苦，第四個月開始想念它。'},
+  {t:'打電話給家裡', g:{life:6,hab:{family:4}},
+   gt:'你打給爸媽，講了四十分鐘的廢話。掛掉之後你在車上坐了很久。'},
+  {t:'回去把部位重新看一遍', g:{hab:{log:4},mood:-4},
+   gt:'你把所有持股列出來，問自己每一檔為什麼還在。有三檔答不出來。'}
+ ]},
+
+{n:'內線訊息',stg:'pro',
+ d:'飯局上有人喝多了，講了一個還沒公告的併購案。你記住了代號。',
+ o:[
+  {t:'當作沒聽到', g:{mood:2,hab:{log:2}},
+   gt:'你把那個代號忘掉。花了大概兩個月，中間你查過三次股價。'},
+  {t:'記下來但不動作', p:60, g:{hab:{broker:3,log:2}},
+   gt:'兩個月後併購案公告，股價翻倍。你什麼都沒買，但你確認了一件事：那個飯局值得再去。',
+   b:{mood:-7}, bt:'那個案子最後沒有成。你慶幸自己沒進場，同時有點失落。'},
+  {t:'明天開盤就進場', p:56, g:{nav:26},
+   gt:'公告當天漲停。你賣在第二根，錢入帳的那個下午你一直在看手機。',
+   b:{nav:-13,life:-5,mood:-9}, honor:'曾因不明資金往來被關切',
+   bt:'案子破局，股價一路往下。更麻煩的是，交易所調閱了那段期間的進出紀錄。'}
+ ]},
+
+{n:'帳戶破千萬那天',stg:'*',minNav:1000,
+ d:'你截了圖，打開通訊錄，從頭滑到尾。',
+ o:[
+  {t:'誰都不說', g:{mood:5,hab:{quiet:3}},
+   gt:'你把截圖存進一個只有自己看得到的資料夾。這件事你守了很多年。'},
+  {t:'傳給家人', g:{life:6,mood:6,hab:{family:3}},
+   gt:'媽回了一句「不要太累」。你看著那七個字看了很久。'},
+  {t:'發出去，我值得', p:48, g:{mood:10}, fame:1,
+   gt:'底下三百多個讚。那天你回了每一則留言。',
+   b:{life:-6,mood:-8,trust:-5}, bt:'有人截圖轉到別的群組，配上一句「就這樣也敢發」。'}
+ ]},
+
+{n:'房子還是股票',stg:'pro',minAge:26,minNav:200,
+ d:'頭期款拿出來，帳戶就少一半。可是房子會一直在那裡。',
+ o:[
+  {t:'買房', g:{nav:-32,life:10,hab:{cash:5}},
+   gt:'搬進去的第一晚，你們坐在還沒組好的沙發上吃泡麵。那是你記得最清楚的一頓飯。'},
+  {t:'再等一年', p:46, g:{nav:12},
+   gt:'那一年你的部位漲得比房價快。你把差額算出來，貼在冰箱上。',
+   b:{life:-8,mood:-9}, bt:'房價漲了兩成，你的部位沒有。那張沒貼成的紙後來也沒再提。'},
+  {t:'貸款買，股票也不賣', p:36, g:{nav:6,life:5},
+   gt:'兩邊都要了。你也因此有整整八年不敢生病。',
+   b:{nav:-20,life:-8,mood:-11}, bt:'升息那年你才知道，兩邊都要的意思是兩邊都撐。'}
+ ]},
+
+{n:'有人要把錢交給你',stg:'pro',minNav:600,
+ d:'不是家人，是一個認識很久、但從來沒談過錢的朋友。他說他信得過你。',
+ o:[
+  {t:'婉拒', g:{mood:4,life:2},
+   gt:'你說自己都還在學。他點點頭，那頓飯之後你們還是朋友。'},
+  {t:'接，但先寫清楚規則', need:'log', g:{trust:10,hab:{log:3}},
+   gt:'你把費用、風險、什麼情況會賠光都寫成一張紙。他看完說「你比銀行還囉唆」。'},
+  {t:'接下來再說', p:44, g:{trust:6,nav:5},
+   gt:'第一年順利。你們都沒提規則的事，因為沒有需要。',
+   b:{trust:-14,life:-7}, bt:'第一年就賠。沒有寫過的規則，事後怎麼講都是你的錯。'}
+ ]}
+
+];
+
+/* ================= 資本階級 =================
+   棒球有兩條軸：你在哪個聯盟（中職／日職／大聯盟），以及球團要不要跟你續約。
+   股市的對應是——資本階級決定你「站在哪個舞台」，受託關係決定「有沒有人要你」。
+   階級純看淨值，所以爆倉真的會被請出大戶室，那就是被下放二軍。 */
+const CLASSES=[
+  {n:'散戶',     min:0,     tag:'RETAIL',
+   up:'', dn:''},
+  {n:'中實戶',   min:600,   tag:'MID',
+   up:'營業員開始叫得出你的名字，年底會寄一盒禮。',
+   dn:'那盒年節禮今年沒有寄來。'},
+  {n:'大戶',     min:3000,  tag:'WHALE',
+   up:'券商給了你一間有門的房間，還有一組直撥電話。法說會開始有你的位子。',
+   dn:'大戶室的門禁卡失效了。櫃檯小姐說會再幫你確認，然後沒有再聯絡。'},
+  {n:'隱形富豪', min:15000, tag:'GHOST',
+   up:'沒有人知道你有多少——這正是重點。開始有人拿未上市的案子來找你。',
+   dn:'你從那個名單上被拿掉了。沒有人通知你，你是自己發現的。'}
+];
+function classOf(nav){
+  let k=0;
+  for(let i=0;i<CLASSES.length;i++) if(nav>=CLASSES[i].min) k=i;
+  return k;
+}
+/* 降級遲滯只留 5%：跌破線就是跌破線。放太寬會讓「掉出大戶室」這件事實質不存在，
+   而那正是這條軸最有戲的部分——升上去誰都高興，掉下來才記得住。 */
+function classNow(){
+  const up=classOf(S.nav);
+  if(up>S.cls) return up;
+  let k=S.cls;
+  while(k>0 && S.nav < CLASSES[k].min*0.95) k--;
+  return k;
+}
+function classStep(){
+  const now=classNow();
+  if(now===S.cls) return;
+  const C=CLASSES[now];
+  if(now>S.cls){
+    S.cls=now; S.peakCls=Math.max(S.peakCls,now);
+    card('gold','升級：'+C.n, C.up, C.tag);
+    addMood(6);
+  } else {
+    const old=CLASSES[S.cls];
+    S.cls=now; S.demoted++;
+    card('bad','掉出'+old.n, old.dn, CLASSES[now].tag);
+    addMood(-12); addLife(-4);
+  }
+  board(0);
+}
+/* 三十三歲之後還沒站上中實戶，某些路就實質關了——不是規則禁止你，是你輸不起了 */
+function windowShut(){ return S.age>=33 && S.cls===0; }
+
+/* ================= 別人的錢 =================
+   棒球最有張力的不是打得好不好，是「球團要不要跟你續約」。
+   股市的對應物是：當你開始管別人的錢。
+   一旦有了 AUM，虧損就不再只是數字，是要面對人；而且連續虧損會被贖回——那就是被解約。
+   AUM 跟著你的報酬一起漲跌，你抽管理費與績效費，所以規模是真的甜。 */
+const TIERS=[
+  {n:'自己的錢', ask:null},
+  {n:'家人的錢', mult:[30,80],    life:-12, net:0,
+   ask:'媽把一個牛皮紙袋推過來。「這是我跟你爸的退休金，你幫我們放著。」',
+   need:s=>s.age>=24 && s.nav>=300},
+  {n:'朋友湊的', mult:[80,200],   life:-10, net:-6,
+   ask:'四個人，湊了一筆，指定你操作。「賠了不會怪你」——他們現在是這樣說的。',
+   need:s=>s.nav>=900 && s.trust>=58 && (hasH('family')||hasH('log'))},
+  {n:'代操合約', mult:[150,400],  life:-8,  net:-4, mood:-15,
+   ask:'有人拿了一份正式合約來找你。有績效費，也有落後基準就終止的條款。',
+   need:s=>s.nav>=2600 && s.trust>=60 && hasH('log') && (hasH('read')||hasH('broker'))},
+  {n:'私募基金', mult:[300,800],  life:-6,  net:-3,  mood:-18,
+   ask:'募到了。你現在有辦公室、有兩個員工、有一份每季要寄出去的報告。',
+   need:s=>s.nav>=9000 && s.trust>=70 && hasH('log')}
+];
+const FEE_MGMT=1.5, FEE_PERF=15;   /* 管理費 % ／ 績效費 % */
+
+/* 各流派一年的基礎換手次數。台股賣出課證交稅 0.3%，
+   所以換手率是直接從報酬裡扣的——當沖派每年被抽掉的比多數人一整年的α還多。 */
+const TURNOVER={none:1.2, hold:0.15, swing:2.6, day:9.5, arb:4.2, long:0.3};
+
+function aumStep(gross){
+  if(S.tier<=0 || S.aum<=0) return null;
+  const before=S.aum;
+  S.aum = Math.max(0, S.aum*(1+gross/100));
+  const mgmt = S.aum*FEE_MGMT/100;
+  const perf = S.aum>before ? (S.aum-before)*FEE_PERF/100 : 0;
+  S.aum -= (mgmt+perf);
+  S.nav += (mgmt+perf);
+  S.feeTotal += (mgmt+perf);
+
+  /* 信任：賺的時候慢慢積，賠的時候一次掉一大塊 */
+  if(gross<0){ S.trust=clamp(S.trust-Math.min(28,Math.abs(gross)*0.55),0,100); S.badYears++; }
+  else { S.trust=clamp(S.trust+Math.min(11,gross*0.3),0,100); S.badYears=0; }
+
+  let redeem=0, kicked=false;
+  if(S.trust<15 || S.badYears>=3){ redeem=S.aum; kicked=true; }
+  else if(S.trust<32 || S.badYears>=2){ redeem=S.aum*0.45; }
+  if(redeem>0){ S.aum-=redeem; S.redeemed++; }
+  return {mgmt:mgmt, perf:perf, redeem:redeem, kicked:kicked};
+}
+function aumReport(r,gross){
+  if(!r) return;
+  const T=TIERS[S.tier];
+  let txt='管理中的<b class="hl">'+T.n+'</b> '+fmtM(S.aum+r.redeem)+
+    '　抽成 <b class="up">+'+fmtM(r.mgmt+r.perf)+'</b>（管理費＋績效費）'+
+    '<br>投資人信任 <b class="'+(S.trust>=50?'up':'dn')+'">'+Math.round(S.trust)+'</b>';
+  if(r.kicked){
+    txt+='<br><b class="dn">他們全部撤回了。</b>'+pick([
+      '「我們不是怪你，只是……先這樣好了。」',
+      '電話裡他講得很客氣，客氣到你知道沒得談。',
+      '合約終止條款被引用了，白紙黑字，你自己簽的。'
+    ]);
+    addLife(T.life||0); addMood(T.mood||0); if(T.net) addProf('family',T.net);
+    S.tier=0; S.trust=45; S.badYears=0;
+  } else if(r.redeem>0){
+    txt+='<br><b class="dn">有人抽回了 '+fmtM(r.redeem)+'。</b>剩下的還在，但氣氛不一樣了。';
+    addLife(-4); addMood(-6);
+  }
+  card(r.kicked?'bad':(gross>=0?'good':'info'), r.kicked?'被解約了':'受託資金', txt, 'AUM');
+}
+
+/* 虧損年要對投資人交代——管別人的錢之後，你的決策會開始被「怎麼交代」扭曲 */
+function facePeople(cont){
+  if(S.tier<=0 || S.aum<=0 || S.lastRet>=0){ cont(); return; }
+  card('bad','年底檢討', pick([
+    '你要寄出今年的報告。數字已經在那裡了，你在想怎麼寫第一段。',
+    '飯局上沒有人提這件事，正因為沒有人提，你整頓飯都在想這件事。',
+    '有人私訊你：「今年是不是不太好？沒關係啦，只是問一下。」'
+  ]),'FACE');
+  board(1);
+  choose('你打算怎麼交代？',[
+    {t:'照實說，數字攤開',main:true,s:'信任 +8。難堪，但下次沒有把柄',
+      f:()=>{ S.trust=clamp(S.trust+8,0,100); addMood(-5); addProf('log',1);
+        card('good','照實說','你把每一筆都列出來。有人退出，有人反而加碼。'); board(1); cont(); }},
+    {t:'強調長期，淡化今年',s:'信任 +3。你自己知道那段話寫得有點滑',
+      f:()=>{ S.trust=clamp(S.trust+3,0,100); addProf('broker',1);
+        card('info','長期','報告寄出去了。沒有人回信。'); board(1); cont(); }},
+    {t:'年底做帳，把難看的部位換掉',warn:true,s:'信任 +14，但淨值 −5%、紀律 −2',
+      f:()=>{ S.trust=clamp(S.trust+14,0,100); S.nav*=0.95; addProf('stop',-2); S.window++;
+        card('bad','窗飾','年底那幾天你做了平常不會做的交易。報表好看多了。'); board(1); cont(); }}
+  ]);
+}
+
+/* ================= 對照組：大盤與台積電 =================
+   台灣散戶真正在問的只有一句：我有沒有贏過大盤？有沒有贏過台積電？
+   兩條對照線都用「跟你一模一樣的薪水、每年全部投入」去跑，
+   所以差距完全來自你的選擇，不是本金多寡。 */
+function genBench(){
+  const out=[];
+  for(let y=0;y<TOTAL;y++){
+    const m=S.market[y];
+    /* 校準過：長期約 85% 機率贏大盤、中位 1.4 倍、p90 2.6 倍，但確實會輸——
+       單一個股本來就有大盤沒有的風險。 */
+    out.push(clamp(m.ret*1.25 + 4 + N0(18), -78, 340));
+  }
+  return out;
+}
+function benchStep(income){
+  const y=S.idx;
+  const mr=S.market[y].ret, tr=S.tsmRet[y];
+  S.bIdx = S.bIdx*(1+mr/100) + income;
+  S.bTsm = S.bTsm*(1+tr/100) + income;
+  S.bIdxH.push(S.bIdx); S.bTsmH.push(S.bTsm);
+}
+function benchLine(){
+  const a=S.nav, i=S.bIdx, t=S.bTsm;
+  const d=(x)=>{ const p=(a/Math.max(x,0.01)-1)*100;
+    return '<b class="'+(p>=0?'up':'dn')+'">'+sgn(p,0)+'%</b>'; };
+  return '<span class="k">大盤</span>'+fmtM(i)+'　你 '+d(i)+
+         '<br><span class="k">台積電</span>'+fmtM(t)+'　你 '+d(t);
+}
+
+/* ================= 同期 =================
+   棒球的帶入感有一半來自「有人跟你同一年進來，而且你們會被拿來比」。
+   股市版沒有球團也沒有選秀，但同期是有的——三個跟你同年開戶的人，
+   走同一條行情，用不同的方式活或不活下來。軌跡在開局一次算完（種子化），
+   之後純呈現，不再消耗 RNG。 */
+const PEER_NAMES=['阿凱','小葉','老陳','怡君','宗翰','美玲','阿翔','雅婷','建宏','詩涵','俊傑','家豪'];
+const PEER_TYPE={
+  degen:{n:'重壓派', vol:2.15, drift:-3, quit:0.42,
+    up:'又開了新的槓桿，說這次真的看準了', dn:'融資被斷頭，帳號歸零'},
+  hold: {n:'存股派', vol:0.55, drift:2.0, quit:0.03,
+    up:'還是那幾檔，一張都沒賣', dn:'帳面難看，但照樣每季領股利'},
+  influ:{n:'開課派', vol:0.85, drift:0.4, quit:0.06,
+    up:'開了頻道，追蹤數比績效漂亮', dn:'課還在賣，只是不太提自己的部位了'},
+  quiet:{n:'安靜派', vol:0.8,  drift:0.9, quit:0.05,
+    up:'沒在講，但看起來過得不錯', dn:'沒說賺賠，只說最近比較忙'},
+  out:  {n:'退場派', vol:0.35, drift:0.2, quit:0.9,
+    up:'早就不玩了，錢拿去付頭期款', dn:'賠過一次就再也沒進來過'}
+};
+function genPeers(){
+  const names=PEER_NAMES.slice();
+  const types=Object.keys(PEER_TYPE);
+  const out=[];
+  for(let i=0;i<3;i++){
+    const nm=names.splice(ri(0,names.length-1),1)[0];
+    const tp=types.splice(ri(0,types.length-1),1)[0];
+    const T=PEER_TYPE[tp];
+    let nav=ri(3,9);
+    const hist=[nav];
+    let quitAt=-1;
+    if(chance(T.quit*100)) quitAt=ri(4,18);
+    for(let y=0;y<TOTAL;y++){
+      const m=S.market[y];
+      if(quitAt>=0 && y>=quitAt){                 /* 退場之後只剩定存與薪水 */
+        nav=nav*1.015 + (y>=6?ri(18,42):ri(1,3));
+      } else {
+        const r=m.ret*T.vol + T.drift + N0(9);
+        nav=Math.max(0.2, nav*(1+clamp(r,-95,320)/100));
+        if(y>=6) nav+=ri(22,58);                  /* 他們也有薪水 */
+        else nav+=ri(1,4);
+      }
+      hist.push(nav);
+    }
+    out.push({name:nm, type:tp, hist:hist, nav:nav, quitAt:quitAt});
+  }
+  return out;
+}
+function peerAt(pr,idx){ return pr.hist[Math.min(idx,pr.hist.length-1)]; }
+/* 同期近況：每隔幾年一張，讓你知道別人走到哪了 */
+function peerNews(){
+  const yr=S.idx;
+  const rows=S.peers.map(pr=>{
+    const v=peerAt(pr,yr), T=PEER_TYPE[pr.type];
+    const gone = pr.quitAt>=0 && yr>=pr.quitAt;
+    const good = v>=S.nav;
+    let line = gone ? T.dn : (good?T.up:T.dn);
+    return '<span class="k">'+pr.name+'</span><b class="'+(good?'up':'dn')+'">'+fmtM(v)+'</b>　'+
+           '<span style="color:var(--dim)">'+line+'</span>';
+  }).join('<br>');
+  const better=S.peers.filter(pr=>peerAt(pr,yr)>S.nav).length;
+  card('mkt','同期近況',
+    '<div class="tbl">'+rows+'</div>'+
+    '<div style="margin-top:6px">你 <b class="hl">'+fmtM(S.nav)+'</b>——'+
+    (better===0?'三個人都在你後面。'
+     :better===3?'三個人都在你前面。'
+     :'其中 '+better+' 個走在你前面。')+'</div>'+
+    '<div class="tbl" style="margin-top:8px;border-top:1px solid var(--edge);padding-top:6px">'+
+    benchLine()+'</div>','PEERS');
+}
+
+/* ================= 遊戲狀態 ================= */
+let S=null;
+function newState(){
+  return {
+    name:'', org:'greed', age:16, year:0, idx:0,
+    habits:{}, hy:{}, dcaTotal:0, nav:0, peak:0, prevNav:0, mood:60, life:70,
+    career:'none', school:null, traits:{}, honors:[], log:[], navHist:[], drawn:[],
+    market:[], lastPos:'zero', lastRet:0, lastMkt:0,
+    lossStreak:0, underPerf:0, blowups:0, boldWin:0, boldFail:0,
+    zeroYears:0, fullYears:0, bestYear:0, worstYear:0,
+    tmpBoost:0, tmpRisk:0, hype:0, income:0, totalIncome:0,
+    famYears:0, restYears:0, moonlight:0, ghost:null, fame:0,
+    fast:false, plan:'safe', stance:'norm', habit:{}, panic:null, rebound:0, missRebound:0, quietYears:0,
+    peers:[], tsmRet:[], bIdx:0, bTsm:0, bIdxH:[], bTsmH:[], decayTold:0,
+    tier:0, aum:0, trust:50, badYears:0, redeemed:0, feeTotal:0, window:0, peakAum:0,
+    taxPaid:0, divTotal:0, prevMult:0, lockedIn:0,
+    cls:0, peakCls:0, demoted:0,
+    over:false, ending:null
+  };
+}
+
+/* ================= 數值工具 ================= */
+function fmtM(v){
+  const a=Math.abs(v);
+  if(a>=100000000) return (v/100000000).toFixed(2)+'兆';
+  if(a>=10000) return (v/10000).toFixed(2)+'億';
+  if(a>=1000) return (v/1000).toFixed(1)+'千萬';
+  if(a>=100) return v.toFixed(0)+'萬';
+  if(a>=10) return v.toFixed(1)+'萬';
+  return v.toFixed(2)+'萬';
+}
+function sgn(v,dec){ dec=dec===undefined?1:dec; return (v>=0?'+':'')+v.toFixed(dec); }
+/* 習慣的養成與維持：骰子的每一點換 5 點熟練度。上限 100，練不過頭。 */
+function addProf(k,pips){
+  if(!S.habits) S.habits={};
+  const before=S.habits[k]||0;
+  S.habits[k]=clamp(before+pips*PIP_PROF,0,PROF_MAX);
+  return Math.round(S.habits[k]-before);
+}
+function activeHabits(){ return HK.filter(k=>(S.habits[k]||0)>0); }
+/* 每年自然衰退，掉到 15 以下就脫落——不練的東西留不住 */
+function habitDecay(){
+  if(!S.hy) S.hy={};
+  activeHabits().forEach(k=>{ if(S.habits[k]>=PROF_DROP) S.hy[k]=(S.hy[k]||0)+1; });
+  const gone=[], dropped=[];
+  activeHabits().forEach(k=>{
+    const before=S.habits[k];
+    S.habits[k]=Math.max(0,before-PROF_DECAY);
+    if(before>=PROF_DROP && S.habits[k]<PROF_DROP){ dropped.push(k); S.habits[k]=0; }
+    else if(S.habits[k]<=0){ S.habits[k]=0; gone.push(k); }
+  });
+  if(dropped.length){
+    card('bad','斷了', dropped.map(k=>'<b class="dn">'+HABITS[k].n+'</b>').join('、')+
+      pick(['——你自己也說不出是從哪一週開始沒做的。',
+            '——最後一次做是什麼時候，你想不起來了。',
+            '——中間有幾次想撿回來，但沒有。']),'HABIT');
+  }
+}
+
+function addMood(v){
+  if(S.school==='swing') v*=1.6;   /* 波段派：看得比別人準，也因此被行情推得比別人遠 */
+  let lo=Math.max(S.traits.zen?25:0, Math.round(hb('gym')*25));
+  S.mood=clamp(S.mood+v,lo,100);
+}
+function addLife(v){ S.life=clamp(S.life+v,0,100); }
+
+/* ================= 行情生成（種子化，開局一次算完）================= */
+function genMarket(years){
+  let cur='chop', out=[];
+  for(let i=0;i<years;i++){
+    const tbl=TRANS[cur];
+    let roll=R()*100, acc=0, nx='chop';
+    for(let j=0;j<tbl.length;j++){ acc+=tbl[j][1]; if(roll<acc){ nx=tbl[j][0]; break; } }
+    cur=nx;
+    out.push({rg:cur, ret:ri(REGIME[cur].lo,REGIME[cur].hi)});
+  }
+  /* 保證至少兩次崩盤，且不落在頭兩年（新手保護期） */
+  let crashes=out.reduce((n,y)=>n+(y.rg==='crash'?1:0),0);
+  let guard=0;
+  while(crashes<2 && guard++<40){
+    const i=ri(3,years-2);
+    if(out[i].rg==='crash') continue;
+    out[i]={rg:'crash', ret:ri(REGIME.crash.lo,REGIME.crash.hi)};
+    crashes++;
+  }
+  return out;
+}
+
+/* ================= UI 基礎 ================= */
+const $=id=>document.getElementById(id);
+const LOG=()=>$('log'), ACT=()=>$('act');
+
+function card(type,title,body,tag){
+  const d=document.createElement('div');
+  d.className='c '+type;
+  d.innerHTML=(tag?'<div class="kick">'+tag+'</div>':'')+
+              '<div class="t">'+title+'</div>'+
+              (body?'<div class="b">'+body+'</div>':'');
+  LOG().appendChild(d);
+  return d;
+}
+function divider(txt,id){
+  const d=document.createElement('div');
+  d.className='hr'; if(id) d.id=id;
+  d.innerHTML='<span>'+txt+'</span>';
+  LOG().appendChild(d);
+}
+/* 捲到「玩家上次操作之後新增的第一則」並對齊在 HUD 下方。
+   捲到絕對底部會把整段新內容的開頭推出畫面——那正是手機上看不全的主因。 */
+let BEAT_MARK=0;
+function scrollBottom(){
+  requestAnimationFrame(()=>{
+    const log=LOG(); if(!log) return;
+    const hud=$('hud');
+    const hudH=hud?hud.getBoundingClientRect().height:0;
+    const kids=log.children;
+    let target=kids[Math.min(BEAT_MARK,kids.length-1)] || kids[kids.length-1];
+    if(!target){ window.scrollTo(0,document.body.scrollHeight); return; }
+    const y=window.scrollY + target.getBoundingClientRect().top - hudH - 14;
+    const max=Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    window.scrollTo(0, Math.min(Math.max(0,y), max));
+  });
+}
+function board(scroll){
+  if(!S) return;
+  $('h-name').textContent=S.name;
+  const narrow = window.innerWidth<=520;
+  const idText = CLASSES[S.cls].n + (S.tier>0 ? '｜受託 '+fmtM(S.aum)+'（信任 '+Math.round(S.trust)+'）' : '');
+  $('h-year').textContent = narrow
+    ? S.age+'歲 · '+CAREER[S.career].n+' · '+idText          /* 窄螢幕：全部併成一行 */
+    : '第 '+(S.idx+1)+' 年 · '+S.age+' 歲 · '+CAREER[S.career].n;
+  const idn=$('h-idn');
+  if(idn){
+    idn.textContent = narrow ? '' : '· '+idText;
+    idn.style.color = S.tier>0 && S.trust<35 ? 'var(--dn)' : 'var(--dim)';
+  }
+  $('h-year').style.color = (S.tier>0 && S.trust<35) ? 'var(--dn)' : '';
+  $('h-nav').textContent=fmtM(S.nav);
+  $('h-nav').style.color = (S.idx===0||S.lastRet>=0)?'var(--up)':'var(--dn)';
+  const c=$('h-chg');
+  if(S.idx>0){ c.textContent=sgn(S.lastRet)+'%'; c.style.color=S.lastRet>=0?'var(--up)':'var(--dn)'; }
+  else c.textContent='';
+  $('h-mood').style.width=S.mood+'%'; $('h-mood-v').textContent=Math.round(S.mood);
+  $('h-life').style.width=S.life+'%'; $('h-life-v').textContent=Math.round(S.life);
+  drawSpark();
+  renderTimeline();
+  if(scroll) scrollBottom();
+}
+/* 純呈現層：不得呼叫 R() */
+function drawSpark(){
+  const sv=$('spark'); if(!sv) return;
+  const h=S.navHist;
+  if(h.length<2){ sv.innerHTML=''; return; }
+  const logs=h.map(v=>Math.log10(Math.max(0.05,v)));
+  const mn=Math.min.apply(null,logs), mx=Math.max.apply(null,logs), rg=(mx-mn)||1;
+  const pts=logs.map((v,i)=>{
+    const x=(i/(logs.length-1))*300;
+    const y=32-((v-mn)/rg)*29;
+    return x.toFixed(1)+','+y.toFixed(1);
+  }).join(' ');
+  const up=h[h.length-1]>=h[0];
+  let gp='';
+  if(S.ghost){
+    /* 鬼影用「本局的」座標軸，才能直接比高低 */
+    const gh=S.ghost.hist.slice(0,h.length);
+    gp='<polyline points="'+gh.map((v,i)=>{
+      const x=(i/(logs.length-1))*300;
+      const y=32-((Math.log10(Math.max(0.05,v))-mn)/rg)*29;
+      return x.toFixed(1)+','+clamp(y,1,33).toFixed(1);
+    }).join(' ')+'" fill="none" stroke="var(--dim)" stroke-width="1" stroke-dasharray="2 3"'+
+      ' opacity=".65" vector-effect="non-scaling-stroke"/>';
+  }
+  sv.innerHTML=gp+'<polyline points="'+pts+'" fill="none" stroke="'+(up?'var(--up)':'var(--dn)')+
+    '" stroke-width="1.5" vector-effect="non-scaling-stroke"/>';
+}
+
+/* 生涯時間軸（純呈現層，不得呼叫 R()）。
+   桌機當第三欄常駐；窄螢幕不佔 HUD 高度，改從選單開。 */
+function renderTimeline(el){
+  el = el || $('tl-list');
+  if(!el||!S) return;
+  if(!S.log.length){ el.innerHTML='<div class="tl-empty">還沒有走完任何一年。</div>'; return; }
+  el.innerHTML=S.log.map((L,i)=>{
+    const rg=REGIME[L.rg], up=L.ret>=0;
+    const pos=(POSN.find(p=>p.k===L.pos)||{}).n||'';
+    return '<div class="tli" data-y="'+i+'" title="'+L.age+' 歲｜'+rg.n+'｜'+pos+'">'+
+      '<span class="a">'+L.age+'</span>'+
+      '<span class="m '+rg.c+'">'+rg.icon+'</span>'+
+      '<span class="r '+(up?'up':'dn')+'">'+sgn(L.ret,0)+'%</span>'+
+      '<span class="n">'+fmtM(L.nav)+'</span></div>';
+  }).join('');
+  el.querySelectorAll('.tli').forEach(x=>{
+    x.onclick=()=>{
+      const t=$('yr'+x.dataset.y); if(!t) return;
+      const hud=$('hud'), hudH=hud?hud.getBoundingClientRect().height:0;
+      const y=window.scrollY+t.getBoundingClientRect().top-hudH-14;
+      window.scrollTo({top:Math.max(0,y),behavior:'smooth'});
+      el.querySelectorAll('.tli').forEach(z=>z.classList.remove('on'));
+      x.classList.add('on');
+      const m=$('mask'); if(m) m.remove();
+    };
+  });
+  el.scrollTop=el.scrollHeight;
+}
+function openTimeline(){
+  if($('mask')) return;
+  const m=document.createElement('div');
+  m.id='mask';
+  m.innerHTML='<div class="sheet"><div class="q">生涯時間軸</div>'+
+    '<div id="tl-modal-list" class="tlmodal"></div>'+
+    '<button class="btn main" id="tl-close">關閉</button></div>';
+  document.body.appendChild(m);
+  renderTimeline($('tl-modal-list'));   /* 不能用 $('tl-list')——側欄也叫這個名字 */
+  m.onclick=e=>{ if(e.target===m) m.remove(); };
+  $('tl-close').onclick=()=>m.remove();
+}
+
+function actClear(){ const a=ACT(); a.classList.remove('alloc'); a.innerHTML=''; }
+/* 標記新回合的起點。只能由玩家的實際操作觸發——
+   choose() 內部也會呼叫 actClear() 重繪，若在那裡標記會把錨點推到新內容之後。 */
+function beat(){ const l=LOG(); if(l) BEAT_MARK=l.children.length; }
+function choose(q,opts){
+  actClear();
+  const a=ACT();
+  if(q){ const p=document.createElement('div'); p.className='q'; p.textContent=q; a.appendChild(p); }
+  opts.forEach(o=>{
+    const b=document.createElement('button');
+    b.className='btn'+(o.main?' main':'')+(o.warn?' warn':'');
+    b.innerHTML=o.t+(o.s?'<span class="s">'+o.s+'</span>':'');
+    b.onclick=()=>{ beat(); actClear(); o.f(); };
+    a.appendChild(b);
+  });
+  scrollBottom();
+}
+
+/* ---- 骰子的非能力去向 ----
+   只能點能力的話，分配永遠不是難題——六項都是好東西，點哪個都不會後悔。
+   加上這三個去向，一顆六點才會變成真的兩難。 */
+function moonlightRate(){ return 1.5 + S.idx*0.5; }   /* 每點換到的萬元，隨年資成長 */
+const SINKS=[
+  {k:'_fam', n:'陪家人', d:'生活 +6／點',
+   ap:p=>{ const b=S.life; addLife(p*6); S.famYears++; return S.life-b; },
+   un:v=>{ addLife(-v); S.famYears--; }},
+  {k:'_rest',n:'徹底休息', d:'心態 +8／點',
+   ap:p=>{ const b=S.mood; addMood(p*8); S.restYears++; return S.mood-b; },
+   un:v=>{ addMood(-v); S.restYears--; }},
+  {k:'_work',n:'加班接案', d:()=>'現金 +'+moonlightRate().toFixed(1)+'萬／點',
+   ap:p=>{ const v=p*moonlightRate(); S.nav+=v; S.moonlight+=v; return v; },
+   un:v=>{ S.nav-=v; S.moonlight-=v; }}
+];
+
+/* 快速模式：依方針自動把一顆骰子放掉。生活/心態已經很高就不再餵，改去練本事 */
+/* 快速模式：先補快斷掉的習慣，再照方針養成，都滿了就顧生活 */
+function autoPlace(pip){
+  const act=activeHabits();
+  const weak=act.filter(k=>S.habits[k]<PROF_DROP+12).sort((a,b)=>S.habits[a]-S.habits[b]);
+  if(weak.length){ addProf(weak[0],pip); return; }
+  const pr=PLANS[S.plan].pr;
+  for(let i=0;i<pr.length;i++){
+    const k=pr[i];
+    if(k==='_fam'){ if(S.life<88){ SINKS[0].ap(pip); return; } continue; }
+    if(k==='_rest'){ if(S.mood<88){ SINKS[1].ap(pip); return; } continue; }
+    if(S.habits[k]>0 && S.habits[k]<PROF_MAX){ addProf(k,pip); return; }
+    if(!(S.habits[k]>0) && act.length<slotsAt(S.age)){ addProf(k,pip); return; }
+  }
+  if(S.life<85){ SINKS[0].ap(pip); return; }
+  SINKS[2].ap(pip);
+}
+
+/* ---- 骰子分配 ---- */
+function allocUI(dice,title,done){
+  /* 窄螢幕改用整頁覆蓋層：分配是需要全副注意力的時刻，
+     硬塞進黏底面板只會兩邊都擠。覆蓋層自帶一條數值列，
+     因為報頭被蓋住了，而「陪家人／徹底休息」的效果就在那兩個數字上。 */
+  const full = window.innerWidth < 900;
+  let a, overlay=null;
+  if(full){
+    overlay=document.createElement('div');
+    overlay.id='af';
+    overlay.innerHTML='<div class="af-in">'+
+      '<div class="af-head"><div class="af-t"></div><div class="af-stat"></div></div>'+
+      '<div class="af-body"></div></div>';
+    document.body.appendChild(overlay);
+    document.body.style.overflow='hidden';
+    a=overlay.querySelector('.af-body');
+    overlay.querySelector('.af-t').textContent=title;
+  } else {
+    actClear();
+    a=ACT(); a.classList.add('alloc');
+  }
+  const closeFull=()=>{ if(overlay){ overlay.remove(); document.body.style.overflow=''; } };
+  const syncStat=()=>{
+    if(!overlay) return;
+    overlay.querySelector('.af-stat').innerHTML=
+      '<span>淨值 <b>'+fmtM(S.nav)+'</b></span>'+
+      '<span>心態 <b class="'+(S.mood>=50?'up':'dn')+'">'+Math.round(S.mood)+'</b></span>'+
+      '<span>生活 <b class="'+(S.life>=50?'up':'dn')+'">'+Math.round(S.life)+'</b></span>';
+  };
+  let idx=0, hist=[];
+  const q=document.createElement('div'); q.className='q'; q.textContent=title;
+  if(!full) a.appendChild(q);
+  const dwrap=document.createElement('div'); dwrap.id='dice'; a.appendChild(dwrap);
+  const cue=document.createElement('div'); cue.className='cue'; a.appendChild(cue);
+  const list=document.createElement('div'); list.className='abgrid'; a.appendChild(list);
+  const sep=document.createElement('div'); sep.className='cue seprow';
+  sep.textContent='—— 或者，把時間花在別的地方 ——'; a.appendChild(sep);
+  const sinks=document.createElement('div'); sinks.className='sinkgrid'; a.appendChild(sinks);
+  const foot=document.createElement('div'); a.appendChild(foot);
+
+  function render(){
+    syncStat();
+    dwrap.innerHTML=dice.map((v,i)=>
+      '<div class="die '+(i<idx?'used':'')+' '+(i===idx?'active':'')+' '+(v===6?'six':'')+'">'+v+'</div>').join('');
+    cue.innerHTML = (idx<dice.length
+      ? '剩餘 <b>'+(dice.length-idx)+'</b> 顆未分配　·　當前這顆 <b>'+dice[idx]+'</b> 點'
+      : '全部分配完畢')+
+      '<span class="rule">每顆依序套用｜50 以上成長遞減，72 以上幾乎點不動</span>';
+    list.innerHTML='';
+    const live = idx<dice.length;
+    const act=activeHabits();
+    const slots=slotsAt(S.age);
+
+    /* 已經在做的：投骰子維持或加深 */
+    act.forEach(k=>{
+      const v=S.habits[k], weak=v<PROF_DROP+10;
+      const r=document.createElement('div');
+      r.className='ab hb'+(weak?' weak':'');
+      r.innerHTML='<span class="n">'+HABITS[k].n+'</span>'+
+        '<span class="bar"><i style="width:'+v+'%"></i></span>'+
+        '<span class="v">'+Math.round(v)+'</span>';
+      r.title=HABITS[k].fx;
+      if(live) r.onclick=()=>{ const got=addProf(k,dice[idx]); hist.push(['h:'+k,got]);
+        S.habit[k]=(S.habit[k]||0)+1; idx++; render(); board(0); };
+      list.appendChild(r);
+    });
+
+    /* 還沒開始的：佔一個槽位 */
+    const free=slots-act.length;
+    const nl=document.createElement('div');
+    nl.className='cue seprow';
+    nl.innerHTML = free>0
+      ? '—— 還有 <b>'+free+'</b> 個槽位（'+S.age+' 歲上限 '+slots+' 個） ——'
+      : '—— 槽位滿了（'+slots+' 個）。要養新的，得先讓舊的斷掉 ——';
+    list.appendChild(nl);
+    if(free>0){
+      HK.filter(k=>!(S.habits[k]>0)).forEach(k=>{
+        const r=document.createElement('div');
+        r.className='ab newh';
+        r.innerHTML='<span class="n">'+HABITS[k].n+'</span>'+
+          '<span class="sd">'+HABITS[k].fx+'</span>';
+        if(live) r.onclick=()=>{ const got=addProf(k,dice[idx]); hist.push(['h:'+k,got]);
+          card('gold','開始了','<b class="hl">'+HABITS[k].n+'</b>——'+HABITS[k].d,'HABIT');
+          idx++; render(); board(0); };
+        list.appendChild(r);
+      });
+    }
+    sinks.innerHTML='';
+    SINKS.forEach(sk=>{
+      const r=document.createElement('div');
+      r.className='ab sink';
+      r.innerHTML='<span class="n">'+sk.n+'</span>'+
+        '<span class="sd">'+(typeof sk.d==='function'?sk.d():sk.d)+'</span>';
+      if(live) r.onclick=()=>{ const got=sk.ap(dice[idx]); hist.push([sk.k,got]);
+        S.habit[sk.k]=(S.habit[sk.k]||0)+1; idx++; render(); board(0); };
+      sinks.appendChild(r);
+    });
+    foot.innerHTML='';
+    if(hist.length){
+      const u=document.createElement('button');
+      u.className='btn'; u.textContent='↩ 復原上一步';
+      u.onclick=()=>{
+        const e=hist.pop();
+        const sk=SINKS.find(s=>s.k===e[0]);
+        if(sk) sk.un(e[1]);
+        else if(String(e[0]).startsWith('h:')){
+          const k=String(e[0]).slice(2);
+          S.habits[k]=Math.max(0,(S.habits[k]||0)-e[1]);
+        }
+        idx--; render(); board(0);
+      };
+      foot.appendChild(u);
+    }
+    if(idx>=dice.length){
+      const c=document.createElement('button');
+      c.className='btn main'; c.textContent='確認 ▸';
+      c.onclick=()=>{ beat(); closeFull(); actClear(); done(); };
+      foot.appendChild(c);
+    }
+  }
+  render();
+  if(full){ a.scrollTop=0; }
+  /* 純視覺滾動動畫：用 Math.random，絕不碰種子化 RNG */
+  if(!matchMedia('(prefers-reduced-motion: reduce)').matches){
+    dwrap.querySelectorAll('.die').forEach((el,i)=>{
+      el.classList.add('rolling');
+      const iv=setInterval(()=>{ el.textContent=1+Math.floor(Math.random()*6); },70);
+      setTimeout(()=>{ clearInterval(iv); el.classList.remove('rolling'); el.textContent=dice[i]; },240+i*85);
+    });
+  }
+  if(!full) scrollBottom();
+}
+
+/* ================= 年度流程 ================= */
+const TOTAL=25;   /* 16 → 40 歲 */
+
+/* ---- 年份權重 ----
+   二十五年給每一年一樣的篇幅，本身就是重複的來源。真實人生不是這樣：
+   有些年是轉折，有些年你事後根本想不起來發生過什麼。 */
+function yearWeight(m){
+  if(m.rg==='crash'||m.rg==='boom') return 'big';
+  if(S.age===18 && !S.school) return 'big';
+  if(S.age===21) return 'big';
+  if(S.life<=18 || S.mood<=8) return 'big';
+  if(S.rebound) return 'big';
+  if(m.rg==='chop' && Math.abs(m.ret)<11 && S.idx>0) return 'quiet';
+  return 'norm';
+}
+/* 依玩家過去的分配習慣自動落骰——「照去年那樣過」要照的是他自己的習慣 */
+/* 平淡年「照去年那樣過」：照你自己的習慣分配 */
+function habitPlace(pip){ autoPlace(pip); }
+const QUIET=[
+  '這一年沒什麼好說的。指數在同一個區間來回，你的部位也沒動。',
+  '你後來想不起來這年發生過什麼。翻對帳單才知道自己有進出過幾次。',
+  '市場安靜得像睡著了。你把看盤軟體的通知關掉，過了三個月才發現沒差。',
+  '同事換了兩輪，你的持股一檔都沒換。',
+  '這年最大的事情是家裡冰箱壞了。'
+];
+
+function nextYear(){
+  if(S.over) return;
+  if(S.idx>=TOTAL){ endGame('rich_check'); return; }
+  S.prevNav=S.nav;
+  S.age=16+S.idx;
+  const m=S.market[S.idx];
+  divider(String(S.age)+' 歲 · 第 '+(S.idx+1)+' 年','yr'+S.idx);
+  if(!S.fast && yearWeight(m)==='quiet' && S.idx>0){ quietYear(m); return; }
+  phaseIncome(m);
+}
+
+/* 平淡年：整年壓成一張卡加一次點擊。
+   要不要跳過是玩家自己決定的——重複因此變成他的選擇，而不是系統逼他看的東西。 */
+function quietYear(m){
+  const p=POSN.find(x=>x.k===S.lastPos)||POSN[2];
+  card('info','平淡的一年', pick(QUIET)+
+    '<div class="tbl"><span class="k">部位</span>沿用去年的「'+p.n+'」' +
+    '　<span class="k">市場</span><b class="'+(m.ret>=0?'up':'dn')+'">'+sgn(m.ret)+'%</b></div>','QUIET');
+  board(1);
+  choose('',[
+    {t:'▸ 就這樣過完這一年',main:true,s:'骰子照你的習慣分配，部位沿用，不抽事件卡',
+      f:()=>{ S.quietYears++;
+        const cr=CAREER[S.career], inc=cr.inc();
+        S.income=inc; S.totalIncome+=inc; S.nav+=inc;
+        addLife(3+cr.life+(S.traits.zen?3:0)+(S.traits.influ?-2:0)); addMood(2);
+        habitDecay(); ageDecay();
+        const r=R(); let n=(r<0.34?3:r<0.74?4:r<0.94?5:6)+CAREER[S.career].dice;
+        if(S.age<=21)n+=1; else if(S.age>=33)n=Math.max(2,n-1);
+        for(let i=0;i<n;i++) habitPlace(ri(1,6));
+        checkTraits();
+        card('info','這一年','薪水 <b class="up">+'+fmtM(inc)+'</b>，'+n+' 顆骰子照習慣落下去了。');
+        S.lastPos=p.k; settle(m,p); }},
+    {t:'這年我想自己來',s:'完整流程：親手分配骰子、抽事件卡、重新決定部位',
+      f:()=>phaseIncome(m)}
+  ]);
+}
+
+/* --- 階段一：收入與生活 --- */
+function phaseIncome(m){
+  const cr=CAREER[S.career];
+  const inc=cr.inc();
+  S.income=inc; S.totalIncome+=inc;
+  S.nav+=inc;
+  /* 生活與心態每年自然回復；職業成本從回復值裡扣。上班約打平，全職操盤淨 −4／年 */
+  addLife(3 + cr.life + (S.traits.zen?3:0) + (S.traits.influ?-2:0)
+    + Math.round(hb('gym')*5) + Math.round(hb('family')*6));
+  addMood(2);
+  if(hb('family')>0) S.trust=clamp(S.trust+Math.round(hb('family')*5),0,100);
+
+  let extra='';
+  if(S.traits.influ){
+    const ad=Math.max(2, Math.round(S.nav*0.012));
+    S.nav+=ad; S.totalIncome+=ad;
+    extra=' 業配與課程收入 <b class="up">+'+fmtM(ad)+'</b>。';
+  }
+  if(hb('dca')>0 && inc>0){
+    const auto=inc*0.7*hb('dca');
+    S.dcaTotal=(S.dcaTotal||0)+auto;
+    extra+=' 定額扣款自動投入 <b class="hl">'+fmtM(auto)+'</b>。';
+  }
+  if(inc>0) card('info','年度收入','以 '+cr.n+' 的身分，今年入袋 <b class="up">'+fmtM(inc)+'</b>。'+extra,'INCOME');
+  else card('info','沒有薪水','全職操盤的第 '+(S.idx+1)+' 年。除了帳戶裡的數字，你沒有別的收入。'+extra,'INCOME');
+
+  board(1);
+  phaseDice(m);
+}
+
+/* ---- 年齡衰退 ----
+   能力只會上升的話，build 蓋完之後剩下的骰子就沒地方去了——後段等於沒有決策。
+   反應類的東西本來就會還回去：盤感鈍了、消息網疏了、人會慢慢走散。
+   但心性、紀律、研究不減——那是經驗，經驗只會累積。
+   於是後段的骰子有了真正的工作：決定補回哪些、放掉哪些。 */
+function ageDecay(){
+  if(S.age<34) return;
+  const hard = S.age>=38;
+  const d = 2;
+  const lost=[];
+  /* 上了年紀，維持同一件事要花更多力氣：衰退加快 */
+  activeHabits().forEach(k=>{
+    const before=S.habits[k];
+    S.habits[k]=Math.max(0,before-(hard?6:3));
+    const got=Math.round(S.habits[k]-before);
+    if(got) lost.push(HABITS[k].n+' <b class="dn">'+got+'</b>');
+  });
+  if(!lost.length) return;
+  if(!S.decayTold){
+    S.decayTold=1;
+    card('bad','跟不上了',
+      '你發現自己看盤的時候會漏掉東西，而群組裡在講的那幾檔，你已經不知道是在做什麼的了。<br>'+
+      '<b class="dn">盤感、情報、人脈開始每年往回走</b>——但心性、紀律、研究不會。'+
+      '<span style="color:var(--dim)">那些是經驗，只會累積。</span>'+
+      '<div class="tbl">'+lost.join('　')+'</div>','DECAY');
+  } else {
+    card('info','又還回去一些','<div class="tbl">'+lost.join('　')+'</div>','DECAY');
+  }
+}
+
+/* --- 階段二：擲精力骰、加點 --- */
+function phaseDice(m){
+  habitDecay();
+  ageDecay();
+  const r=R();
+  let n = r<0.34 ? 3 : r<0.74 ? 4 : r<0.94 ? 5 : 6;
+
+  /* 骰子數的加減一律走這裡，並且只記錄「真正生效」的部分。
+     原本每個修正各自 Math.max(2,n-1)，但提示照印——實測 6% 的機率
+     那句「−1 顆」是假的（已經在地板上，扣不動）。
+     另外中年 −1、學生 +1、全職操盤 +1 先前完全沒有提示，骰子變了卻不說為什麼。 */
+  const mods=[];
+  const mod=(delta,label)=>{
+    if(!delta) return;
+    const before=n;
+    n=Math.max(2,n+delta);
+    const real=n-before;
+    if(real) mods.push({d:real,t:label});
+    else if(delta<0) mods.push({d:0,t:label});
+  };
+  mod(CAREER[S.career].dice, CAREER[S.career].n+'，沒有別的事要做');
+  if(S.age<=21) mod(1,'學生，整個暑假都是你的');
+  else if(S.age>=33) mod(-1,'中年，時間開始不是自己的');
+  if(S.mood<30) mod(-1,'心態低迷，有幾個月根本不想開啟軟體');
+  if(S.life<25) mod(-1,'生活一團亂，分不出神');
+  if(S.traits.quant && chance(45)) mod(1,'量化腦');
+
+  const dice=[];
+  for(let i=0;i<n;i++) dice.push(ri(1,6));
+
+  const when = S.career==='none' ? '放學後和整個暑假'
+             : S.career==='pro'  ? '一整年，你沒有別的事要做'
+             : '下班後和每個週末';
+  let note='今年你把'+when+'的時間投進去，擲出 <b class="hl">'+n+'</b> 顆精力骰。';
+  if(mods.length){
+    note+='<div class="tbl">'+mods.map(x=>
+      x.d>0 ? '<b class="up">＋'+x.d+'</b>　'+x.t
+    : x.d<0 ? '<b class="dn">−'+(-x.d)+'</b>　'+x.t
+    :         '<span style="color:var(--dim)">±0　'+x.t+'——已經是最低的兩顆了</span>'
+    ).join('<br>')+'</div>';
+  }
+  card('info','自主研究',note,'TRAIN');
+  
+  board(1);
+
+  if(S.fast){
+    dice.forEach(autoPlace);
+    card('info','已依方針分配','方針「'+PLANS[S.plan].n+'」：'+PLANS[S.plan].d+
+      '　<span style="color:var(--dim)">'+activeHabits().map(k=>HABITS[k].n+' '+Math.round(S.habits[k])).join('　')+'</span>');
+    board(1); checkTraits(); phaseEvent(m); return;
+  }
+  choose('',[{t:'▸ 分配這 '+n+' 顆骰子',main:true,f:()=>{
+    allocUI(dice,'分配這一年的時間',()=>{ checkTraits(); phaseEvent(m); });
+  }}]);
+}
+
+/* --- 階段三：事件卡 --- */
+function phaseEvent(m){
+  let n = 1 + (chance(38)?1:0) + (S.school==='day'?1:0);
+  drawEvents(n,()=>phasePosition(m));
+}
+/* 抽牌袋：抽過的不再出現，整袋抽完才洗回去。
+   純靠加牌壓不住重複感——三十幾次抽牌撞上同一張的機率比直覺高得多。 */
+function drawOne(){
+  const stg = S.age<22 ? 'young' : 'pro';
+  const pool=EVENTS.filter(e=>{
+    if(e.stg!=='*' && e.stg!==stg) return false;
+    if(e.block && hasH(e.block)) return false;       /* 退了群就不會有人報明牌給你 */
+    if(e.minNav && S.nav < e.minNav) return false;
+    if(e.minAge && S.age < e.minAge) return false;
+    if(e.need_job && !EMPLOYED(S)) return false;
+    return true;
+  });
+  let avail=pool.filter(e=>S.drawn.indexOf(e.n)<0);
+  if(!avail.length){
+    S.drawn=S.drawn.filter(nm=>!pool.some(e=>e.n===nm));
+    avail=pool;
+  }
+  const ev=pick(avail);
+  S.drawn.push(ev.n);
+  return ev;
+}
+function drawEvents(n,done){
+  if(n<=0){ done(); return; }
+  const ev=drawOne();
+  card('info','事件｜'+ev.n, ev.d, 'EVENT');
+  /* 有些事就是發生了，沒有選擇可言。硬給三個風險檔次只會讓題目跟選項脫節——
+     「市場休市一週」的敘述自己就寫著「你什麼都不能做，只能等」。 */
+  if(ev.auto){
+    const out=applyFx(ev.auto.g||{});
+    card('info', ev.auto.t, (ev.auto.x||'')+(out.length?'<div class="tbl">'+out.join('　')+'</div>':''));
+    board(1);
+    if(S.fast){ drawEvents(n-1,done); return; }
+    choose('',[{t:'繼續 ▸',main:true,f:()=>drawEvents(n-1,done)}]);
+    return;
+  }
+  if(S.fast){
+    /* 快速模式：依你定的立場，從可用選項裡挑最保守／中間／最積極的一個 */
+    const av=ev.o.filter(o=>!o.need || hasH(o.need));
+    const rank=[...av].sort((a,b)=>(b.p==null?101:b.p)-(a.p==null?101:a.p));
+    const pick_ = S.stance==='safe' ? rank[0]
+                : S.stance==='bold' ? rank[rank.length-1]
+                : rank[Math.floor(rank.length/2)];
+    resolveChoice(ev,pick_,av.indexOf(pick_),()=>drawEvents(n-1,done));
+    return;
+  }
+  board(1);
+  /* 招牌卡：每個選項有自己的結果與成敗機率，而且不是每個決定都要擲骰——
+     「把當沖權限關掉」就是關掉了，沒有成不成功的問題。
+     其餘卡片仍走保守／照常／全力的三檔難度。 */
+  /* 你做得到什麼，取決於你養成了什麼——沒有那個習慣，那個選項不會出現 */
+  const opts=ev.o.filter(o=>!o.need || hasH(o.need));
+  choose('你要怎麼應對？', opts.map((o,i)=>({
+    t:o.t, main:i===0,
+    s:(o.p==null ? '就這樣決定了' : o.p+'% 會成')+
+      (o.need ? '　（因為你有「'+HABITS[o.need].n+'」）' : ''),
+    f:()=>resolveChoice(ev,o,i,()=>drawEvents(n-1,done))
+  })));
+  return;
+
+}
+/* 把一組 {g|b} 實際套到狀態上，回傳可讀的變化摘要 */
+function applyFx(fx){
+  const out=[];
+  for(const k in fx){
+    const v=fx[k];
+    if(k==='nav'){
+      const d=S.nav*v/100; S.nav=Math.max(0,S.nav+d);
+      out.push('淨值 <b class="'+(d>=0?'up':'dn')+'">'+sgn(v)+'%</b>');
+    } else if(k==='mood'){ addMood(v); out.push('心態 <b class="'+(v>=0?'up':'dn')+'">'+sgn(v,0)+'</b>'); }
+    else if(k==='life'){ addLife(v); out.push('生活 <b class="'+(v>=0?'up':'dn')+'">'+sgn(v,0)+'</b>'); }
+    else if(k==='trust'){ S.trust=clamp(S.trust+v,0,100); out.push('信任 <b class="'+(v>=0?'up':'dn')+'">'+sgn(v,0)+'</b>'); }
+    else if(k==='hab'){
+      for(const hk in v){
+        if(!(S.habits[hk]>0) && activeHabits().length>=slotsAt(S.age) && v[hk]>0) continue;
+        const got=addProf(hk,v[hk]);
+        if(got) out.push(HABITS[hk].n+' <b class="'+(got>=0?'up':'dn')+'">'+sgn(got,0)+'</b>');
+      }
+    }
+  }
+  return out;
+}
+
+function resolveChoice(ev,o,idx,done){
+  const certain = o.p==null;
+  const good = certain ? true : chance(o.p);
+  if(idx===2 && !certain){ good?S.boldWin++:S.boldFail++; }
+  const out=applyFx(good?o.g:(o.b||{}));
+  if(good && o.fame) S.fame++;
+  if(good && o.honor) S.honors.push(o.honor);
+  card(certain?'info':(good?'good':'bad'),
+    certain?o.t:(good?'結果：接住了':'結果：沒接住'),
+    (good?o.gt:o.bt)+(out.length?'<div class="tbl">'+out.join('　')+'</div>':''));
+  board(1);
+  if(S.fast){ done(); return; }
+  choose('',[{t:'繼續 ▸',main:true,f:done}]);
+}
+
+
+/* --- 階段四：選部位 --- */
+function phasePosition(m){
+  const acc=hintAcc();
+  let hint;
+  if(hasH('broker')||hasH('read')){
+    const pk=peekHint(m);
+    hint='<b class="hl">'+pk.tag+'</b>　'+pk.flow+
+      '<br><span style="color:var(--dim)">這個判斷的準確率 '+acc+'%</span>';
+  } else {
+    hint='（你沒有任何打聽消息的管道。盤後那些數字你看得懂字，看不懂意思。）';
+  }
+  const theme=THEMES[(S.idx*7+SEED.length)%THEMES.length];   /* 純呈現：不消耗種子化亂數 */
+  card('mkt','年初：今年買什麼？',
+    '帳上有 <b class="hl">'+fmtM(S.nav)+'</b>。今年市場在講的是<b class="hl">'+theme+'</b>。<br>'+hint,'POSITION');
+  board(1);
+
+  const shut=windowShut();
+  const opts=POSN.filter(p=>{
+    if(S.traits.burnt && p.risk) return false;
+    if(p.risk===2 && S.nav<20) return false;
+    if(shut && p.risk) return false;   /* 窗口關了 */
+    return true;
+  }).map(p=>{
+    let s=p.s;
+    /* 膨脹時，減碼的選項在心理上按不下去。原本寫「很難說服自己空手」，
+       接在「空手」這個選項後面會自我矛盾。 */
+    if(S.mood>85 && p.mult<0.6) s+='　（你現在正在興頭上，這個按不太下去）';
+    const label = p.k==='theme' ? theme+'概念股'
+                : p.k==='lev'   ? '融資追'+theme
+                : p.n;
+    return {t:label, s:s,
+      main:p.k==='wide', warn:!!p.risk,
+      f:()=>{ S.lastPos=p.k; crashPanic(m,p,()=>settle(m,p)); }};
+  });
+  if(shut && !S.shutTold){
+    S.shutTold=1;
+    card('bad','窗口關了',
+      '三十三歲，你還在散戶這一層。<br>'+
+      '沒有人禁止你開槓桿——只是你現在輸不起了。房貸、小孩、你爸的醫藥費，'+
+      '一次歸零你沒有第二個二十年可以重來。<b class="dn">融資與全押的選項不再出現。</b>');
+    board(1);
+  }
+  choose('今年這筆錢放哪裡',opts);
+}
+/* 情報只給三檔方向，而且封頂 72%——報出體制名等於直接給答案，那就沒得玩了。
+   猜錯時給的是另外兩檔之一，所以高情報也會被結結實實騙一次。 */
+function hintAcc(){
+  return Math.round(clamp(26 + hb('broker')*18 + hb('read')*8 +
+    (S.school==='swing'?15:0), 26, 82));
+}
+/* 台股散戶真正在看的不是「偏多偏空」，是三大法人的買賣超 */
+const FLOW={
+  '偏多':['外資連續買超，投信同步加碼','三大法人同買，融資餘額回升','外資期貨留倉翻多'],
+  '偏空':['外資連續賣超，融券餘額墊高','三大法人同賣，融資追繳簡訊開始發','外資期貨空單創新高'],
+  '不明朗':['法人多空互見，量能萎縮','外資買超但投信賣超，方向不明','成交量掉到近年低點']
+};
+function peekHint(m){
+  const truth = (m.rg==='boom'||m.rg==='bull') ? '偏多'
+              : (m.rg==='bear'||m.rg==='crash') ? '偏空' : '不明朗';
+  const guess = chance(hintAcc()) ? truth : pick(['偏多','偏空','不明朗'].filter(x=>x!==truth));
+  return {tag:guess, flow:pick(FLOW[guess])};
+}
+
+/* 崩盤年的盤中決策：一年只有兩三次，但這是整局最該被記住的時刻。
+   跌到一半打斷你，逼你在資訊不足的時候按下按鈕——這才是崩盤真正的樣子。 */
+function crashPanic(m,p,cont){
+  if(m.rg!=='crash' || p.mult===0){ S.panic=null; cont(); return; }
+  const sofar=Math.round(Math.abs(m.ret)*0.62);
+  card('bad','年中', pick([
+    '指數已經跌了 '+sofar+'%，而且沒有止住的跡象。',
+    '第三根跌停。你的委賣單掛在那裡一整天，一張都沒成交。',
+    '群組安靜了，只剩下一個人每小時貼一次指數。',
+    '你算了一下今天蒸發的金額，剛好是你一整年的薪水。'
+  ])+'　你的部位是<b class="hl">'+p.n+'</b>。手機通知一直響，你關掉又打開。','PANIC');
+  board(1);
+  choose('現在，你要做什麼？',[
+    {t:'全部砍掉',warn:true,s:'停在這裡就好。但台股有跌停板，賣不賣得掉是另一回事',
+      f:()=>{
+        /* 台股每日漲跌幅 ±10%。真正的崩盤是跌停鎖死——
+           委賣單掛在那裡一整天，一張都不會成交。
+           想跑跑不掉，這是美股沒有的處境，也是台股最有辨識度的一件事。 */
+        /* 跑得掉與否，看你有沒有事先寫好出場價、有沒有留現金 */
+        const escape = clamp(34 + hb('stop')*34 + hb('cash')*16 + hb('broker')*8, 34, 88);
+        if(chance(escape)){ S.panic='cut'; addProf('stop',1); cont(); return; }
+        S.panic='locked'; S.lockedIn++;
+        card('bad','跌停鎖死', pick([
+          '你的委賣單掛在跌停價，排在後面幾萬張。一整天，一張都沒成交。',
+          '連續第三根跌停。想賣的人排成一條看不到底的隊伍，你在很後面。',
+          '你把價格一路往下掛到跌停，成交回報始終沒有出現。'
+        ])+'　<b class="dn">你跑不掉，只能整年扛著。</b>'+
+        '<div style="margin-top:6px;font-size:12.5px;color:var(--dim);line-height:1.7">'+
+        '台股每日漲跌幅 ±10%，所以崩盤不是價格一次到位，是一路鎖死。'+
+        '盤感與情報越高，愈有機會在鎖死之前跑掉——你剛才的機率是 '+Math.round(escape)+'%。</div>');
+        addMood(-14); addProf('stop',2);
+        board(1);
+        choose('',[{t:'繼續 ▸',main:true,f:cont}]);
+      }},
+    {t:'什麼都不做',main:true,s:'這一年整碗端走，明年的反彈也整碗端回來',
+      f:()=>{ S.panic='hold'; addMood(4); addProf('stop',1); cont(); }},
+    {t:'加碼攤平',s:'今年痛一倍多。撐得過去，明年就是你的',
+      f:()=>{ S.panic='add'; cont(); }}
+  ]);
+}
+
+/* --- 階段五：結算 --- */
+function settle(m,p){
+  const rg=REGIME[m.rg];
+  let mkt=m.ret;
+  S.lastMkt=mkt;
+
+  /* alpha：能力帶來的超額報酬 */
+  /* 超額報酬直接由「你在做什麼」決定，不再經過一個抽象的技能數字。
+     底子是負的——多數人本來就跑輸，你得靠具體的做法把它拉回來。 */
+  let alpha = -5
+    + hb('read')*13        /* 每季讀財報 */
+    + hb('log')*6          /* 寫交易日誌，看得見自己的錯 */
+    + hb('close')*4        /* 不盤中亂做 */
+    + hb('broker')*3;
+  alpha += N0(7 * (p.vol==null?1:p.vol));   /* 買題材股，選股的成敗才會真的放大 */
+
+  /* 紀律：虧損年若紀律不足，傷害放大 */
+  let discPen=0;
+  /* 沒有寫下出場價的人，跌的時候會亂 */
+  if(mkt<0 && !S.traits.steel) discPen = -(1-hb('stop'))*11;
+
+  /* 心態：低落時追高殺低 */
+  let moodPen=0;
+  if(S.mood<45) moodPen = -(45-S.mood)*0.35;
+  if(S.mood>85) moodPen = -(S.mood-85)*0.95;   /* 膨脹比崩潰更貴，因為你會加碼 */
+
+  /* 特質修正 */
+  let tw=[];
+  if(S.traits.value){
+    if(mkt<0){ mkt=mkt*0.7; tw.push('價值派緩衝'); }
+    else { alpha-=Math.abs(mkt)*0.15; tw.push('價值派跑輸'); }
+  }
+  if(S.traits.topper && m.rg==='crash' && p.mult<1){ alpha+=12; tw.push('逃頂天才'); }
+  if(S.traits.leek) alpha-=6;
+  if(S.traits.gambler && p.mult>=1.6 && mkt>0){ alpha+=Math.abs(mkt)*0.30; tw.push('賭狗加成'); }
+
+  /* 流派修正 */
+  const sc=S.school;
+  let divid=0;
+  if(sc==='hold'){
+    if(mkt<0){ mkt=mkt*0.62; tw.push('存股抗跌'); }
+    else { alpha-=Math.abs(mkt)*0.14; tw.push('存股跑輸'); }
+    /* 除息當天股價直接扣掉股利，帳面一毛沒賺；要「填息」才算真的到手。
+       配息率由「你買了什麼」決定——高股息 ETF 5.4%、市值型 2.8%、題材股 0。 */
+    const gross_div=S.nav*(p.div||0)/100;
+    const nhi = gross_div>2 ? gross_div*0.0211 : 0;   /* 二代健保補充保費 */
+    if(gross_div<=0){ divid=0; }
+    else {
+    /* 兩種情況都領得到現金，差別在股價有沒有填回來：
+       填息＝淨賺股利；貼息＝現金入袋但股價回不去，等於左手換右手，淨值接近打平。
+       （先前把貼息寫成淨損失是重複扣了一次，模型錯誤。） */
+    divid=gross_div-nhi;
+    if(chance(S.school==='hold'?72:60)) tw.push('填息');
+    else { alpha-=(p.div||0); tw.push('貼息'); }
+    }
+    S.divTotal+=divid;
+  }
+  if(sc==='long'){
+    if(S.idx<10){ alpha-=6; tw.push('長線蟄伏'); }
+    else { alpha*=1.8; tw.push('長線收割'); }
+  }
+  
+
+  let gross;
+  if(p.mult===0){
+    gross = 1.5;                              /* 空手：只吃定存利息 */
+  } else {
+    gross = (mkt + alpha + discPen + moodPen) * p.mult;
+    gross -= p.rate * (p.mult - 1);           /* 融資利息只算借來的那部分 */
+    /* 台股是賣出課稅：不管賺賠，賣掉就抽 0.3% 證交稅（現股當沖減半），
+       再加手續費。所以真正吃掉報酬的是「換手率」，不是賺賠——
+       這是台股跟資本利得制最根本的差別，也是這款想講的事。 */
+    let turn = (p.turn||0) + TURNOVER[sc||'none']*0.4 + Math.abs(p.mult-(S.prevMult||p.mult))*0.5;
+    turn *= 1 - 0.6*hb('close');   /* 只在收盤後下單 */
+    const stt  = turn * (sc==='day' ? 0.15 : 0.30) / 100;   /* 證交稅 */
+    const fee  = turn * 0.0855 / 100;                        /* 手續費，六折後來回 */
+    const cost = (stt+fee)*100;
+    gross -= cost;
+    S.taxPaid += S.nav*cost/100;
+    if(cost>=1) tw.push('稅費 −'+cost.toFixed(1)+'%（換手 '+turn.toFixed(1)+' 次）');
+  }
+  if(sc==='arb'){ gross = clamp(gross+5,-12,22); tw.push('套利壓縮'); }
+
+  /* 習慣的具體效果 */
+  if(hb('stop')>0 && gross<0){ gross*=1-0.25*hb('stop'); tw.push('紙上的出場價'); }
+  if(hb('stop')>0 && gross>0) gross*=1-0.07*hb('stop');
+  if(hb('cash')>0 && gross>0){ gross*=1-0.09*hb('cash'); tw.push('留了三成現金'); }
+
+  /* 去年崩盤時的決定，在今年才結清 */
+  if(S.rebound){ alpha+=S.rebound; gross+=S.rebound*p.mult; tw.push('攤平的回報'); S.rebound=0; }
+  if(S.missRebound){ gross-=10*p.mult; tw.push('錯過反彈'); S.missRebound=0; }
+
+  if(S.panic==='cut'){ gross=gross<0?gross*0.55:gross; tw.push('砍在半途'); S.missRebound=1; }
+  else if(S.panic==='locked'){ gross=gross<0?gross*1.12:gross; tw.push('跌停鎖死'); }
+  else if(S.panic==='add'){ gross=gross<0?gross*1.35:gross*1.2; tw.push('加碼攤平'); S.rebound=18; }
+  S.panic=null;
+
+  gross = clamp(gross, -100, 420);
+
+  const before=S.nav;
+  let after = before * (1+gross/100);
+
+  /* 斷頭：槓桿部位在淨值歸零前就會被強制平倉 */
+  const blew = (p.risk===1 && gross<=-68) || (p.risk===2 && gross<=-60);
+  if(blew){
+    after = before*0.08;
+    S.blowups++;
+    gross = -92;
+  }
+  if(divid>0) after+=divid;                   /* 股利在斷頭之後才入帳，所以爆倉那年也還有 */
+  S.prevMult=p.mult;
+  S.nav=Math.max(0.1,after);
+  benchStep(S.income||0);
+  S.lastRet=gross;
+  S.navHist.push(S.nav);
+  if(S.nav>S.peak) S.peak=S.nav;
+
+  /* 統計 */
+  if(gross>S.bestYear) S.bestYear=gross;
+  if(gross<S.worstYear) S.worstYear=gross;
+  if(p.k==='zero') S.zeroYears++;
+  if(p.mult>=1) S.fullYears++;
+  /* 跑輸的基準必須是「同樣部位下的市場」，否則半倉在牛市必然被誤判成跑輸。
+     另外：流派刻意用報酬換安全的年份不算跑輸——那是選擇，不是無能。 */
+  const byDesign = (sc==='arb') || (sc==='hold'&&mkt>0) || (sc==='long'&&S.idx<10);
+  if(p.mult>0 && !byDesign){
+    if(gross < mkt*p.mult - 3) S.underPerf++; else S.underPerf=0;
+  }
+  if(gross<0) S.lossStreak++; else S.lossStreak=0;
+
+  /* 心態與生活 */
+  if(gross>=45){ addMood(S.traits.gambler?18:12); S.hype++; }
+  else if(gross>=12) addMood(5);
+  else if(gross<=-35) addMood(S.traits.steel?0:-(S.traits.gambler?24:16));
+  else if(gross<0) addMood(-6);
+  if(m.rg==='crash' && p.mult<0.4) addMood(10);
+  if(p.mult===0 && mkt>15) addMood(-9);        /* 踏空。看別人賺比自己賠更難熬 */
+  if(p.mult>=1.6) addLife(-3);
+
+  /* 輸出 */
+  card('mkt', rg.icon+' '+rg.n+'　市場 '+sgn(mkt)+'%', pick(HEADLINE[m.rg])+'。', 'MARKET');
+  const lines=[
+    '<span class="k">部位</span>'+p.n,
+    '<span class="k">市場</span><b class="'+(mkt>=0?'up':'dn')+'">'+sgn(mkt)+'%</b>',
+    '<span class="k">你的α</span><b class="'+(alpha>=0?'up':'dn')+'">'+sgn(alpha)+'%</b>'+
+      (discPen?'　<span style="color:var(--dn)">紀律失守 '+sgn(discPen)+'%</span>':'')+
+      (moodPen?'　<span style="color:var(--dn)">'+(S.mood>88?'膨脹':'心態')+' '+sgn(moodPen)+'%</span>':''),
+    (divid>0?'<span class="k">股利</span><b class="up">+'+fmtM(divid)+'</b>':''),
+    '<span class="k">年報酬</span><b class="'+(gross>=0?'up':'dn')+'" style="font-size:15px">'+sgn(gross)+'%</b>'+
+      (tw.length?'　<span style="color:var(--dim)">'+tw.join('·')+'</span>':''),
+    '<span class="k">淨值</span>'+fmtM(before)+' → <b class="'+(S.nav>=before?'up':'dn')+'">'+fmtM(S.nav)+'</b>'
+  ];
+  card(gross>=0?'good':'bad', gross>=0?'年度結算：賺':'年度結算：賠',
+    '<div class="tbl">'+lines.filter(Boolean).join('<br>')+'</div>');
+
+  const aumR=aumStep(gross);
+  if(blew){
+    card('bad','斷頭',
+      '維持率跌破門檻，券商在你還沒反應過來之前把部位全部平掉了。<br>'+
+      '<b class="dn">帳戶剩下 '+fmtM(S.nav)+'</b>。這是你第 '+S.blowups+' 次。');
+    addMood(-30); addLife(-8);
+    if(S.blowups>=2 && !S.traits.burnt){ gainTrait('burnt'); }
+  }
+  aumReport(aumR,gross);
+  classStep();
+  board(1);
+  postSettle(m);
+}
+
+/* --- 階段六：年末雜項、生涯選擇 --- */
+function postSettle(m){
+  const steps=[];
+
+  /* 虧損年對投資人交代——管別人的錢之後，決策開始被「怎麼交代」扭曲 */
+  if(S.tier>0 && S.aum>0 && S.lastRet<0) steps.push(cb=>facePeople(cb));
+
+  /* 受託升級邀約：這是股市版的「續約／升上一軍」 */
+  if(S.tier<TIERS.length-1){
+    const nx=TIERS[S.tier+1];
+    if(nx.need && nx.need(S) && chance(55)) steps.push(cb=>{
+      card('gold','有人要把錢交給你', nx.ask,'OFFER');
+      board(1);
+      choose('接不接？',[
+        {t:'接下來',main:true,
+          s:'受託 '+fmtM(S.nav*nx.mult[0]/100)+'～'+fmtM(S.nav*nx.mult[1]/100)+
+            '｜每年抽管理費 1.5% 與績效費 15%｜連兩年虧損會被贖回',
+          f:()=>{ S.tier++; S.aum=S.nav*ri(nx.mult[0],nx.mult[1])/100;
+            S.peakAum=Math.max(S.peakAum,S.aum); S.trust=clamp(S.trust+5,0,100); S.badYears=0;
+            card('gold','受託：'+nx.n,
+              '你現在管著 <b class="hl">'+fmtM(S.aum)+'</b> 不屬於你的錢。'+
+              '從今年開始，虧損不只是一個數字，是要面對人。'); board(1); cb(); }},
+        {t:'婉拒',s:'心態 +6。錢是少賺了，但沒有人會在過年的時候看著你',
+          f:()=>{ addMood(8);
+            card('info','婉拒','你說你自己都還沒想清楚。對方笑笑說那再看看。'); board(1); cb(); }}
+      ]);
+    });
+  }
+
+  /* 內線東窗事發 */
+  if(S.traits.insider && chance(2.5)) steps.push(cb=>{
+    card('bad','約談','檢調調閱了那段期間的交易紀錄。你的名字在裡面。');
+    S.nav*=0.45; addMood(-25); addLife(-15);
+    S.honors.push('因內線交易遭起訴');
+    board(1); choose('',[{t:'繼續 ▸',main:true,f:cb}]);
+  });
+
+  /* 19 歲：流派抉擇，不可逆 */
+  if(S.age===18 && !S.school) steps.push(cb=>{
+    card('gold','你開始有自己的做法了',
+      '三年下來，你發現自己在市場裡總是往同一個方向靠。'+
+      '<b class="hl">這個選擇沒有回頭路</b>——它會決定接下來二十一年的規則。','SCHOOL');
+    board(1);
+    choose('你是哪一種人？',Object.keys(SCHOOL).map(k=>({
+      t:SCHOOL[k].n, s:SCHOOL[k].d+'<br>'+SCHOOL[k].fx,
+      main:k==='hold',
+      f:()=>{ S.school=k;
+        track('school-'+k,'流派：'+SCHOOL[k].n);
+        card('gold','流派確立：'+SCHOOL[k].n, SCHOOL[k].fx);
+        if(k==='day') addProf('close',-2);
+        if(k==='arb') addProf('log',6);
+        if(k==='long') addProf('stop',6);
+        if(k==='hold') addProf('read',6);
+        if(k==='swing') addProf('broker',6);
+        board(1); cb(); }
+    })));
+  });
+
+  /* 22 歲：生涯抉擇 */
+  if(S.age===21) steps.push(cb=>{
+    card('info','畢業','要開始工作了。或者，不工作。','CAREER');
+    board(1);
+    choose('接下來這些年你打算怎麼過？',[
+      {t:'找份工作',main:true,s:'年收 38–72 萬｜穩定，生活 −2/年',f:()=>{S.career='job';cb();}},
+      {t:'進金融業',s:'年收 55–110 萬｜情報成長快，但生活 −4/年',f:()=>{S.career='fin';addProf('broker',8);cb();}},
+      {t:'斜槓接案',s:'年收 15–40 萬｜時間彈性',f:()=>{S.career='side';cb();}},
+      {t:'全職操盤',warn:true,s:'零薪水｜精力骰 +1，生活 −7/年。沒有退路',f:()=>{S.career='pro';addMood(8);cb();}}
+    ]);
+  });
+
+  /* 全職操盤中途反悔 */
+  if(S.career==='pro' && S.nav<15 && S.age>=25) steps.push(cb=>{
+    card('bad','撐不下去了','帳戶的數字已經不夠生活了。你把履歷翻出來，發現上面是空白的。');
+    board(1);
+    choose('',[
+      {t:'回去上班',main:true,s:'恢復收入，但心態 −10',f:()=>{S.career='job';addMood(-10);addLife(5);cb();}},
+      {t:'再撐一年',warn:true,s:'生活 −10，心態 −5',f:()=>{addLife(-10);addMood(-5);cb();}}
+    ]);
+  });
+
+  /* 生活警訊：在歸零前給一次用錢或用時間換回來的機會 */
+  if(S.life<=18 && S.life>0) steps.push(cb=>{
+    card('bad','有人不太想理你了',
+      pick(['家庭群組裡你已經三個月沒發過言。',
+            '朋友的婚禮你沒去，理由你自己都不太信。',
+            '你發現家裡的合照，最新的一張是六年前拍的。',
+            '晚餐又是一個人吃完，邊吃邊看盤。'])+
+      '　<b class="dn">生活 '+Math.round(S.life)+'</b>——再低下去就回不來了。');
+    board(1);
+    const opts=[
+      {t:'請一個長假，把人找回來',main:true,s:'生活 +22，心態 +8，但今年少一顆骰、淨值 −4%',
+        f:()=>{ addLife(22); addMood(8); S.nav*=0.96;
+          card('good','長假','你把手機關靜音兩個星期。世界沒有因此少賺也沒有多虧。'); board(1); cb(); }},
+      {t:'花錢補償',s:'生活 +12｜淨值 −12%（錢能解決的都不是大事，據說）',
+        f:()=>{ addLife(12); S.nav*=0.88;
+          card('info','轉帳','你轉了一筆錢回家，沒有多說什麼。對方也沒有。'); board(1); cb(); }},
+      {t:'先賺錢，之後再說',warn:true,s:'生活 −6，心態 −4。之後通常不會有之後',
+        f:()=>{ addLife(-6); addMood(-4); cb(); }}
+    ];
+    if(S.career==='pro'||S.career==='fin') opts.splice(1,0,
+      {t:'換一份不用拚命的工作',s:'轉為上班族｜生活 +15，收入變穩定',
+        f:()=>{ S.career='job'; addLife(15);
+          card('good','轉職','薪水少了，晚上多了三個小時。'); board(1); cb(); }});
+    choose('這可能是最後一次機會',opts);
+  });
+
+  /* 心態崩潰 */
+  if(S.mood<=8 && !S.traits.zen) steps.push(cb=>{
+    card('bad','你不想再看了','軟體已經三個月沒開啟。你說是懶得看，其實是不敢。');
+    board(1);
+    choose('',[
+      {t:'休息一年，把部位清掉',main:true,s:'心態回到 45，生活 +12，今年不進場',f:()=>{
+        S.mood=45; addLife(12); card('good','停下來','什麼都沒做的一年。你發現自己睡得比過去八年都好。'); board(1); cb();}},
+      {t:'撐住，再來一次',warn:true,s:'心態 +8，生活 −6',f:()=>{addMood(8);addLife(-6);cb();}}
+    ]);
+  });
+
+  const run=i=>{ if(i>=steps.length){ finishYear(m); return; } steps[i](()=>run(i+1)); };
+  run(0);
+}
+
+function finishYear(m){
+  checkTraits();
+  if(S.idx>0 && (S.idx+1)%4===0 && S.idx<TOTAL-1) peerNews();
+  S.log.push({age:S.age, rg:m.rg, mkt:m.ret, ret:S.lastRet, nav:S.nav, pos:S.lastPos});
+  S.idx++;
+
+  /* 提前結束條件 */
+  if(S.life<=0){ endGame('alone'); return; }
+  if(S.nav<0.5 && S.career==='pro'){ endGame('broke'); return; }
+  if(S.idx>=TOTAL){ endGame('rich_check'); return; }
+
+  board(1);
+  if(S.fast){ nextYear(); return; }
+  choose('',[{t:'▸ 邁入 '+(16+S.idx)+' 歲',main:true,
+    s:'淨值 '+fmtM(S.nav)+'｜心態 '+Math.round(S.mood)+'｜生活 '+Math.round(S.life),
+    f:nextYear}]);
+}
+
+/* ================= 特質解鎖 ================= */
+function gainTrait(k){
+  if(S.traits[k]) return;
+  S.traits[k]=1;
+  const t=TRAITS[k];
+  card(t.good?'gold':'bad','解鎖特質：'+t.n, t.fx);
+}
+/* 25 年擲骰總點數約 370，攤到六項平均 61；因此 66+ 的門檻代表「你確實專精了這一項」，
+   而不是「活得夠久」。特質要稀有才有意義。 */
+function checkTraits(){
+  if(!S.traits.leek && S.underPerf>=4) gainTrait('leek');
+  if(!S.traits.gambler && S.boldWin+S.boldFail>=6 && S.boldFail>=4) gainTrait('gambler');
+  if(!S.traits.quant && hb('log')>=0.8 && hb('read')>=0.8) gainTrait('quant');
+  if(!S.traits.value && hb('read')>=0.7 && S.hy.read>=8) gainTrait('value');
+  if(!S.traits.steel && S.hy.stop>=10 && hb('stop')>=0.7) gainTrait('steel');
+  if(!S.traits.zen && S.life>=85 && S.age>=25) gainTrait('zen');
+  /* 靠人脈值硬解等於大部分人玩完都不知道有這條線。改成做過兩次網紅的事就算 */
+  if(!S.traits.influ && S.fame>=2) gainTrait('influ');
+  if(!S.traits.insider && hb('broker')>=0.8 && S.hy.broker>=6 &&
+     (S.career==='fin'||S.career==='pro')) gainTrait('insider');
+  if(!S.traits.topper && S.zeroYears>=2 && hb('stop')>=0.6) gainTrait('topper');
+}
+
+/* 圖鑑索引：與 pickEnding 的規則一一對應，順序即優先序 */
+const ENDING_IDS=[
+  {id:'alone',r:'BAD END',t:'最後一個人'},
+  {id:'broke',r:'BAD END',t:'歸零'},
+  {id:'criminal',r:'CRIMINAL END',t:'你的名字在判決書裡'},
+  {id:'third',r:'WORST END',t:'第三次'},
+  {id:'tragic',r:'TRAGIC END',t:'你曾經有過'},
+  {id:'hollow',r:'HOLLOW END',t:'一直在等一個更好的價格'},
+  {id:'fund',r:'FUND END',t:'你替別人賺的比自己多'},
+  {id:'losttrust',r:'TRUST END',t:'錢還在，人散了'},
+  {id:'demoted',r:'FALL END',t:'那間有門的房間'},
+  {id:'stuck',r:'STUCK END',t:'二十四年，還在同一層'},
+  {id:'influencer',r:'INFLUENCER END',t:'課程還在賣'},
+  {id:'quiet',r:'QUIET END',t:'他好像從來沒在意過'},
+  {id:'oracle',r:'ORACLE END',t:'兩次你都躲過了'},
+  {id:'truevalue',r:'TRUE END',t:'你只是買了，然後沒有賣'},
+  {id:'pro',r:'PRO END',t:'沒有名片的人'},
+  {id:'taxed',r:'TAX END',t:'你幫政府賺得比幫自己多'},
+  {id:'hype',r:'BAD END',t:'每次都以為是自己的實力'},
+  {id:'legend',r:'LEGEND END',t:'他們後來叫你老師，你沒有開課'},
+  {id:'rich',r:'RICH END',t:'數字很大，人很空'},
+  {id:'goodlife',r:'GOOD END',t:'剛剛好'},
+  {id:'goodempty',r:'GOOD END',t:'財富自由，但沒人一起用'},
+  {id:'normallife',r:'NORMAL END',t:'一個還行的中年人'},
+  {id:'normalflat',r:'NORMAL END',t:'勉強跑贏通膨'},
+  {id:'tuition',r:'BAD END',t:'學費'},
+  {id:'quit',r:'WORST END',t:'他不玩了'}
+];
+
+/* ================= 結局 =================
+   條件優先表：由上往下第一個成立的就是結局。特殊路線排在淨值分級之前，
+   所以「怎麼走到這裡」永遠蓋過「最後有多少錢」。 */
+function pickEnding(reason,nav,mood,life,cagr){
+  const dd = S.peak>0 ? (1-nav/S.peak)*100 : 0;      /* 從最高點回撤幅度 */
+  const T=S.traits;
+  const R=[
+  /* --- 提前結束 --- */
+  {id:'alone', c:reason==='alone', r:'BAD END', t:'最後一個人',
+   x:'帳戶裡的數字很好看。你已經想不起來上一次有人打電話來關心你是什麼時候。'+
+     '你翻了通訊錄，從頭滑到尾，沒有按下任何一個名字。'},
+  {id:'broke', c:reason==='broke', r:'BAD END', t:'歸零',
+   x:'最後一筆錢拿去付這個月的房租。你把看盤軟體刪了，隔天又裝回來，'+
+     '看著零餘額的畫面發了很久的呆，然後再刪一次。'},
+
+  /* --- 特殊路線 --- */
+  {id:'criminal', c:S.honors.length>0, r:'CRIMINAL END', t:'你的名字在判決書裡',
+   x:'緩刑兩年，罰金沒收犯罪所得。判決書寫得很清楚：被告利用職務之便。'+
+     '那幾年賺的錢，現在拿來付律師費還有剩，剩的部分你不敢花。'},
+  {id:'third', c:S.blowups>=3, r:'WORST END', t:'第三次',
+   x:'三次斷頭。第一次你哭了，第二次你笑了，第三次你什麼感覺都沒有。'+
+     '你現在看到「維持率」三個字還是會心跳變快，雖然帳戶裡早就沒有東西可以維持了。'},
+  {id:'tragic', c:dd>=70 && S.peak>=3000, r:'TRAGIC END', t:'你曾經有過',
+   x:'最高的時候是 '+fmtM(S.peak)+'，現在是 '+fmtM(nav)+'。'+
+     '你偶爾會開啟當年那張截圖，看一眼，再關掉。你從來沒跟任何人說過那個數字。'},
+  {id:'hollow', c:S.zeroYears>=9, r:'HOLLOW END', t:'一直在等一個更好的價格',
+   x:'二十四年裡你有 '+S.zeroYears+' 年是空手的。每一次都有很好的理由，每一次都對了一半。'+
+     '你沒有虧過大錢，也沒有真的參與過什麼。'},
+  {id:'fund', c:S.tier>=2 && S.aum>=nav*1.2, r:'FUND END', t:'你替別人賺的比自己多',
+   x:'你管著 '+fmtM(S.aum)+'，自己名下 '+fmtM(nav)+'。'+
+     '抽成累計 '+fmtM(S.feeTotal)+'，這些年你靠的是規模不是眼光——你自己最清楚。'+
+     '每季寄出去的那份報告，你已經寫了幾十次，還是會在寄出前重看三遍。'},
+  {id:'losttrust', c:S.redeemed>=2 && S.tier===0 && S.peakAum>=500, r:'TRUST END', t:'錢還在，人散了',
+   x:'你最多管過 '+fmtM(S.peakAum)+'，現在只剩自己的 '+fmtM(nav)+'。'+
+     '被贖回 '+S.redeemed+' 次。過年還是會見到那些人，只是沒有人再提到錢。'},
+  {id:'demoted', c:S.demoted>=1 && S.peakCls>=2, r:'FALL END', t:'那間有門的房間',
+   x:'你進去過，也被請出來過 '+S.demoted+' 次。'+
+     '最後一次交回門禁卡的時候，櫃檯小姐說會再幫你確認——她沒有再聯絡你，你也沒有再問。'},
+  {id:'stuck', c:S.peakCls===0 && S.age>=40, r:'STUCK END', t:'二十四年，還在同一層',
+   x:'從十六歲到四十歲，你一次都沒有跨過那條線。'+fmtM(nav)+'。'+
+     '不是你做錯了什麼特別的事，你只是每年都做了一點點不太對的決定，然後那些決定加起來就是二十四年。'},
+  {id:'influencer', c:T.influ && nav>=2000 && S.fame>=2, r:'INFLUENCER END', t:'課程還在賣',
+   x:'四萬八一堂，一年開四梯。學員問你為什麼不自己做就好，'+
+     '你說這是回饋市場。這句話你講了太多次，久到自己都快信了。'},
+  {id:'quiet', c:T.zen && life>=88 && nav>=600, r:'QUIET END', t:'他好像從來沒在意過',
+   x:'資產 '+fmtM(nav)+'，不多不少。你一年只登入兩次，'+
+     '朋友說你運氣好，你沒有反駁。你只是很早就發現，不看它反而漲得比較快。'},
+  {id:'oracle', c:T.topper && nav>=2000, r:'ORACLE END', t:'兩次你都躲過了',
+   x:'那兩次崩盤，你都剛好在場外。第一次是運氣，第二次開始有人這樣叫你。'+
+     '只有你自己知道，你也有很多次躲錯了，只是沒人記得。'},
+  {id:'truevalue', c:T.value && nav>=6000 && life>=50, r:'TRUE END', t:'你只是買了，然後沒有賣',
+   x:'二十四年，'+fmtM(nav)+'，年化 '+cagr.toFixed(1)+'%。'+
+     '有人來問你方法，你講完他們的表情都一樣——就這樣？對，就這樣。'+
+     '難的從來不是知道，是那二十四年裡的每一天都沒有手癢。'},
+  {id:'pro', c:S.career==='pro' && nav>=6000, r:'PRO END', t:'沒有名片的人',
+   x:'你沒有職稱、沒有公司、沒有可以填在表格上的東西。'+
+     '海關問你職業的時候你會頓一下。但帳戶裡是 '+fmtM(nav)+'，這大概就是答案。'},
+  {id:'taxed', c:S.taxPaid>=nav*0.55 && S.taxPaid>=300, r:'TAX END', t:'你幫政府賺得比幫自己多',
+   x:'二十四年，證交稅加手續費繳出去 '+fmtM(S.taxPaid)+'，自己剩 '+fmtM(nav)+'。'+
+     '台股是賣出就課稅的，不管你賺還賠——你每一次「這次不一樣」的換股，'+
+     '都先付了千分之三給國庫。那些錢加起來，比你任何一年的獲利都大。'},
+  {id:'hype', c:S.hype>=5 && nav<2000, r:'BAD END', t:'每次都以為是自己的實力',
+   x:'你有過 '+S.hype+' 個賺很多的年份，每一次你都加碼，每一次都在下一年還回去。'+
+     '牛市把你教成了一個很有自信的人，然後市場再把那份自信一次收走。'},
+
+  /* --- 淨值分級 --- */
+  {id:'legend', c:nav>=20000 && life>=45 && mood>=45, r:'LEGEND END', t:'他們後來叫你老師，你沒有開課',
+   x:'二十四年，'+fmtM(nav)+'。你沒有出書、沒有直播、沒有收學費。'+
+     '有年輕人來問你怎麼做到的，你說：「大部分時間我什麼都沒做。」他們通常很失望地走了。'},
+  {id:'rich', c:nav>=20000, r:'RICH END', t:'數字很大，人很空',
+   x:'你贏了市場，'+fmtM(nav)+'。但你已經很久沒有一頓飯是好好吃完的。'+
+     '每次有人恭喜你，你第一個念頭是：他想跟我拿多少。'},
+  {id:'goodlife', c:nav>=6000 && life>=55, r:'GOOD END', t:'剛剛好',
+   x:fmtM(nav)+'。不用再看老闆臉色，也還沒有多到需要防著誰。'+
+     '你現在一年只調整兩次部位，其他時間用來睡覺和接小孩。'},
+  {id:'goodempty', c:nav>=6000, r:'GOOD END', t:'財富自由，但沒人一起用',
+   x:fmtM(nav)+' 足夠讓你不用工作了。問題是你也不知道不工作要做什麼。'+
+     '第一個月你睡到中午，第二個月你開始在早上九點開啟看盤軟體。'},
+  {id:'normallife', c:nav>=2000 && life>=60, r:'NORMAL END', t:'一個還行的中年人',
+   x:'資產 '+fmtM(nav)+'。不算股神，但房貸剩不多，'+
+     '而且你還留著那些朋友。四十歲的時候，這件事比你十六歲想的重要得多。'},
+  {id:'normalflat', c:nav>=2000, r:'NORMAL END', t:'勉強跑贏通膨',
+   x:'二十四年下來 '+fmtM(nav)+'，淨值年化 '+cagr.toFixed(1)+'%。'+
+     '你算過一次，如果當初什麼都不做、只買指數，結果差不多。你決定不再算第二次。'},
+  {id:'tuition', c:nav>=600, r:'BAD END', t:'學費',
+   x:'剩下 '+fmtM(nav)+'。你把這二十四年稱為「學費」，'+
+     '雖然被問到學到了什麼的時候，你講不出一句完整的話。'},
+  {id:'quit', c:true, r:'WORST END', t:'他不玩了',
+   x:fmtM(nav)+'。有天你把 App 移除，把書都賣了，找了份朝九晚五的工作。'+
+     '偶爾在電視上看到紅紅綠綠，你會轉檯。'}
+  ];
+  const hit=R.find(e=>e.c) || R[R.length-1];
+  return {id:hit.id, rank:hit.r, title:hit.t, text:hit.x};
+}
+
+function endGame(reason){
+  if(S.over) return;
+  S.over=true;
+  actClear();
+  const nav=S.nav, mood=S.mood, life=S.life;
+  const yrs=S.log.length;
+  const cagr = yrs>0 ? (Math.pow(Math.max(nav,0.01)/Math.max(S.navHist[0],0.01), 1/yrs)-1)*100 : 0;
+
+  const E=pickEnding(reason,nav,mood,life,cagr);
+  const rank=E.rank, title=E.title;
+  let text=E.text;
+  if(S.traits.leek && nav<2000) text+='　你的對帳單如果印出來，可以當反面教材。';
+
+  const fin=document.createElement('div');
+  fin.id='fin';
+  fin.innerHTML=
+    '<div class="rank">'+rank+'</div><h2>'+title+'</h2>'+
+    '<p style="color:var(--ink);opacity:.9">'+text+'</p>'+
+    '<canvas id="chart" width="720" height="200"></canvas>'+
+    '<div class="lgd"><span class="l1">你</span><span class="l2">大盤</span>'+
+    '<span class="l3">台積電</span>'+(S.ghost?'<span class="l4">'+
+    (S.ghost.vs?'對手':'上一次')+'</span>':'')+'</div>'+
+    '<div class="stats">'+
+      st('最終淨值',fmtM(nav))+
+      st('淨值年化',sgn(cagr)+'%')+
+      st('最高淨值',fmtM(S.peak))+
+      st('最好的一年',sgn(S.bestYear,0)+'%')+
+      st('最差的一年',sgn(S.worstYear,0)+'%')+
+      st('最大回撤',(S.peak>0?(1-nav/S.peak)*100:0).toFixed(0)+'%')+
+      st('斷頭次數',S.blowups+' 次')+
+      st('空手年數',S.zeroYears+' 年')+
+      st('膨脹年數',S.hype+' 年')+
+      st('累計薪水',fmtM(S.totalIncome))+
+      st('繳出的稅費',fmtM(S.taxPaid))+
+      st('領到的股利',fmtM(S.divTotal))+
+      st('跌停鎖死',S.lockedIn+' 次')+
+      st('心態',Math.round(mood))+
+      st('生活',Math.round(life))+
+    '</div>'+
+    '<div class="hon"><b>特質</b>：'+
+      (Object.keys(S.traits).length?Object.keys(S.traits).map(k=>'<i>'+TRAITS[k].n+'</i>').join('、'):'（無）')+
+      (S.honors.length?'<br><b>紀錄</b>：'+S.honors.join('、'):'')+
+      '<br><b>習慣</b>：'+(activeHabits().length?activeHabits().map(k=>HABITS[k].n+' '+Math.round(S.habits[k])).join('　'):'（一個都沒留下）')+
+      '<br><b>種子</b>：<span class="mono" style="color:var(--accent)">'+esc(SEED)+'</span>'+
+    '</div>'+
+    '<p class="byline" style="margin-top:22px">《少年股神》 by '+
+      '<a href="https://www.threads.com/@ishoplus" target="_blank" rel="noopener noreferrer">@ishoplus</a></p>';
+  const gh=S.ghost;
+  if(gh){
+    const d=(nav/Math.max(gh.nav,0.01)-1)*100;
+    fin.insertAdjacentHTML('beforeend',
+      '<div class="vs"><div class="k">'+(gh.vs?'戰帖對手':'同一顆種子 · 上一次')+'</div>'+
+      '<b>'+esc(gh.name)+'</b>'+(gh.school?'（'+SCHOOL[gh.school].n+'）':'')+
+      ' → '+fmtM(gh.nav)+'　「'+gh.title+'」<br>'+
+      '你 '+fmtM(nav)+'，相差 <b class="'+(d>=0?'up':'dn')+'">'+sgn(d,0)+'%</b>'+
+      (gh.vs ? (d>=0?'　你贏了。回敬一張戰帖吧。':'　這局你輸了。')
+             : (d>=0?'　你贏過了上一個自己。':'　上一個自己走得比你好。'))+'</div>');
+  }
+  recordRun(E,nav);
+  track('end-'+E.id,'結局：'+E.title);
+  track('cls-'+S.peakCls,'最高階級：'+CLASSES[S.peakCls].n);
+  /* 兩條軸的成績單：站到哪一層，以及有沒有人要你 */
+  fin.insertAdjacentHTML('beforeend',
+    '<div class="vs"><div class="k">你走到哪一層</div>'+
+    '<div class="brow"><span>最高階級</span><b>'+CLASSES[S.peakCls].n+'</b>'+
+      '<i class="'+(S.cls<S.peakCls?'dn':'up')+'">'+(S.cls<S.peakCls?'最後掉回 '+CLASSES[S.cls].n:'守住了')+'</i></div>'+
+    '<div class="brow"><span>受託最高</span><b>'+(S.peakAum>0?fmtM(S.peakAum):'從沒管過別人的錢')+'</b>'+
+      '<i class="'+(S.redeemed?'dn':'up')+'">'+(S.redeemed?'被贖回 '+S.redeemed+' 次':(S.peakAum>0?'沒被撤過':''))+'</i></div>'+
+    (S.feeTotal>0?'<div class="brow"><span>抽成累計</span><b>'+fmtM(S.feeTotal)+'</b><i></i></div>':'')+
+    (S.window>0?'<div style="margin-top:6px;font-size:12px;color:var(--dn)">你做過 '+S.window+' 次年底窗飾。</div>':'')+
+    '</div>');
+
+  /* 對照組：整局最尖銳的一句話 */
+  {
+    const vi=(nav/Math.max(S.bIdx,0.01)-1)*100, vt=(nav/Math.max(S.bTsm,0.01)-1)*100;
+    const verdict = (vi>=0&&vt>=0) ? '兩個都贏了。這二十四年的力氣沒有白花。'
+      : (vi>=0) ? '你贏了大盤，但輸給那一檔。多數人也是。'
+      : (vt>=0) ? '你輸給大盤，卻贏了台積電——這組合有點奇怪，但確實發生了。'
+      : '兩個都輸。如果當年什麼都不做，只是每個月固定買進，你會過得比現在好。';
+    fin.insertAdjacentHTML('beforeend',
+      '<div class="vs bench"><div class="k">同樣的錢，如果拿去做別的</div>'+
+      '<div class="brow"><span>你</span><b>'+fmtM(nav)+'</b><i></i></div>'+
+      '<div class="brow"><span>只買大盤</span><b>'+fmtM(S.bIdx)+'</b>'+
+        '<i class="'+(vi>=0?'up':'dn')+'">'+sgn(vi,0)+'%</i></div>'+
+      '<div class="brow"><span>只買台積電</span><b>'+fmtM(S.bTsm)+'</b>'+
+        '<i class="'+(vt>=0?'up':'dn')+'">'+sgn(vt,0)+'%</i></div>'+
+      '<div style="margin-top:8px">'+verdict+'</div>'+
+      '<div style="margin-top:4px;font-size:11px;color:var(--dim);line-height:1.6">'+
+      '兩條對照線都用跟你一模一樣的薪水、每年全部投入去跑。差距來自選擇，不是本金。</div></div>');
+  }
+
+  /* 同期總表：跟具體的人比，不是跟一個數字比 */
+  if(S.peers && S.peers.length){
+    const all=S.peers.map(pr=>({n:pr.name, v:peerAt(pr,S.log.length), t:PEER_TYPE[pr.type].n,
+                                gone:pr.quitAt>=0&&S.log.length>=pr.quitAt, me:false}))
+      .concat([{n:S.name, v:nav, t:S.school?SCHOOL[S.school].n:'無流派', gone:false, me:true}])
+      .sort((a,b)=>b.v-a.v);
+    const rank=all.findIndex(x=>x.me)+1;
+    fin.insertAdjacentHTML('beforeend',
+      '<div class="vs"><div class="k">同期 · 四十歲</div>'+
+      all.map((x,i)=>'<div class="pr'+(x.me?' me':'')+'">'+
+        '<span class="i">'+(i+1)+'</span><b>'+x.n+'</b>'+
+        '<span class="t">'+x.t+(x.gone?'．早就不玩了':'')+'</span>'+
+        '<span class="v">'+fmtM(x.v)+'</span></div>').join('')+
+      '<div style="margin-top:8px">你排第 <b class="'+(rank<=2?'up':'dn')+'">'+rank+'</b> 名。'+
+      (rank===1?'當年一起開戶的人裡，你走得最遠。'
+       :rank===4?'當年那幾個人，現在都在你前面。'
+       :'')+'</div></div>');
+  }
+  const pg=codexProgress();
+  fin.insertAdjacentHTML('beforeend',
+    '<div class="vs"><div class="k">圖鑑</div>結局 <b>'+pg.ends+'/'+pg.endsAll+
+    '</b> · 特質 <b>'+pg.traits+'/'+pg.traitsAll+'</b> · 流派 <b>'+pg.schools+'/'+pg.schoolsAll+
+    '</b> · 累計 '+pg.runs+' 局　<a href="#" id="fin-codex">看圖鑑</a></div>');
+  LOG().appendChild(fin);
+  const fc=$('fin-codex'); if(fc) fc.onclick=e=>{ e.preventDefault(); openCodex(); };
+  drawChart();
+  buildShareCard(E,nav,cagr);
+
+  choose('',[
+    {t:'複製戰帖連結',main:true,s:'對方會拿到同一顆種子，而且你的淨值曲線會變成他的灰線',f:()=>{
+      const url=challengeURL(E);
+      track('share-challenge','複製戰帖');
+      copy(url);
+      card('good','戰帖已複製',
+        '傳給朋友。他會走同樣的二十四年牛熊，畫面上一直有一條你的灰線。<br>'+
+        '<span class="mono" style="font-size:11px;color:var(--dim);word-break:break-all">'+url+'</span>');
+      board(1); endMenu();
+    }},
+    {t:'用同一個種子重來',s:'seed: '+SEED+'｜同樣的牛熊，不同的選擇',f:()=>{
+      restart(true); }},
+    {t:'換一條人生',main:true,s:'新的種子，新的二十四年',f:()=>{ restart(false); }}
+  ]);
+  scrollBottom();
+}
+function endMenu(){
+  choose('',[
+    {t:'用同一個種子重來',s:'seed: '+SEED,f:()=>{restart(true);}},
+    {t:'換一條人生',main:true,f:()=>{restart(false);}}
+  ]);
+}
+/* 就地重置。整頁 reload 在 file:// 和 sandbox iframe 下都可能失靈或掉種子 */
+function restart(keepSeed){
+  if(!keepSeed) SEED=Math.random().toString(36).slice(2,10);
+  S=null;
+  LOG().innerHTML=''; actClear();
+  $('game').classList.remove('on');
+  $('start').style.display='flex';
+  $('ver').style.display='';
+  $('seed-show').value=SEED;
+  renderCodexLine();
+  window.scrollTo(0,0);
+}
+function st(k,v){ return '<div class="st"><div class="k">'+k+'</div><div class="v">'+v+'</div></div>'; }
+function copy(t){
+  const fallback=()=>{
+    try{
+      const i=document.createElement('textarea');
+      i.value=t; i.style.position='fixed'; i.style.opacity='0';
+      document.body.appendChild(i); i.select();
+      document.execCommand('copy'); i.remove();
+    }catch(_){}
+  };
+  try{
+    const pr = navigator.clipboard && navigator.clipboard.writeText(t);
+    /* writeText 回傳 Promise，權限被擋時是非同步 reject，try/catch 接不到 */
+    if(pr && pr.catch){ pr.catch(fallback); return; }
+  }catch(e){}
+  fallback();
+}
+
+/* ---- 結局分享圖（純呈現層，不得呼叫 R()）----
+   畫成 canvas 後直接以 <img> 嵌進頁面，讓人長按或右鍵存圖。
+   刻意不做 download 連結：在 artifact 的 sandbox iframe 裡那種連結是死的。 */
+function buildShareCard(E,nav,cagr){
+  const W=1080,H=1800,P=72;   /* 先畫在夠高的畫布上，最後依內容裁掉多餘的部分 */
+  const cv=document.createElement('canvas');
+  cv.width=W; cv.height=H;
+  const c=cv.getContext('2d');
+  if(!c) return;
+  const cs=getComputedStyle(document.body);
+  const V=n=>cs.getPropertyValue(n).trim();
+  const BG=V('--bg')||'#080c0a', INK=V('--ink')||'#d8e6de', DIM=V('--dim')||'#6f8579',
+        AC=V('--accent')||'#34d17e', UP=V('--up')||'#3ddc84', DN=V('--dn')||'#ff5c5c',
+        ED=V('--edge')||'#1e2c25', GD=V('--gold')||'#ffd166', PN=V('--panel')||'#0e1512';
+  const SANS=V('--sans')||'sans-serif', SERIF=V('--serif')||'serif', MONO=V('--mono')||'monospace';
+
+  c.fillStyle=BG; c.fillRect(0,0,W,H);
+
+  /* 頂部漲跌帶 */
+  const grd=c.createLinearGradient(0,0,W,0);
+  grd.addColorStop(0,UP); grd.addColorStop(.5,DN); grd.addColorStop(1,UP);
+  c.fillStyle=grd; c.globalAlpha=.75; c.fillRect(0,0,W,6); c.globalAlpha=1;
+
+  let y=P+70;
+  c.fillStyle=INK; c.font='900 62px '+SERIF; c.fillText('少年股神',P,y);
+  c.fillStyle=AC; c.font='500 20px '+MONO;
+  c.fillText('T H E   T E E N A G E   O R A C L E',P,y+38);
+
+  /* 結局 */
+  y+=118;
+  c.fillStyle=GD; c.font='500 24px '+MONO;
+  c.fillText(E.rank,P,y);
+  y+=62;
+  c.fillStyle=INK; c.font='700 52px '+SERIF;
+  y=wrapText(c,E.title,P,y,W-P*2,62);   /* 回傳值是最後一行的基線之下 */
+
+  /* 姓名與身分 */
+  y+=40;
+  c.fillStyle=DIM; c.font='400 26px '+SANS;
+  c.fillText(S.name+'　16 → 40 歲　'+CAREER[S.career].n,P,y);
+
+  /* 淨值曲線 */
+  y+=46;
+  const CH=340, CX=P, CY=y, CW=W-P*2;
+  c.fillStyle=PN; c.fillRect(CX,CY,CW,CH);
+  c.strokeStyle=ED; c.lineWidth=1; c.strokeRect(CX+.5,CY+.5,CW-1,CH-1);
+  const h=S.navHist;
+  if(h.length>1){
+    const lg=h.map(v=>Math.log10(Math.max(0.05,v)));
+    const mn=Math.min.apply(null,lg), mx=Math.max.apply(null,lg), rg=(mx-mn)||1;
+    const X=i=>CX+28+(i/(h.length-1))*(CW-70);
+    const Y=v=>CY+CH-46-((v-mn)/rg)*(CH-92);
+    /* 熊市與崩盤陰影 */
+    c.fillStyle=DN; c.globalAlpha=.12;
+    S.log.forEach((L,i)=>{ if(L.rg==='crash'||L.rg==='bear'){
+      const a=X(i), b=X(Math.min(i+1,h.length-1));
+      c.fillRect(a,CY+10,Math.max(3,b-a),CH-20);
+    }});
+    c.globalAlpha=1;
+    c.strokeStyle=ED; c.setLineDash([4,6]); c.beginPath();
+    c.moveTo(CX+20,Y(lg[0])); c.lineTo(CX+CW-20,Y(lg[0])); c.stroke(); c.setLineDash([]);
+    c.strokeStyle = h[h.length-1]>=h[0]?UP:DN;
+    c.lineWidth=4; c.lineJoin='round'; c.lineCap='round'; c.beginPath();
+    lg.forEach((v,i)=>{ i?c.lineTo(X(i),Y(v)):c.moveTo(X(i),Y(v)); });
+    c.stroke();
+    c.fillStyle=c.strokeStyle;
+    c.beginPath(); c.arc(X(lg.length-1),Y(lg[lg.length-1]),8,0,7); c.fill();
+    c.fillStyle=DIM; c.font='400 22px '+MONO;
+    c.fillText(fmtM(h[0]),CX+22,Y(lg[0])+34);
+    c.fillStyle=INK; c.font='700 26px '+MONO;
+    c.textAlign='right'; c.fillText(fmtM(nav),CX+CW-22,Y(lg[lg.length-1])-22); c.textAlign='left';
+  }
+  y=CY+CH+64;
+
+  /* 資料格 */
+  const cells=[
+    ['最終淨值',fmtM(nav),INK],
+    ['淨值年化',sgn(cagr)+'%',cagr>=0?UP:DN],
+    ['最大回撤',(S.peak>0?-(1-nav/S.peak)*100:0).toFixed(0)+'%',nav<S.peak?DN:DIM],
+    ['斷頭',S.blowups+' 次',S.blowups?DN:DIM],
+    ['心態',String(Math.round(S.mood)),INK],
+    ['生活',String(Math.round(S.life)),INK]
+  ];
+  const cw=(W-P*2-24*2)/3;
+  cells.forEach((cell,i)=>{
+    const cx=P+(i%3)*(cw+24), cy=y+Math.floor(i/3)*126;
+    c.fillStyle=PN; c.fillRect(cx,cy,cw,104);
+    c.strokeStyle=ED; c.strokeRect(cx+.5,cy+.5,cw-1,103);
+    c.fillStyle=DIM; c.font='400 21px '+MONO; c.fillText(cell[0],cx+20,cy+36);
+    c.fillStyle=cell[2]; c.font='700 40px '+MONO; c.fillText(cell[1],cx+20,cy+82);
+  });
+  y+=126*2+22;
+
+  /* 特質 */
+  const tk=Object.keys(S.traits);
+  c.fillStyle=DIM; c.font='400 22px '+MONO; c.fillText('TRAITS',P,y);
+  y+=42;
+  if(tk.length){
+    let x=P;
+    c.font='500 26px '+SANS;
+    tk.forEach(k=>{
+      const label=TRAITS[k].n, tw=c.measureText(label).width+34;
+      if(x+tw>W-P){ x=P; y+=54; }
+      c.strokeStyle=TRAITS[k].good?AC:DN; c.lineWidth=1.5;
+      c.strokeRect(x+.5,y-30.5,tw,44);
+      c.fillStyle=TRAITS[k].good?AC:DN;
+      c.fillText(label,x+17,y);
+      x+=tw+14;
+    });
+  } else {
+    c.fillStyle=DIM; c.font='400 26px '+SANS; c.fillText('（一個都沒有）',P,y);
+  }
+
+  /* 頁尾種子：位置跟著內容走，不寫死在畫布底部 */
+  const fy=y+78;
+  c.fillStyle=ED; c.fillRect(P,fy-40,W-P*2,1);
+  c.fillStyle=DIM; c.font='400 24px '+MONO;
+  c.fillText('SEED',P,fy);
+  c.fillStyle=AC; c.font='700 28px '+MONO;
+  c.fillText(SEED,P+82,fy);
+  c.fillStyle=DIM; c.font='400 19px '+SANS;
+  c.fillText('相同種子＋相同選擇＝相同人生',P,fy+30);
+  c.textAlign='right';
+  c.fillStyle=AC; c.font='700 24px '+MONO;
+  c.fillText('@ishoplus',W-P,fy);
+  c.fillStyle=DIM; c.font='400 19px '+SANS;
+  c.fillText('少年股神',W-P,fy+30);
+  c.textAlign='left';
+
+  /* 裁掉底下沒用到的空白 */
+  const FH=Math.min(H,Math.round(fy+64));
+  const out=document.createElement('canvas');
+  out.width=W; out.height=FH;
+  const o=out.getContext('2d');
+  o.fillStyle=BG; o.fillRect(0,0,W,FH);
+  o.drawImage(cv,0,0,W,FH,0,0,W,FH);
+
+  /* 嵌進結局頁 */
+  let url;
+  try{ url=out.toDataURL('image/png'); }catch(e){ return; }
+  const wrap=document.createElement('div');
+  wrap.className='share';
+  wrap.innerHTML='<div class="k">分享圖</div><img src="'+url+'" alt="'+esc(S.name)+' 的結局分享圖">'+
+    '<div class="hint">長按或按右鍵存圖。圖上有種子碼，朋友輸入就能走同一條路。</div>';
+  const fin=$('fin'); if(fin) fin.appendChild(wrap);
+}
+/* 回傳最後一行的基線 y；呼叫端自行決定往下留多少 */
+function wrapText(c,txt,x,y,maxW,lh){
+  let line='';
+  for(const ch of txt){
+    if(c.measureText(line+ch).width>maxW && line){ c.fillText(line,x,y); y+=lh; line=ch; }
+    else line+=ch;
+  }
+  if(line) c.fillText(line,x,y);
+  return y;
+}
+
+/* 結局淨值曲線（純呈現層，不得呼叫 R()）*/
+function drawChart(){
+  const cv=$('chart'); if(!cv||!cv.getContext) return;
+  const dpr=window.devicePixelRatio||1;
+  const W=cv.clientWidth||720, H=200;
+  cv.width=W*dpr; cv.height=H*dpr;
+  const c=cv.getContext('2d'); c.scale(dpr,dpr);
+  const cs=getComputedStyle(document.body);
+  const CD=cs.getPropertyValue('--dim').trim()||'#777';
+  const CU=cs.getPropertyValue('--up').trim()||'#3c8';
+  const CN=cs.getPropertyValue('--dn').trim()||'#c33';
+  const CE=cs.getPropertyValue('--edge').trim()||'#333';
+  const P=34;
+  const h=S.navHist;
+  if(h.length<2) return;
+  const logs=h.map(v=>Math.log10(Math.max(0.05,v)));
+  const mn=Math.min.apply(null,logs), mx=Math.max.apply(null,logs), rg=(mx-mn)||1;
+  const X=i=>P+(i/(h.length-1))*(W-P*1.4);
+  const Y=v=>H-P+8-((v-mn)/rg)*(H-P*1.7);
+
+  /* 崩盤年陰影 */
+  c.fillStyle=CN; c.globalAlpha=.10;
+  S.log.forEach((y,i)=>{ if(y.rg==='crash'||y.rg==='bear'){
+    const x0=X(i), x1=X(Math.min(i+1,h.length-1));
+    c.fillRect(x0,10,Math.max(2,x1-x0),H-40);
+  }});
+  c.globalAlpha=1;
+
+  /* 起始線 */
+  c.strokeStyle=CE; c.setLineDash([3,4]); c.beginPath();
+  c.moveTo(P,Y(logs[0])); c.lineTo(W-P*0.4,Y(logs[0])); c.stroke(); c.setLineDash([]);
+
+  /* 鬼影：同一顆種子的上一次 */
+  if(S.ghost){
+    c.strokeStyle=CD; c.lineWidth=1.5; c.setLineDash([3,4]); c.globalAlpha=.8; c.beginPath();
+    S.ghost.hist.slice(0,h.length).forEach((v,i)=>{
+      const y=clamp(Y(Math.log10(Math.max(0.05,v))),8,H-14);
+      i?c.lineTo(X(i),y):c.moveTo(X(i),y);
+    });
+    c.stroke(); c.setLineDash([]); c.globalAlpha=1;
+  }
+
+  /* 對照組兩條線 */
+  const drawBench=(arr,color,dash)=>{
+    if(!arr||arr.length<2) return;
+    c.strokeStyle=color; c.lineWidth=1.4; c.setLineDash(dash); c.globalAlpha=.9; c.beginPath();
+    arr.slice(0,h.length).forEach((v,i)=>{
+      const y=clamp(Y(Math.log10(Math.max(0.05,v))),8,H-14);
+      i?c.lineTo(X(i),y):c.moveTo(X(i),y);
+    });
+    c.stroke(); c.setLineDash([]); c.globalAlpha=1;
+  };
+  drawBench(S.bIdxH, CD, []);
+  drawBench(S.bTsmH, getComputedStyle(document.body).getPropertyValue('--warn').trim()||'#fc0', [5,3]);
+
+  /* 曲線 */
+  c.strokeStyle = h[h.length-1]>=h[0]?CU:CN;
+  c.lineWidth=2; c.lineJoin='round'; c.beginPath();
+  logs.forEach((v,i)=>{ i?c.lineTo(X(i),Y(v)):c.moveTo(X(i),Y(v)); });
+  c.stroke();
+
+  /* 標註 */
+  c.fillStyle=CD; c.font='10px '+(cs.getPropertyValue('--mono')||'monospace');
+  c.fillText(fmtM(h[0]),4,Y(logs[0])-5);
+  c.fillText(fmtM(h[h.length-1]),W-P*1.2,Y(logs[logs.length-1])-6);
+  c.fillText('16歲',P-8,H-8);
+  c.fillText(String(16+h.length-2)+'歲',W-P*1.1,H-8);
+  c.fillText('seed: '+SEED,4,12);
+}
+
+/* ================= 戰帖碼 =================
+   把一整局的結果壓進網址，不需要後端。收到連結的人拿到同一顆種子，
+   而且對方的淨值曲線會變成灰線跟著他跑——種子從「一個人重玩」變成「一群人比較」。
+   淨值取 log10 再量化成兩位 base36，26 年只花 52 個字元。 */
+function b36(n,w){ n=Math.max(0,Math.round(n)); let s=n.toString(36); while(s.length<w)s='0'+s; return s.slice(-w); }
+function encodeRun(E){
+  const si=Object.keys(SCHOOL).indexOf(S.school);
+  const ei=Math.max(0,ENDING_IDS.findIndex(x=>x.id===E.id));
+  const h=S.navHist.map(v=>b36(clamp(Math.round(Math.log10(Math.max(0.05,v))*100)+200,0,1295),2)).join('');
+  return '1'+b36(si+1,1)+b36(ei,2)+h+'~'+encodeURIComponent(S.name.slice(0,6));
+}
+function decodeRun(code){
+  try{
+    if(!code || code.charAt(0)!=='1') return null;
+    const cut=code.indexOf('~');
+    const body=cut<0?code:code.slice(0,cut);
+    let nm='某人';
+    if(cut>=0){ try{ nm=clean(decodeURIComponent(code.slice(cut+1)),8)||'某人'; }catch(e){} }
+    const si=parseInt(body.charAt(1),36)-1;
+    const ei=parseInt(body.slice(2,4),36);
+    const hs=body.slice(4), hist=[];
+    for(let i=0;i+1<hs.length;i+=2){
+      const q=parseInt(hs.slice(i,i+2),36);
+      if(isNaN(q)) return null;
+      hist.push(Math.pow(10,(q-200)/100));
+    }
+    if(hist.length<3) return null;
+    const E=ENDING_IDS[ei]||{t:'不明的結局',r:''};
+    return {name:nm, school:Object.keys(SCHOOL)[si]||null,
+            hist:hist, nav:hist[hist.length-1], title:E.t, rank:E.r, vs:true};
+  }catch(e){ return null; }
+}
+function challengeURL(E){
+  const base = location.origin.startsWith('http')
+    ? location.origin+location.pathname : location.href.split('?')[0];
+  return base+'?seed='+encodeURIComponent(SEED)+'&vs='+encodeRun(E);
+}
+
+/* ================= 數據 =================
+   GoatCounter：免費、不放 cookie、不需要同意橫幅，一行設定就啟用。
+   把 GC_CODE 換成你註冊的代碼（例如註冊 gootsai.goatcounter.com 就填 'gootsai'）。
+   留空則整段不做任何事，也不會發出任何請求。
+   Artifact 版的 CSP 會擋掉外部腳本，所以數據只會來自 GitHub Pages 那個網址。 */
+const GC_CODE = '';
+let _gcReady=false;
+function analyticsInit(){
+  if(!GC_CODE || location.protocol==='file:') return;
+  window.goatcounter={no_onload:true};
+  const s=document.createElement('script');
+  s.async=true; s.dataset.goatcounter='https://'+GC_CODE+'.goatcounter.com/count';
+  s.src='https://gc.zgo.at/count.js';
+  s.onload=()=>{ _gcReady=true; track('/'); };   /* 種子與戰帖碼一律歸到首頁，免得路徑爆炸 */
+  document.head.appendChild(s);
+}
+function track(path,title){
+  if(!_gcReady || !window.goatcounter || !goatcounter.count) return;
+  try{ goatcounter.count({path:path, title:title||path, event:path.charAt(0)!=='/'}); }catch(e){}
+}
+
+/* ================= 本機存檔：圖鑑與種子歷史 =================
+   全部包在 try/catch 裡——sandbox iframe 與隱私模式可能整個沒有 localStorage，
+   那時遊戲照常能玩，只是少了鬼影與圖鑑。 */
+const LS={
+  get(k,d){ try{ const v=localStorage.getItem(k); return v?JSON.parse(v):d; }catch(e){ return d; } },
+  set(k,v){ try{ localStorage.setItem(k,JSON.stringify(v)); }catch(e){} }
+};
+function codex(){ return LS.get('sg-codex',{ends:{},traits:{},schools:{},runs:0,best:0}); }
+function seedBook(){ return LS.get('sg-seeds',{}); }
+
+/* 記錄一局：更新圖鑑，並把這顆種子的淨值曲線存起來當下次的鬼影 */
+function recordRun(E,nav){
+  const cx=codex();
+  cx.ends[E.id]=(cx.ends[E.id]||0)+1;
+  Object.keys(S.traits).forEach(t=>cx.traits[t]=1);
+  if(S.school) cx.schools[S.school]=(cx.schools[S.school]||0)+1;
+  cx.runs=(cx.runs||0)+1;
+  if(nav>(cx.best||0)) cx.best=nav;
+  LS.set('sg-codex',cx);
+
+  const bk=seedBook();
+  bk[SEED]={
+    nav:Math.round(nav*100)/100,
+    hist:S.navHist.map(v=>Math.round(v*100)/100),
+    title:E.title, rank:E.rank, school:S.school, name:S.name
+  };
+  /* 只留最近 30 顆種子，免得 localStorage 無限長大 */
+  const keys=Object.keys(bk);
+  if(keys.length>30) keys.slice(0,keys.length-30).forEach(k=>delete bk[k]);
+  LS.set('sg-seeds',bk);
+}
+function loadGhost(){
+  const g=seedBook()[SEED];
+  return (g && g.hist && g.hist.length>2) ? g : null;
+}
+function codexProgress(){
+  const cx=codex(), ne=Object.keys(cx.ends||{}).length, nt=Object.keys(cx.traits||{}).length;
+  return {ends:ne, endsAll:ENDING_IDS.length, traits:nt, traitsAll:Object.keys(TRAITS).length,
+          schools:Object.keys(cx.schools||{}).length, schoolsAll:Object.keys(SCHOOL).length,
+          runs:cx.runs||0, best:cx.best||0};
+}
+function renderCodexLine(){
+  const el=$('codex-line'); if(!el) return;
+  const p=codexProgress();
+  if(!p.runs){ el.innerHTML='<span style="opacity:.6">還沒有任何紀錄。第一局結束後這裡會開始長東西。</span>'; return; }
+  el.innerHTML='已玩 <b>'+p.runs+'</b> 局 · 結局 <b>'+p.ends+'/'+p.endsAll+'</b>'+
+    ' · 特質 <b>'+p.traits+'/'+p.traitsAll+'</b> · 流派 <b>'+p.schools+'/'+p.schoolsAll+'</b>'+
+    ' · 最高 <b>'+fmtM(p.best)+'</b>　<a href="#" id="codex-open">看圖鑑</a>';
+  const a=$('codex-open');
+  if(a) a.onclick=e=>{ e.preventDefault(); openCodex(); };
+}
+function openCodex(){
+  if($('mask')) return;
+  const cx=codex();
+  const row=(ok,name,desc)=>'<div class="cdx'+(ok?' on':'')+'"><b>'+(ok?name:'？？？')+'</b>'+
+    '<span>'+(ok?desc:'尚未解鎖')+'</span></div>';
+  const ends=ENDING_IDS.map(e=>row(cx.ends&&cx.ends[e.id],e.t,e.r+(cx.ends&&cx.ends[e.id]>1?'　×'+cx.ends[e.id]:''))).join('');
+  const trs=Object.keys(TRAITS).map(k=>row(cx.traits&&cx.traits[k],TRAITS[k].n,TRAITS[k].fx)).join('');
+  const scs=Object.keys(SCHOOL).map(k=>row(cx.schools&&cx.schools[k],SCHOOL[k].n,
+    SCHOOL[k].fx+(cx.schools&&cx.schools[k]>1?'　走過 '+cx.schools[k]+' 次':''))).join('');
+  const m=document.createElement('div');
+  m.id='mask';
+  m.innerHTML='<div class="sheet wide"><div class="q">圖鑑</div>'+
+    '<div class="cdxg"><h4>結局</h4>'+ends+'<h4>特質</h4>'+trs+'<h4>流派</h4>'+scs+'</div>'+
+    '<button class="btn main" id="cdx-close">關閉</button></div>';
+  document.body.appendChild(m);
+  m.onclick=e=>{ if(e.target===m) m.remove(); };
+  $('cdx-close').onclick=()=>m.remove();
+}
+
+/* ================= 主題與偏好（純呈現層）================= */
+function applyTheme(t){ document.body.dataset.theme=t; try{localStorage.setItem('sg-theme',t);}catch(e){} }
+function applyBig(on){ document.body.classList.toggle('big',on); try{localStorage.setItem('sg-big',on?'1':'0');}catch(e){} }
+(function(){
+  try{
+    const t=localStorage.getItem('sg-theme'); if(t) document.body.dataset.theme=t;
+    if(localStorage.getItem('sg-big')==='1') document.body.classList.add('big');
+  }catch(e){}
+})();
+
+/* 快速模式開局：先把往後二十四年的分配方針與事件立場定下來 */
+function askPlan(){
+  choose('往後這些年，你打算怎麼分配時間？',Object.keys(PLANS).map(k=>({
+    t:PLANS[k].n, s:PLANS[k].d, main:k==='safe',
+    f:()=>{ S.plan=k; askStance(); }
+  })));
+}
+function askStance(){
+  choose('遇到事件時，你的習慣是？',[
+    {t:STANCE.safe, s:'每張卡都挑最有把握的那個做法', main:true, f:()=>startFast('safe')},
+    {t:STANCE.norm, s:'挑中間那個',f:()=>startFast('norm')},
+    {t:STANCE.bold, s:'挑最敢的那個。賭狗之路',f:()=>startFast('bold')}
+  ]);
+}
+function startFast(st){
+  S.stance=st;
+  card('info','方針已定',
+    '分配方針 <b class="hl">'+PLANS[S.plan].n+'</b>（'+PLANS[S.plan].d+'）、'+
+    '事件立場 <b class="hl">'+STANCE[st]+'</b>。<br>'+
+    '接下來每年你只需要決定一件事：<b class="hl">部位押多少</b>。'+
+    '重大關卡（流派、生涯、生活警訊）還是會停下來問你。','PLAN');
+  board(1);
+  choose('',[{t:'▸ 開始',main:true,s:'種子 '+SEED+'｜這條路上會有幾次崩盤，你還不知道',f:nextYear}]);
+}
+
+/* ================= 開場 ================= */
+let ORGPICK='greed', FASTPICK=false;
+function boot(){
+  $('seed-show').value=SEED;
+  $('seed-re').onclick=e=>{ e.preventDefault(); SEED=Math.random().toString(36).slice(2,10); $('seed-show').value=SEED; };
+  document.querySelectorAll('#seg-org button').forEach(b=>{
+    b.onclick=()=>{ document.querySelectorAll('#seg-org button').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on'); ORGPICK=b.dataset.v; };
+  });
+  document.querySelectorAll('#seg-mode button').forEach(b=>{
+    b.onclick=()=>{ document.querySelectorAll('#seg-mode button').forEach(x=>x.classList.remove('on'));
+      b.classList.add('on'); FASTPICK=(b.dataset.v==='fast');
+      $('mode-hint').textContent = FASTPICK
+        ? '先定一次分配方針與事件立場，之後每年只需要決定部位。事件卡照樣會出現，只是不用逐張點。'
+        : '每年親手分配骰子、逐張回應事件卡。'; };
+  });
+  document.querySelectorAll('[data-th]').forEach(a=>{
+    a.onclick=e=>{ e.preventDefault(); applyTheme(a.dataset.th); };
+  });
+  $('big-t').onclick=e=>{ e.preventDefault(); applyBig(!document.body.classList.contains('big')); };
+  $('menubtn').onclick=openMenu;
+  analyticsInit();
+  CHALLENGE=decodeRun(VSCODE);
+  if(CHALLENGE){
+    track('arrive-challenge','收到戰帖');
+    const g=CHALLENGE;
+    const el=$('vs-line');
+    if(el){
+      el.style.display='block';
+      el.innerHTML='<b>'+esc(g.name)+'</b>'+(g.school?'（'+SCHOOL[g.school].n+'）':'')+
+        ' 向你下了戰帖：這顆種子他走到 <b>'+fmtM(g.nav)+'</b>，結局是「'+g.title+'」。<br>'+
+        '<span style="opacity:.7">種子已鎖定。同樣的牛熊，換你走一次。</span>';
+    }
+    const si=$('seed-show'); if(si) si.readOnly=true;
+    const sr=$('seed-re'); if(sr) sr.style.display='none';
+  }
+  renderCodexLine();
+  $('btn-start').onclick=start;
+  $('in-name').addEventListener('keydown',e=>{ if(e.key==='Enter') start(); });
+}
+
+/* 選單是疊加層，不碰 #act，因此不會破壞進行中的骰子分配或選項 */
+function openMenu(){
+  if($('mask')) return;
+  const m=document.createElement('div');
+  m.id='mask';
+  m.innerHTML='<div class="sheet"><div class="q">選單</div>'+
+    '<button class="btn" data-a="tl">生涯時間軸</button>'+
+    '<button class="btn" data-a="terminal">主題：終端綠</button>'+
+    '<button class="btn" data-a="paper">主題：財經報</button>'+
+    '<button class="btn" data-a="neon">主題：霓虹夜</button>'+
+    '<button class="btn" data-a="big">切換字級</button>'+
+    '<button class="btn" data-a="copy">複製本局種子連結<span class="s">'+SEED+'</span></button>'+
+    '<button class="btn warn" data-a="restart">放棄這條人生，重開</button>'+
+    '<button class="btn main" data-a="close">返回</button></div>';
+  document.body.appendChild(m);
+  const close=()=>m.remove();
+  m.onclick=e=>{ if(e.target===m) close(); };
+  m.querySelectorAll('button').forEach(b=>{
+    b.onclick=()=>{
+      const a=b.dataset.a;
+      if(a==='tl'){ close(); openTimeline(); return; }
+      if(a==='big') applyBig(!document.body.classList.contains('big'));
+      else if(a==='restart'){ close(); restart(false); return; }
+      else if(a==='close'){ close(); return; }
+      else if(a==='copy'){
+        const u=location.origin.startsWith('http')
+          ? location.origin+location.pathname+'?seed='+encodeURIComponent(SEED)
+          : location.href.split('?')[0]+'?seed='+encodeURIComponent(SEED);
+        copy(u); b.querySelector('.s').textContent='已複製'; return;
+      }
+      else applyTheme(a);
+      if(S) board(0);
+      if(S&&S.over) drawChart();
+    };
+  });
+}
+
+function start(){
+  const sv=$('seed-show').value.trim();
+  if(sv) SEED=sv;
+  /* file:// 與 sandbox iframe 下帶 query 的 replaceState 會拋 SecurityError，
+     種子照樣有效，只是網址列不反映——不該因此整局崩掉 */
+  try{ history.replaceState(null,'','?seed='+encodeURIComponent(SEED)); }catch(e){}
+  seedInit(SEED);
+
+  S=newState();
+  S.name=clean($('in-name').value.trim(),8)||'無名氏';
+  S.org=ORGPICK;
+  S.fast=FASTPICK;
+
+  /* 初始能力：隨機底子 + 動機加成 */
+  S.habits={};
+  const o=ORG[S.org];
+  if(o.hab) addProf(o.hab, 6);
+  addMood(o.mood); addLife(o.life);
+
+  /* 壓歲錢 */
+  S.nav=ri(3,9);
+  S.prevNav=S.nav; S.peak=S.nav; S.navHist=[S.nav];
+
+  /* 行情：整條 25 年一次生成（種子的核心承諾）*/
+  S.market=genMarket(TOTAL);
+  S.peers=genPeers();    /* 必須緊接在 genMarket 之後，順序固定才能復現 */
+  S.tsmRet=genBench();
+  S.bIdx=S.nav; S.bTsm=S.nav; S.bIdxH=[S.nav]; S.bTsmH=[S.nav];
+  S.ghost=CHALLENGE||loadGhost();   /* 戰帖優先；否則用同種子的上一次。都會畫成灰線 */
+
+  $('start').style.display='none';
+  $('game').classList.add('on');
+  track('start-'+ORGPICK+(S.fast?'-fast':'-full'),'開局');
+  $('ver').style.display='none';
+
+  card('info','開戶',
+    '「未成年要監護人同意書。」櫃檯小姐說。你早就準備好了。<br>'+
+    '你把紅包裡的 <b class="hl">'+fmtM(S.nav)+'</b> 存了進去。'+
+    '手機裝上看盤軟體的那個晚上，你幾乎沒睡。','START');
+  card('info','你為什麼來', o.d + '<div class="tbl">'+
+    '你還沒有任何習慣。二十四年裡，你會養成幾個、又弄丟幾個。</div>');
+  card('info','同期',
+    '同一年開戶的還有 <b class="hl">'+S.peers.map(p=>p.name).join('</b>、<b class="hl">')+'</b>。'+
+    '你們會走過同樣的二十四年行情。'+
+    '<br><span style="color:var(--dim)">每隔幾年你會知道他們走到哪了。到了四十歲，會有一張總表。</span>','PEERS');
+  if(S.ghost){
+    const g=S.ghost;
+    card('gold', g.vs?'有人向你下戰帖':'這顆種子你走過',
+      (g.vs?'<b class="hl">'+esc(g.name)+'</b>':'上次是 <b class="hl">'+esc(g.name)+'</b>')+
+      (g.school?'（'+SCHOOL[g.school].n+'）':'')+
+      ' 在這顆種子上走到 <b class="hl">'+fmtM(g.nav)+'</b>——「'+g.title+'」。<br>'+
+      '同樣的二十四年牛熊、同樣幾次崩盤。'+
+      (g.vs?'他的淨值曲線會用灰線跟著你跑。':'這次換你怎麼走。')+'','GHOST');
+  }
+  board(1);
+  if(S.fast){ askPlan(); return; }
+  choose('',[{t:'▸ 開始',main:true,s:'種子 '+SEED+'｜這條路上會有幾次崩盤，你還不知道',f:nextYear}]);
+}
+
+boot();
+</script>
+</body>
+</html>

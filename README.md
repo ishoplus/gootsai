@@ -1,6 +1,9 @@
 # 少年股神 · THE TEENAGE ORACLE
 
 > 玩這裡 → **[ishoplus.github.io/gootsai](https://ishoplus.github.io/gootsai/)**　·　by [@ishoplus](https://www.threads.com/@ishoplus)
+>
+> 首頁現在是**內核 v2 配點制**新版（訊息流介面、五路能力、收手結局）。
+> 本文以下描述的**舊版完整遊戲**搬到 [v1.html](https://ishoplus.github.io/gootsai/v1.html)，一個字沒動。
 
 > 十六歲，你拿壓歲錢開了戶。二十四年後結算：淨值、心態、還剩幾個朋友。
 > **賺錢不難，難的是不變成另一個人。**

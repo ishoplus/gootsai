@@ -1,7 +1,7 @@
 /* 載入期冒煙測試。node --check 只驗語法，抓不到 TDZ、未定義參照這類「能解析但一執行就炸」的錯。
    這支把整份腳本真的跑一次，並確認關鍵全域都建立起來了。 */
 const fs=require('fs'), vm=require('vm'), path=require('path');
-const html=fs.readFileSync(path.join(__dirname,'index.html'),'utf8');
+const html=fs.readFileSync(path.join(__dirname,'v1.html'),'utf8');
 const src=html.slice(html.indexOf('<script>')+8, html.lastIndexOf('</script>'));
 const el=()=>({style:{},dataset:{},value:'',textContent:'',innerHTML:'',
   classList:{add(){},remove(){},toggle(){},contains:()=>false},
