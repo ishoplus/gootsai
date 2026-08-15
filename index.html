@@ -316,7 +316,7 @@ svg.chart{width:100%;height:130px;display:block}
   <header id="hud">
     <div class="top">
       <div class="yr"><span id="h-yr">16 歲</span><small id="h-year"></small></div>
-      <div class="nav"><small>總資產</small><span id="h-nav">0</span></div>
+      <div class="nav"><small id="h-cls">總資產</small><span id="h-nav">0</span></div>
     </div>
     <div class="chips">
       <span class="chip" id="c-cash"><span>手上現金</span>—</span>
@@ -352,7 +352,7 @@ svg.chart{width:100%;height:130px;display:block}
   </div>
 </div></div>
 
-<script src="kernel.js?v=49"></script>
+<script src="kernel.js?v=50"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用：呈現層一律禁止呼叫內核的亂數——
@@ -414,7 +414,7 @@ applyDisplay();
 
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源，
    直接雙擊打開會載不到內核。與其停在白畫面，不如講清楚怎麼跑。 */
-const NEED_VERSION=49;
+const NEED_VERSION=50;
 if(typeof KERNEL!=='undefined' && !(KERNEL.VERSION>=NEED_VERSION)){
   document.getElementById('start').innerHTML=
     '<h1>內核是舊的<em>STALE KERNEL '+(KERNEL.VERSION||0)+' &lt; '+NEED_VERSION+'</em></h1>'+
@@ -577,6 +577,8 @@ function paint(){
   $('h-yr').textContent=r.age+' 歲';
   $('h-year').textContent='第 '+(r.year+1)+' 年 · '+(2026+r.year);
   $('h-nav').textContent=money(g.nav());
+  const hc=$('h-cls');
+  if(hc) hc.textContent = (r.cls>0&&KERNEL.CLASSES) ? '總資產 · '+KERNEL.CLASSES[r.cls] : '總資產';
   const cc=$('c-cash'); if(cc)cc.innerHTML='<span>手上現金</span>'+money(r.cash);
   const ct=$('c-tilt');
   if(ct){ ct.innerHTML='<span>操作衝動</span>'+Math.round(r.tilt)+(r.tilt>=80?' 追高':r.tilt<=20?' 不敢':'');
@@ -873,6 +875,19 @@ function settle(){
   if(row.abilityParts) body+='<br><span class="s">'+Object.keys(partName).map(k=>partName[k]+' '+sgn(row.abilityParts[k]||0,2)+'%').join('　')+
     (row.lifePenalty<0?'　狀態不佳 '+sgn(row.lifePenalty,2)+'%':'')+'</span>';
   card(row.ret>=0?'good':'bad','年末結算',perf+'<br><br>'+body);
+  /* 天梯的戲劇節拍：升級是金卡，跌級是黑卡——會跌下去的階級才是階級 */
+  if(row.clsChange>0){
+    const CLS_UP=['',
+      '六百萬。營業員的稱呼從「先生」變成了「哥」。這個市場開始知道你的名字。',
+      '三千萬。你的單子開始會動到價格——從今天起，你就是別人 K 線圖裡的一部分。',
+      '一億五千萬。沒有人知道你有錢，而這正是你要的。'];
+    card('gold','你站上'+KERNEL.CLASSES[row.cls]+'了',CLS_UP[row.cls]||'');
+  }else if(row.clsChange<0){
+    const CLS_DN=['六百萬的門檻，出去比進來快得多。你重新變回市場裡的一個代號。',
+      '跌回中實戶。營業員的語氣沒有變——你聽得出來，那是專業。',
+      '從一億五跌回來。數字還是很大，但你知道少了什麼。',''];
+    card('bad','跌回'+KERNEL.CLASSES[row.cls],CLS_DN[row.cls]||'');
+  }
   if(row.form!==0){
     const hot=row.form>0;
     card(hot?'gold':'bad',hot?'手感極佳':'操作失常',(hot?
@@ -927,6 +942,7 @@ function ending(){
         tile('生活',Math.round(e.life))+
         tile('信任',Math.round(e.trust==null?50:e.trust))+
         tile('家庭',famLabel(e.love))+
+        tile('最高階級',(KERNEL.CLASSES&&KERNEL.CLASSES[e.clsMax||0])||'散戶')+
         tile('存進去',money(e.inflow))+
         tile('ETF 對照',money(e.bench))+
         tile('股利',money(e.div))+
@@ -965,7 +981,8 @@ function copyEnding(e){
   const story=(e.story||'').split('。')[0];
   const txt='【少年股神】'+(e.age||40)+' 歲結算：'+e.t+'\n'+
     '淨值 '+money(e.nav)+'｜年化 '+sgn(e.cagr)+'%｜'+(e.edge>=0?'贏過':'輸給')+' ETF '+sgn(Math.abs(e.edge))+'%\n'+
-    '生活 '+Math.round(e.life)+'・信任 '+Math.round(e.trust==null?50:e.trust)+'・家庭 '+famLabel(e.love)+'\n'+
+    '生活 '+Math.round(e.life)+'・信任 '+Math.round(e.trust==null?50:e.trust)+'・家庭 '+famLabel(e.love)+
+    (e.clsMax>0?'・最高打到 '+KERNEL.CLASSES[e.clsMax]:'')+'\n'+
     (story?'「後來」：'+story+'。\n':'')+
     '同一顆種子，你會活得比我好嗎？\n'+url;
   let ok=false;

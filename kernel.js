@@ -812,6 +812,7 @@ function newGame(seed,opts){
     inflow:0, benchSh:0,
     trust:50, fame:0, honors:[],           /* 事件卡寫得進來的三個外部狀態 */
     love:{st:'single',dyrs:0,kids:0,exes:0}, /* 感情線：狀態轉移全部由事件卡觸發 */
+    cls:0, clsMax:0,                          /* 資本階級：現在／最高到過 */
     seenEv:{}, yearEv:{}, pendEv:null, eventsLeft:0, evLog:[], riskChecked:false, riskResult:null,
     hist:[], log:[], over:false, ending:null, notes:[]
   };
@@ -2051,7 +2052,11 @@ function closeYear(g){
     else h.stage = h.streak>=3?2:1;
   });
 
+  const clsNow=clsOf(after), clsPrev=g.cls||0;
+  if(clsNow>g.clsMax) g.clsMax=clsNow;
+  g.cls=clsNow;
   const row={year:g.year, age:g.age, rg:m.rg, mkt:m.ret, nav:after, ret:rp,
+             cls:clsNow, clsChange:clsNow-clsPrev,
              tilt:g.tilt, life:g.life, blew:blew, div:divCash,
              abilityScore:perf.score, abilityPct:abilityPct, abilityBasePct:perf.pct,
              abilityGain:abilityGain, abilityParts:perf.parts, lifePenalty:perf.lifePenalty,
@@ -2097,6 +2102,11 @@ const ENDINGS=[
    終止不是懲罰，是敘事出口。素材全部來自真實案例（航海王、
    雷伯龍、Livermore、違約交割世代、存股裸辭族）。
    固定文本不抽亂數：結局那一刻不該再消耗種子流。 */
+/* 資本階級天梯（v1 的兩條階梯之一，借棒球聯盟階級的結構）。
+   會跌下去——升降級都在年末結算判定，是年循環最大的戲劇節拍。 */
+const CLASSES=['散戶','中實戶','大戶','隱形富豪'];
+function clsOf(n){ return n>=15000?3 : n>=3000?2 : n>=600?1 : 0; }
+
 const EPILOGUE={
   walkaway:'你把最後一張賣掉的那天，行情還在漲，群組裡都說你瘋了。'+
     '兩年後同學會，當年笑你的人沒有來——他抱到了最高點，也抱到了腰斬再腰斬。'+
@@ -2132,6 +2142,7 @@ function finish(g,reason){
   const bench=benchNav(g);
   g.ending={id:e.id, t:e.t, nav:n, cagr:cagr, life:g.life, tilt:g.tilt, trust:g.trust,
             love:{st:g.love.st,kids:g.love.kids,exes:g.love.exes},
+            cls:g.cls, clsMax:g.clsMax,
             blowups:g.blowups, tax:g.taxPaid, div:g.divTotal, trades:g.trades, years:yrs,
             age:g.age, endYear:2026+g.year-1,
             inflow:g.inflow, bench:bench, edge:(n/Math.max(bench,0.01)-1)*100,
@@ -2193,10 +2204,10 @@ function wrap(g){
    並同步改 index.html 的 ?v= 與 NEED_VERSION。只增不減，不對人展示。
    SEMVER（語意版本，人讀）——主.次.修：修＝文案與修補、
    次＝玩法/平衡/內容、主＝1.0 正式版。開場頁徽章顯示這個。 */
-const VERSION=49;
-const SEMVER='0.16.0';   /* 真槓桿：融資會殺人回來了 */
+const VERSION=50;
+const SEMVER='0.17.0';   /* 資本階級天梯：會跌下去的階級才是階級 */
 
-return {newGame:newGame, VERSION:VERSION, SEMVER:SEMVER, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
+return {newGame:newGame, VERSION:VERSION, SEMVER:SEMVER, CLASSES:CLASSES, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
         BEATS:BEATS, PLANS:PLANS, PLAN_K:PLAN_K, on:on, fold:fold, hb:hb, slotsAt:slotsAt, nav:nav};
 });
