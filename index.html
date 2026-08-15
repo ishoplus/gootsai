@@ -176,6 +176,11 @@ input:focus{border-color:var(--accent)}
 .card h4::before{content:'■';font-size:8px;color:currentColor}
 .card p{margin:0;font-size:13.5px;line-height:1.75}
 .card.good h4{color:var(--up)} .card.bad h4{color:var(--dn)}
+.card details.fold{margin-top:7px;border-top:1px dashed var(--edge);padding-top:6px}
+.card details.fold summary{cursor:pointer;list-style:none;color:var(--dim);
+  font:11px/1.6 var(--mono);letter-spacing:.14em}
+.card details.fold summary::before{content:'▸ ';font-size:10px}
+.card details.fold[open] summary::before{content:'▾ '}
 .card.info h4{color:var(--accent)} .card.gold h4{color:var(--gold)}
 .card .s{font-size:11.5px;color:var(--dim);font-family:var(--mono)}
 .sigline{display:flex;gap:7px;align-items:flex-start;font-size:13.5px;line-height:1.6}
@@ -293,6 +298,7 @@ svg.chart{width:100%;height:130px;display:block}
     <div id="plan-desc"></div>
   </div>
   <button class="main" id="go">開始投資人生 ▸ 十六歲開戶</button>
+  <button id="resume" style="display:none"></button>
   <details id="display-settings">
     <summary>顯示設定</summary>
     <div class="cfg"><label>佈景主題</label><div class="cfg-grid" id="cfg-theme">
@@ -352,7 +358,7 @@ svg.chart{width:100%;height:130px;display:block}
   </div>
 </div></div>
 
-<script src="kernel.js?v=52"></script>
+<script src="kernel.js?v=53"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用：呈現層一律禁止呼叫內核的亂數——
@@ -414,7 +420,7 @@ applyDisplay();
 
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源，
    直接雙擊打開會載不到內核。與其停在白畫面，不如講清楚怎麼跑。 */
-const NEED_VERSION=52;
+const NEED_VERSION=53;
 if(typeof KERNEL!=='undefined' && !(KERNEL.VERSION>=NEED_VERSION)){
   document.getElementById('start').innerHTML=
     '<h1>內核是舊的<em>STALE KERNEL '+(KERNEL.VERSION||0)+' &lt; '+NEED_VERSION+'</em></h1>'+
@@ -443,6 +449,33 @@ if(typeof KERNEL==='undefined'){
   if(vb) vb.textContent='v'+(KERNEL.SEMVER||KERNEL.VERSION);
 })();
 
+/* ---- 存檔與續玩 ----
+   架構的鐵律「同種子＋同選擇＝同人生」就是存檔格式：
+   只存種子與選擇序列（ask 答了第幾個、骰子灌了哪幾路），
+   續玩＝靜默重放一遍——訊息流、狀態、feed 全部自己長回來。
+   內核版本不合就作廢：平衡變了，同一份選擇是另一條人生。 */
+const SAVE_KEY='gootsai-run';
+let actLog=[], REPLAY=null;
+function saveRun(){
+  if(REPLAY) return;
+  try{
+    localStorage.setItem(SAVE_KEY,JSON.stringify({
+      v:KERNEL.VERSION, seed:curSeed, plan:startPlan, log:actLog,
+      yr:g?g.raw.year+1:1, age:g?g.raw.age:16}));
+  }catch(e){}
+}
+function clearRun(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} }
+function record(a){ if(REPLAY) return; actLog.push(a); saveRun(); }
+function replayNext(kind){
+  if(!REPLAY||!REPLAY.length) { REPLAY=null; return null; }
+  if(REPLAY[0].t!==kind) return null;
+  const a=REPLAY.shift();
+  if(!REPLAY.length) REPLAY=null;
+  return a;
+}
+let curSeed='', startPlan='craft';
+
+
 /* ================= 開場 ================= */
 let plan='craft';
 function renderPlans(){
@@ -463,6 +496,7 @@ $('go').onclick=()=>{
   const raw=($('seed').value||'').replace(SAFE,'').slice(0,24);
   const seed=raw||Math.random().toString(36).slice(2,10);
   try{ history.replaceState(null,'','?seed='+encodeURIComponent(seed)); }catch(e){}
+  curSeed=seed; startPlan=plan; actLog=[]; REPLAY=null; clearRun();
   g=KERNEL.newGame(seed);
   g.setPlan(plan);
   $('start').style.display='none';
@@ -475,6 +509,28 @@ $('go').onclick=()=>{
 (function(){
   const q=new URLSearchParams(location.search).get('seed');
   if(q) $('seed').value=q.replace(SAFE,'').slice(0,24);
+})();
+/* 有存檔就給「繼續上次」。內核版本不合直接作廢——
+   平衡變了，同一份選擇是另一條人生，硬接會接到鬼。 */
+(function(){
+  let sv=null;
+  try{ sv=JSON.parse(localStorage.getItem(SAVE_KEY)||'null'); }catch(e){}
+  if(!sv||sv.v!==KERNEL.VERSION||!sv.seed||!sv.log||!sv.log.length){ if(sv)clearRun(); return; }
+  const rb=$('resume');
+  if(!rb||!rb.style) return;
+  rb.innerHTML='繼續上次 ▸ '+sv.age+' 歲・第 '+sv.yr+' 年<span class="s">種子 '+esc(sv.seed)+'</span>';
+  rb.style.display='';
+  rb.onclick=()=>{
+    curSeed=sv.seed; startPlan=sv.plan; actLog=sv.log.slice(); REPLAY=sv.log.slice();
+    try{ history.replaceState(null,'','?seed='+encodeURIComponent(sv.seed)); }catch(e){}
+    g=KERNEL.newGame(sv.seed);
+    g.setPlan(sv.plan);
+    $('start').style.display='none';
+    $('game').style.display='';
+    benchHist=[]; navHist=[];
+    const f=$('feed'); if(f)f.innerHTML='';
+    nextYear();
+  };
 })();
 
 /* ================= 訊息流的積木 =================
@@ -544,16 +600,20 @@ function ask(title,body,opts){
   if(!box){ if(opts[0])opts[0].f(); return; }
   box.innerHTML=opts.map(o=>'<button class="'+(o.main?'main':o.warn?'warn':'')+'">'+esc(o.t)+
     (o.s?'<span class="s">'+o.s+'</span>':'')+'</button>').join('');
+  const rp=replayNext('a');
+  if(rp&&opts[rp.i]){ setTimeout(()=>opts[rp.i].f(),0); return; }
   box.querySelectorAll('button').forEach((b,i)=>{
-    b.onclick=()=>{ if(!opts[i])return; dockClear(); opts[i].f(); };
+    b.onclick=()=>{ if(!opts[i])return; record({t:'a',i:i}); dockClear(); opts[i].f(); };
   });
   scrollEnd();
 }
 
+const EVGATE=['市場事件','今年發生了一件事','有事找上門了','市場又有動靜'];
 /* ---- 階段閘門（借 YaKyoLife 的 choose('▸ 下一階段') 模式）----
    每個階段之間放一顆寫著「接下來是什麼」的確認鈕，
    結果在你按下去之前不揭曉。放在輸入面板裡，按掉就換下一題。 */
 function gate(label,f){
+  if(REPLAY){ setTimeout(f,0); return; }   /* 閘門不是選擇，重放時直接過 */
   const box=dockOpen('　',null);
   if(!box){ f(); return; }
   const b=document.createElement('button');
@@ -581,8 +641,10 @@ function paint(){
   if(hc) hc.textContent = (r.cls>0&&KERNEL.CLASSES) ? '總資產 · '+KERNEL.CLASSES[r.cls] : '總資產';
   const cc=$('c-cash'); if(cc)cc.innerHTML='<span>手上現金</span>'+money(r.cash);
   const ct=$('c-tilt');
-  if(ct){ ct.innerHTML='<span>操作衝動</span>'+Math.round(r.tilt)+(r.tilt>=80?' 追高':r.tilt<=20?' 不敢':'');
-    ct.className='chip'+(r.tilt>=80||r.tilt<=20?' warn':''); }
+  if(ct){ const tv=Math.round(r.tilt);
+    const tw=tv>=80?'追高':tv>=65?'過熱':tv>=35?'適中':tv>20?'偏冷':'不敢';
+    ct.innerHTML='<span>操作衝動</span>'+tv+' '+tw;
+    ct.className='chip'+(tv>=80||tv<=20?' warn':''); }
   const cl=$('c-life');
   if(cl){ cl.innerHTML='<span>生活狀態</span>'+Math.round(r.life)+(r.life<=30?' 撐不住':'');
     cl.className='chip'+(r.life<=30?' warn':''); }
@@ -700,6 +762,14 @@ function allocCard(){
   const r=g.raw;
   const free=[]; for(let i=0;i<r.dieUsed.length;i++) if(!r.dieUsed[i]) free.push(i);
   const alloc=[];        /* [{row, points, dieIdx}] 依骰子順序 */
+  const rp=replayNext('d');
+  if(rp){
+    rp.rows.forEach(row=>{
+      const dieIdx=free[alloc.length];
+      if(dieIdx!=null) alloc.push({row:row,points:r.dice[dieIdx],dieIdx:dieIdx});
+    });
+    setTimeout(confirm,0); return;
+  }
   const box=dockOpen('年初規劃 · '+r.age+' 歲','alloc');
   if(!box)return;
   const q=document.createElement('div');
@@ -756,6 +826,7 @@ function allocCard(){
     });
   }
   function confirm(){
+    record({t:'d',rows:alloc.map(a=>a.row)});
     dockClear();
     const grown=[];
     ROWS.forEach(x=>{
@@ -773,8 +844,8 @@ function allocCard(){
     if(g.raw.apLeft>0) g.skipRest();
     /* beginEvent 照原本的順序呼叫（內核狀態推進），
        但事件內容等玩家按了閘門才揭曉 */
-    if(g.beginEvent()) gate('市場事件',eventStep);
-    else gate('投資風險檢查',riskStep);
+    if(g.beginEvent()) gate(EVGATE[g.raw.year%EVGATE.length],eventStep);
+    else gate('結算這一年（'+g.raw.age+' 歲）',riskStep);
   }
   render();
   scrollEnd();
@@ -811,7 +882,7 @@ function eventStep(){
       }
       paint();
       if(g.event()) gate('下一個市場事件',eventStep);
-      else gate('投資風險檢查',riskStep);
+      else gate('結算這一年（'+g.raw.age+' 歲）',riskStep);
     }
   })));
 }
@@ -829,7 +900,7 @@ function riskStep(){
     paint();
   }
   const w=g.midWindow();
-  if(w) midAsk(w); else gate('年末結算',settle);
+  if(w) midAsk(w); else settle();
 }
 function midAsk(w){
   const crash=w.kind==='crash';
@@ -850,7 +921,7 @@ function midAsk(w){
       else if(o.id==='take') card('good','年中','獲利了結一半。');
       else card('','年中','你什麼都沒做。');
       paint();
-      gate('年末結算',settle);
+      settle();
     }
   })));
 }
@@ -881,7 +952,12 @@ function settle(){
   const partName={invest:'投資',research:'研究',habit:'紀律',life:'生活',funds:'資金'};
   if(row.abilityParts) body+='<br><span class="s">'+Object.keys(partName).map(k=>partName[k]+' '+sgn(row.abilityParts[k]||0,2)+'%').join('　')+
     (row.lifePenalty<0?'　狀態不佳 '+sgn(row.lifePenalty,2)+'%':'')+'</span>';
-  card(row.ret>=0?'good':'bad','年末結算',perf+'<br><br>'+body);
+  /* 普通玩家只看三個數字：大盤、我、總資產。其餘全部摺起來 */
+  card(row.ret>=0?'good':'bad','年末結算',
+    perf+'<br>年末總資產 <b class="hl">'+money(row.nav)+'</b>'+
+    (row.blew?'<br><b class="dn">維持率跌破 130%，被強制平倉。</b>':'')+
+    (row.div>0.05?'<br>股利入袋 <b class="up">'+money(row.div)+'</b>':'')+
+    '<details class="fold"><summary>看拆解</summary><p>'+body+'</p></details>');
   /* 天梯的戲劇節拍：升級是金卡，跌級是黑卡——會跌下去的階級才是階級 */
   if(row.clsChange>0){
     const CLS_UP=['',
@@ -963,6 +1039,7 @@ function ending(){
      終止不是懲罰，是敘事出口。 */
   if(e.story) card('info','後來',esc(e.story));
   track('end-'+e.id);
+  clearRun();   /* 走完了，存檔功成身退 */
   endAsk(e);
   paint();
 }

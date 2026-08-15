@@ -2248,8 +2248,8 @@ function wrap(g){
    並同步改 index.html 的 ?v= 與 NEED_VERSION。只增不減，不對人展示。
    SEMVER（語意版本，人讀）——主.次.修：修＝文案與修補、
    次＝玩法/平衡/內容、主＝1.0 正式版。開場頁徽章顯示這個。 */
-const VERSION=52;
-const SEMVER='0.18.0';   /* 後續卡鏈：僥倖的代價會長大 */
+const VERSION=53;
+const SEMVER='0.19.0';   /* 玩家體驗四修：存檔續玩、結算摺疊、閘門合併、衝動狀態字 */
 
 return {newGame:newGame, VERSION:VERSION, SEMVER:SEMVER, CLASSES:CLASSES, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
