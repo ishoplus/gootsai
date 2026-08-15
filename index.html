@@ -8,8 +8,8 @@
   script-src 'self' 'unsafe-inline';
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src https://fonts.gstatic.com;
-  img-src 'self' data:;
-  connect-src 'self';
+  img-src 'self' data: https://*.goatcounter.com;
+  connect-src 'self' https://*.goatcounter.com;
   base-uri 'none';
   form-action 'none'">
 <title>少年股神 · 股市人生模擬器</title>
@@ -352,7 +352,7 @@ svg.chart{width:100%;height:130px;display:block}
   </div>
 </div></div>
 
-<script src="kernel.js?v=43"></script>
+<script src="kernel.js?v=44"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用：呈現層一律禁止呼叫內核的亂數——
@@ -367,6 +367,23 @@ function facts(s){
     return '<b class="num'+c+'">'+n+'</b>';
   });
 }
+/* ---- 埋點（GoatCounter）----
+   GC_CODE 留空＝整段完全不動作，不發出任何請求。
+   註冊 goatcounter.com 站台代碼後填入即可收數據：
+   start-<風格>、end-<結局>、share 三個事件，加上瀏覽數。 */
+const GC_CODE='';
+function track(ev){
+  if(!GC_CODE || location.protocol==='file:') return;
+  try{
+    const i=document.createElement('img');
+    i.src='https://'+GC_CODE+'.goatcounter.com/count?p='+encodeURIComponent('/'+(ev||''))+
+          '&t='+encodeURIComponent(ev||'view');
+    i.style.display='none';
+    if(document.body&&document.body.appendChild) document.body.appendChild(i);
+  }catch(e){}
+}
+track('');
+
 function money(v){
   const a=Math.abs(v);
   if(a>=10000) return (v/10000).toFixed(2)+'億';
@@ -394,7 +411,7 @@ applyDisplay();
 
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源，
    直接雙擊打開會載不到內核。與其停在白畫面，不如講清楚怎麼跑。 */
-const NEED_VERSION=43;
+const NEED_VERSION=44;
 if(typeof KERNEL!=='undefined' && !(KERNEL.VERSION>=NEED_VERSION)){
   document.getElementById('start').innerHTML=
     '<h1>內核是舊的<em>STALE KERNEL '+(KERNEL.VERSION||0)+' &lt; '+NEED_VERSION+'</em></h1>'+
@@ -447,6 +464,7 @@ $('go').onclick=()=>{
   g.setPlan(plan);
   $('start').style.display='none';
   $('game').style.display='';
+  track('start-'+plan);
   benchHist=[]; navHist=[];
   const f=$('feed'); if(f)f.innerHTML='';
   nextYear();
@@ -905,11 +923,7 @@ function ending(){
         tile('贏過 ETF',sgn(e.edge)+'%',e.edge>=0?'up':'dn')+
         tile('生活',Math.round(e.life))+
         tile('信任',Math.round(e.trust==null?50:e.trust))+
-        tile('家庭',(function(L){ if(!L)return '—';
-          if(L.st==='married')return '已婚'+(L.kids?'·'+L.kids+'孩':'');
-          if(L.st==='dating')return '交往中';
-          if(L.exes&&L.kids)return '離婚·'+L.kids+'孩';
-          return L.exes?'分過手':'單身'; })(e.love))+
+        tile('家庭',famLabel(e.love))+
         tile('存進去',money(e.inflow))+
         tile('ETF 對照',money(e.bench))+
         tile('股利',money(e.div))+
@@ -922,11 +936,42 @@ function ending(){
   /* 「後來」：每個結局的第二人生（素材來自真實案例）。
      終止不是懲罰，是敘事出口。 */
   if(e.story) card('info','後來',esc(e.story));
+  track('end-'+e.id);
+  endAsk(e);
+  paint();
+}
+function famLabel(L){
+  if(!L) return '—';
+  if(L.st==='married') return '已婚'+(L.kids?'·'+L.kids+'孩':'');
+  if(L.st==='dating') return '交往中';
+  if(L.exes&&L.kids) return '離婚·'+L.kids+'孩';
+  return L.exes?'分過手':'單身';
+}
+/* ---- 分享結局：病毒的載體是玩家貼出去的那段文字 ----
+   帶種子連結＝隱形戰帖：對方點開就是同一顆種子，「你會活得比我好嗎」。 */
+function endAsk(e){
   ask('投資 '+e.years+' 年，結束了','',[
-    {t:'再玩一次（同一顆種子）',main:1,f:()=>location.reload()},
+    {t:'複製結局，貼去嗆人',main:1,f:()=>{ copyEnding(e); endAsk(e); }},
+    {t:'再玩一次（同一顆種子）',f:()=>location.reload()},
     {t:'換一顆種子',f:()=>{ location.href=location.pathname; }}
   ]);
-  paint();
+}
+function copyEnding(e){
+  const seed=new URLSearchParams(location.search).get('seed')||'';
+  const url=location.origin+location.pathname+(seed?'?seed='+encodeURIComponent(seed):'');
+  const story=(e.story||'').split('。')[0];
+  const txt='【少年股神】'+(e.age||40)+' 歲結算：'+e.t+'\n'+
+    '淨值 '+money(e.nav)+'｜年化 '+sgn(e.cagr)+'%｜'+(e.edge>=0?'贏過':'輸給')+' ETF '+sgn(Math.abs(e.edge))+'%\n'+
+    '生活 '+Math.round(e.life)+'・信任 '+Math.round(e.trust==null?50:e.trust)+'・家庭 '+famLabel(e.love)+'\n'+
+    (story?'「後來」：'+story+'。\n':'')+
+    '同一顆種子，你會活得比我好嗎？\n'+url;
+  let ok=false;
+  try{
+    if(navigator.clipboard&&navigator.clipboard.writeText){ navigator.clipboard.writeText(txt); ok=true; }
+  }catch(err){}
+  track('share');
+  card('info',ok?'已複製，拿去吧':'手動複製這段',
+    esc(txt).replace(/\n/g,'<br>'));
 }
 </script>
 </body>

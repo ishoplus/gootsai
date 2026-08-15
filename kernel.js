@@ -2108,8 +2108,8 @@ function wrap(g){
    並同步改 index.html 的 ?v= 與 NEED_VERSION。只增不減，不對人展示。
    SEMVER（語意版本，人讀）——主.次.修：修＝文案與修補、
    次＝玩法/平衡/內容、主＝1.0 正式版。開場頁徽章顯示這個。 */
-const VERSION=43;
-const SEMVER='0.10.0';   /* 新內容：外遇線 */
+const VERSION=44;
+const SEMVER='0.11.0';   /* 分享結局＋埋點基建 */
 
 return {newGame:newGame, VERSION:VERSION, SEMVER:SEMVER, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
