@@ -648,6 +648,39 @@ const EVENTS=[
    bt:'會員賠錢之後，把對話紀錄全數公開。「三七分」那句截圖，傳得比你任何一次分析都遠。'}
  ]},
 
+/* ---- 後續卡鏈：僥倖的代價會長大 ---- */
+{n:'他又來了，這次金額更大',stg:'*',once:1,
+ after:{card:'他說想借你的證券戶',opt:'答應——躺著賺三千',ok:true},
+ d:'上次的三千變成一萬五。「加開兩個戶，這次有大的。」他說得像在談加薪。',
+ o:[
+  {t:'收手，把戶頭全部解掉', g:{life:3,mood:-3,hab:{quiet:2}},
+   gt:'你把那個戶頭清空註銷，他罵了很難聽的話。三個月後那檔股票上了新聞——收網的時候，你的名字不在裡面。'},
+  {t:'最後一次', p:35, g:{nav:6,mood:5},
+   gt:'又過了一關。你跟自己說這真的是最後一次——這句話你上次也說過。',
+   b:{nav:-20,trust:-15,life:-6,mood:-10},
+   bt:'「最後一次」的意思是被抓的那一次。加重的不只金額，還有罪名——累犯的筆錄寫得特別長。'},
+  {t:'反過來抽成——我要三成', p:25, g:{nav:14,mood:8},
+   gt:'你從人頭變成了合夥人。錢多了五倍，睡眠少了一半。',
+   b:{nav:-28,trust:-20,life:-8,mood:-12},
+   bt:'合夥人的意思是主嫌之一。這次不是幫助犯了。'}
+ ]},
+
+{n:'掛號信：發文機關「金融監督管理委員會」',stg:'pro',once:1,
+ after:{card:'有團隊想跟你「合作」',opt:'簽了——七位數誰不要',ok:true},
+ d:'非法投顧的檢舉函。檢舉你的不是賠錢的會員——是賺了錢、但覺得分潤不公的那個。',
+ o:[
+  {t:'找律師，全面配合', g:{nav:-8,trust:5,life:-3},
+   gt:'罰鍰繳了，課程下架。律師說你運氣好，早半年來函就不是罰鍰是起訴。你把律師費記在「學費」那一欄。'},
+  {t:'切割——「都是團隊做的」', p:40, g:{mood:3},
+   gt:'你的名字從文宣上消失得比出現時還快。團隊扛下去了，但這個圈子記得你切割的速度。',
+   b:{trust:-18,life:-4,mood:-8},
+   bt:'對話紀錄裡「三七分」三個字是你打的。切割失敗的樣子，比認錯難看十倍。'},
+  {t:'不理它', p:30, g:{mood:6},
+   gt:'函文石沉大海——這次。你把它收進抽屜，跟融資單放在一起。',
+   b:{nav:-16,trust:-12,life:-5,mood:-9},
+   bt:'第二封不是函，是傳票。'}
+ ]},
+
 /* ---- 時事原型三部曲：引用現象，不引用日期——
    ETF 開募之亂（婆媽排隊）、幣圈朋友（跨資產誘惑）、
    新高恐懼（空手等崩盤的機會成本）。 */
@@ -1286,6 +1319,14 @@ function drawEvent(g){
     /* once：一生只發生一次的卡。seenEv 一直有在記，只是從來沒人讀——
        「第一次開融資」不該有第三次，「那天」不該每隔幾年再來一天。 */
     if(e.once && g.seenEv[e.n]) return false;
+    /* after：後續卡鏈。前置卡要發生過，且（可選）指定選項與成敗——
+       僥倖的代價會長大，這裡是它長大的地方。 */
+    if(e.after){
+      const pv=g.seenEv[e.after.card];
+      if(!pv) return false;
+      if(e.after.opt && pv.opt!==e.after.opt) return false;
+      if(e.after.ok!=null && pv.ok!==e.after.ok) return false;
+    }
     if(e.stg!=='*' && e.stg!==stg) return false;
     if(e.block && hb(g,e.block)>0) return false;     /* 退了群就不會有人報明牌給你 */
     if(e.minAge && g.age<e.minAge) return false;
@@ -1374,7 +1415,7 @@ function answerEvent(g,i){
   const eff = applyFx(g,fx, o.p==null);   /* 不擲骰的＝生活現金流，對照組跟著付 */
   if(ok && o.fame) g.fame++;
   if(!ok && o.honor) g.honors.push(o.honor);
-  g.seenEv[e.n]=1;
+  g.seenEv[e.n]={opt:o.t,ok:ok};   /* 記你選了什麼、成敗如何——後續卡鏈靠這個 */
   g.yearEv[e.n]=1;
   g.eventsLeft=Math.max(0,(g.eventsLeft||1)-1);
   g.pendEv=g.eventsLeft>0?drawEvent(g):null;
@@ -2207,8 +2248,8 @@ function wrap(g){
    並同步改 index.html 的 ?v= 與 NEED_VERSION。只增不減，不對人展示。
    SEMVER（語意版本，人讀）——主.次.修：修＝文案與修補、
    次＝玩法/平衡/內容、主＝1.0 正式版。開場頁徽章顯示這個。 */
-const VERSION=51;
-const SEMVER='0.17.1';   /* once 卡：「第一次」不該有第三次 */
+const VERSION=52;
+const SEMVER='0.18.0';   /* 後續卡鏈：僥倖的代價會長大 */
 
 return {newGame:newGame, VERSION:VERSION, SEMVER:SEMVER, CLASSES:CLASSES, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
