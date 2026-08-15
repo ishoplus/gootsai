@@ -1,10 +1,14 @@
 /* ================================================================
-   內核 v2 · 平衡模擬器
+   內核 v33 · 平衡模擬器（配點制）
 
    跑 N 局 × 數種策略，回答三個問題：
      1. 有沒有支配策略？（任何一種打爆其他所有種，遊戲就不用玩了）
      2. 隨機性夠不夠寬？（同一種策略的 p10 與 p90 差多少）
      3. 破產與人垮掉的比例合不合理？
+
+   v19 之後玩法換成配點制：投資由 autoAllocate 自動執行，
+   玩家的決策面是「骰子灌哪五路、事件怎麼答、年中怎麼應對、
+   年末方針、要不要收手」。策略照這個面寫，舊的手動買賣策略全部作廢。
 
    策略一律不呼叫內核的亂數，只讀狀態——否則會偷走種子流，結果不可比。
 
@@ -13,28 +17,10 @@
 'use strict';
 const K=require('./kernel.js');
 
-/* ---- 讀訊號的正確方式：貝氏後驗 ----
-   訊號牌的權重表就是似然。玩家跨局學得會的東西，這裡直接算出來當上限對照組。 */
-const RGS=['boom','bull','chop','bear','crash'];
-const PRIOR={boom:0.13,bull:0.27,chop:0.30,bear:0.20,crash:0.10};
-const MID={}; RGS.forEach(r=>{ const x=K.REGIME[r]; MID[r]=(x.lo+x.hi)/2; });
-const SIGW={}; K.SIGNALS.forEach(s=>{ SIGW[s.id]=s.w; });
-
-function expectMkt(signals){
-  const post={}; let tot=0;
-  RGS.forEach(r=>{
-    let p=PRIOR[r];
-    signals.forEach(s=>{ const w=SIGW[s.id]; if(w) p*=Math.max(w[r],K.SIG_FLOOR); });
-    post[r]=p; tot+=p;
-  });
-  let e=0; RGS.forEach(r=>{ e+=(post[r]/tot)*MID[r]; });
-  return e;
-}
-
 /* ---- 事件卡 ----
-   策略不能自己擲骰（會偷走種子流），所以選項是用固定規則挑的：
-   safe 永遠挑第一個（那幾乎都是不賭的那個），bold 永遠挑最後一個（那幾乎都是賭最大的）。
-   這剛好量到兩端：「事件卡從不冒險」與「事件卡每次都梭」各自的下場。 */
+   策略不能自己擲骰（會偷走種子流），選項用固定規則挑：
+   safe 挑第一個（幾乎都是最保守的），bold 挑最後一個（幾乎都是賭最大的）。
+   量到兩端：「從不冒險」與「每次都梭」各自的下場。 */
 function answerCard(g,mode){
   const e=g.event();
   if(!e || !e.opts.length) return;
@@ -44,103 +30,99 @@ function answerCard(g,mode){
   g.answerEvent(i);
 }
 
-/* ---- 把剩下的行動點花掉：先養習慣、生活撐不住就顧生活，再不然加班 ---- */
-function spendRest(g,plan){
-  let guard=0;
-  while(g.raw.apLeft>0 && guard++<12){
-    const mv=g.moves();
-    let done=false;
-    for(const k of plan){
-      const m=mv.find(x=>x.id==='habit:'+k);
-      const h=g.raw.habits[k];
-      if(m && !(h&&h.fed===g.raw.year)){ g.play(m.id); done=true; break; }
-    }
-    if(done) continue;
-    if(g.raw.life<60 && mv.some(x=>x.id==='life')){ g.play('life'); continue; }
-    const sc=mv.find(x=>x.kind==='scout');
-    if(sc){ g.play(sc.id); continue; }
-    if(mv.some(x=>x.id==='work')){ g.play('work'); continue; }
-    break;
-  }
-}
-function sellAll(g){
-  let guard=0;
-  while(guard++<14){
-    const m=g.moves().find(x=>x.kind==='sell');
-    if(!m||g.raw.apLeft<=0) break;
-    g.play(m.id,{frac:1.0});
-  }
-}
-function buyAll(g,id){
-  const m=g.moves().find(x=>x.id==='buy:'+id);
-  if(m) g.play(m.id,{frac:1.0});
+/* ---- 配點工具 ---- */
+const ROWS5=['invest','research','habit','life','funds'];
+const statOf=(g,r)=>(g.raw.allocStats&&g.raw.allocStats[r])||0;
+const notCap=(g,r)=>statOf(g,r)<80;
+const firstOk=(g,pref)=>{ for(const r of pref) if(notCap(g,r)) return r; return null; };
+/* 天賦缺口最大的那一路（沒封頂的裡面挑 cap−stat 最大） */
+function gapMax(g){
+  const caps=g.raw.allocCaps||{};
+  let best=null, bestGap=-1;
+  ROWS5.forEach(r=>{
+    if(!notCap(g,r)) return;
+    const gap=(caps[r]||80)-statOf(g,r);
+    if(gap>bestGap){ bestGap=gap; best=r; }
+  });
+  return best;
 }
 
-/* ================= 策略 ================= */
+/* ================= 策略 =================
+   alloc(g,idx,val) 回傳這顆骰子要灌哪一路；
+   ev  = 事件卡風格（safe/mid/bold）
+   mid = 年中窗口（回傳 option id，找不到就用第一個）
+   plan = 年末方針；walk = 達標就收手 */
 const POLICIES={
-  '空手':{plan:['gym','family','read'],career:'job',ev:'safe',
-    act(){}, mid(){ return 'hold'; }},
+  '全灌投資':{plan:'craft',ev:'safe',
+    alloc:g=>firstOk(g,['invest','research','funds','habit','life']),
+    mid:()=>'hold'},
 
-  '市值型 ETF 抱到底':{plan:['dca','read','gym','family'],career:'job',ev:'safe',
-    act(g){ buyAll(g,'wide'); }, mid(){ return 'hold'; }},
+  '全灌生活':{plan:'life',ev:'safe',
+    alloc:g=>firstOk(g,['life','habit','funds','research','invest']),
+    mid:()=>'hold'},
 
-  '高股息存股':{plan:['dca','gym','family','cash'],career:'job',ev:'safe',
-    act(g){ buyAll(g,'div'); }, mid(){ return 'hold'; }},
+  '平均輪流':{plan:'craft',ev:'mid',
+    alloc:(g,idx)=>{ const r=ROWS5[idx%5]; return notCap(g,r)?r:firstOk(g,ROWS5); },
+    mid:w=>w.kind==='crash'?'hold':'hold'},
 
-  '每年追當紅題材':{plan:['read','gym','family'],career:'job',ev:'bold',
-    act(g){
-      const want='th_'+g.raw.hotGuess;
-      const held=Object.keys(g.raw.book);
-      if(held.length===1 && held[0]===want){ buyAll(g,want); return; }
-      sellAll(g); buyAll(g,want);
-    },
-    mid(w){ return w.kind==='crash'?'cut':'take'; }},
+  '天賦缺口優先':{plan:'craft',ev:'mid',
+    alloc:g=>gapMax(g),
+    mid:w=>w.kind==='crash'?'hold':'take'},
 
-  '融資追題材':{plan:['read','gym'],career:'job',ev:'bold',
-    act(g){
-      const want='th_'+g.raw.hotGuess;
-      const held=Object.keys(g.raw.book);
-      if(!(held.length===1&&held[0]===want)) { sellAll(g); }
-      const m=g.moves().find(x=>x.id==='margin:'+want);
-      if(m) g.play(m.id); else buyAll(g,want);
-    },
-    mid(w){ return w.kind==='crash'?'cut':'hold'; }},
+  '投資研究對半':{plan:'craft',ev:'mid',
+    alloc:(g,idx)=>firstOk(g, idx%2 ? ['research','invest','funds','habit','life']
+                                    : ['invest','research','funds','habit','life']),
+    mid:w=>w.kind==='crash'?'cut':'take'},
 
-  '讀訊號配置':{plan:['read','stop','gym','family','log'],career:'job',ev:'mid',
-    act(g){
-      const e=expectMkt(g.raw.signals);
-      const want = e>=22 ? 'lead' : e>=8 ? 'wide' : e>=0 ? 'div' : 'bond';
-      const held=Object.keys(g.raw.book);
-      if(held.length===1 && held[0]===want){ buyAll(g,want); return; }
-      sellAll(g); buyAll(g,want);
-    },
-    mid(w){ return w.kind==='crash'?'cut':'take'; }},
+  '紀律資金流':{plan:'safe',ev:'safe',
+    alloc:(g,idx)=>firstOk(g, idx%2 ? ['funds','habit','life','invest','research']
+                                    : ['habit','funds','life','invest','research']),
+    mid:()=>'hold'},
 
-  '讀訊號＋看對才追題材':{plan:['read','stop','gym','family','log'],career:'job',ev:'mid',
-    act(g){
-      const e=expectMkt(g.raw.signals);
-      const want = e>=25 ? 'th_'+g.raw.hotGuess : e>=8 ? 'wide' : e>=0 ? 'div' : 'bond';
-      const held=Object.keys(g.raw.book);
-      if(held.length===1 && held[0]===want){ buyAll(g,want); return; }
-      sellAll(g); buyAll(g,want);
-    },
-    mid(w){ return w.kind==='crash'?'cut':'take'; }}
+  '事件全梭（平均輪流）':{plan:'craft',ev:'bold',
+    alloc:(g,idx)=>{ const r=ROWS5[idx%5]; return notCap(g,r)?r:firstOk(g,ROWS5); },
+    mid:w=>w.kind==='crash'?'add':'add'},
+
+  '達標就收手':{plan:'craft',ev:'mid',walk:true,
+    alloc:(g,idx)=>{ const r=ROWS5[idx%5]; return notCap(g,r)?r:firstOk(g,ROWS5); },
+    mid:w=>w.kind==='crash'?'hold':'take'}
 };
 
-/* ================= 跑一局 ================= */
+/* ================= 跑一局 =================
+   內核呼叫順序照 play.html 的年循環：
+   openYear → deferEvent → addAlloc×n → autoAllocate → skipRest →
+   beginEvent → answerEvent×n → riskCheck → midWindow/playMid → closeYear。
+   順序動一格，同一顆種子就是另一條人生。 */
 function run(seed,P){
   const g=K.newGame(seed);
+  g.setPlan(P.plan||'craft');
   let guard=0;
   while(!g.over && guard++<40){
-    if(16+g.raw.year===22) g.career(P.career);
-    g.openYear();
-    answerCard(g,P.ev);
-    P.act(g);
-    spendRest(g,P.plan);
-    P.act(g);            /* 掃一次剩下的現金——加班賺到的錢不該在帳上躺一整年 */
+    if(16+g.raw.year===22 && !g.raw.careerSet){ g.raw.careerSet=1; g.career(P.career||'job'); }
+    if(!g.openYear()) break;
+    g.deferEvent();
+    /* 配點：把每顆沒被手癢用掉的骰子灌進策略指定的那一路 */
+    const r=g.raw, put={};
+    let free=0;
+    for(let i=0;i<r.dice.length;i++){
+      if(r.dieUsed[i]) continue;
+      const row=P.alloc(g,free,r.dice[i]);
+      if(row) put[row]=(put[row]||0)+r.dice[i];
+      free++;
+    }
+    for(const k in put) g.addAlloc(k,put[k]);
+    g.autoAllocate();
+    if(g.raw.apLeft>0) g.skipRest();
+    if(g.beginEvent()){ let gd=0; while(g.event()&&gd++<9) answerCard(g,P.ev||'safe'); }
+    g.riskCheck();
     const w=g.midWindow();
-    if(w) g.playMid(P.mid(w,g));
+    if(w){
+      const want=P.mid?P.mid(w,g):'hold';
+      const opt=w.options.find(o=>o.id===want)||w.options[0];
+      if(opt) g.playMid(opt.id);
+    }
     g.closeYear();
+    if(P.walk && !g.over && g.canWalkaway()) g.walkaway();
   }
   return g.ending;
 }
@@ -177,39 +159,43 @@ const seeds=[]; for(let i=0;i<N;i++) seeds.push('sim-'+i);
 const rows=[];
 for(const name in POLICIES){
   const P=POLICIES[name];
-  const navs=[], edges=[];
-  let ruin=0, burn=0, blow=0, tax=0, trades=0, beat=0, inflow=0;
+  const navs=[], edges=[], lifes=[];
+  let ruin=0, burn=0, blow=0, walk=0, tax=0, trades=0, beat=0, inflow=0;
   seeds.forEach(s=>{
     const e=run(s,P);
-    navs.push(e.nav); edges.push(e.edge);
-    if(e.id==='ruin') ruin++;
+    navs.push(e.nav); edges.push(e.edge); lifes.push(e.life);
+    if(e.id==='ruin'||e.id==='default') ruin++;
     if(e.id==='burnout') burn++;
+    if(e.id==='walkaway') walk++;
     if(e.blowups>0) blow++;
     if(e.nav>e.bench) beat++;
     tax+=e.tax; trades+=e.trades; inflow+=e.inflow;
   });
-  navs.sort((a,b)=>a-b); edges.sort((a,b)=>a-b);
+  navs.sort((a,b)=>a-b); edges.sort((a,b)=>a-b); lifes.sort((a,b)=>a-b);
   rows.push({name:name, p10:pct(navs,0.10), p50:pct(navs,0.50), p90:pct(navs,0.90),
     edge:pct(edges,0.50), beat:beat/N*100, ruin:ruin/N*100, burn:burn/N*100,
-    blow:blow/N*100, tax:tax/N, trades:trades/N, inflow:inflow/N});
+    blow:blow/N*100, walk:walk/N*100, life:pct(lifes,0.50), inflow:inflow/N});
 }
 
 const pad=(s,n)=>{ let w=0; for(const c of String(s)) w+= c.charCodeAt(0)>0x2000?2:1; return String(s)+' '.repeat(Math.max(0,n-w)); };
 console.log('投入本金中位數約 '+money(rows[0].inflow)+'（二十五年存下來的錢）');
 console.log('對照組＝一模一樣的每一筆錢、同一時點全部買市值型 ETF 並把股利再投入\n');
-console.log(pad('策略',26)+pad('p10',10)+pad('中位數',11)+pad('p90',11)+
-            pad('贏對照組',11)+pad('勝率',8)+pad('歸零',7)+pad('垮掉',7)+pad('斷頭',7)+pad('稅費',9)+'交易');
-console.log('─'.repeat(118));
+console.log(pad('策略',24)+pad('p10',10)+pad('中位數',11)+pad('p90',11)+
+            pad('贏對照組',11)+pad('勝率',8)+pad('歸零',7)+pad('垮掉',7)+pad('斷頭',7)+pad('收手',7)+'生活');
+console.log('─'.repeat(112));
 rows.forEach(r=>{
-  console.log(pad(r.name,26)+pad(money(r.p10),10)+pad(money(r.p50),11)+pad(money(r.p90),11)+
+  console.log(pad(r.name,24)+pad(money(r.p10),10)+pad(money(r.p50),11)+pad(money(r.p90),11)+
     pad((r.edge>=0?'+':'')+r.edge.toFixed(1)+'%',11)+pad(r.beat.toFixed(0)+'%',8)+
     pad(r.ruin.toFixed(1)+'%',7)+pad(r.burn.toFixed(1)+'%',7)+
-    pad(r.blow.toFixed(1)+'%',7)+pad(money(r.tax),9)+r.trades.toFixed(0));
+    pad(r.blow.toFixed(1)+'%',7)+pad(r.walk.toFixed(0)+'%',7)+Math.round(r.life));
 });
 
-/* ---- 判定 ---- */
+/* ---- 判定 ----
+   「達標就收手」提前離場，淨值天生比較低——它量的是收手值多少生活，
+   不參與支配策略的比較。 */
 console.log('');
-const sorted=rows.slice().sort((a,b)=>b.p50-a.p50);
+const contest=rows.filter(r=>r.name!=='達標就收手');
+const sorted=contest.slice().sort((a,b)=>b.p50-a.p50);
 const best=sorted[0], second=sorted[1];
 const ratio=best.p50/Math.max(second.p50,0.01);
 console.log('最強：'+best.name+'　中位數是第二名（'+second.name+'）的 '+ratio.toFixed(2)+' 倍');
