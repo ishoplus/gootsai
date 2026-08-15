@@ -580,7 +580,9 @@ const EVENTS=[
    b:{nav:-20,life:-4,mood:-11}, bt:'升息那年你才知道，兩邊都要的意思是兩邊都撐。'}
  ]},
 
-{n:'有人要把錢交給你',stg:'pro',minNav:600,
+/* trustMin:50＝初始值。不是「賺到信任才解鎖」，是「敗過信用就不會遇到」——
+   吹牛、亂發對帳單、割過朋友的人，沒有人會說「我信得過你」。 */
+{n:'有人要把錢交給你',stg:'pro',minNav:600,trustMin:50,
  d:'不是家人，是一個認識很久、但從來沒談過錢的朋友。他說他信得過你。',
  o:[
   {t:'婉拒', g:{mood:4,life:2},
@@ -1099,6 +1101,8 @@ function drawEvent(g){
     if(e.minAge && g.age<e.minAge) return false;
     if(e.minNav && n<e.minNav) return false;
     if(e.need_job && g.career!=='job') return false;
+    /* 信任閘門：敗過信用的人，某些事就不會發生在他身上 */
+    if(e.trustMin!=null && g.trust<e.trustMin) return false;
     return true;
   });
   if(!pool.length) return null;
@@ -1920,7 +1924,7 @@ function finish(g,reason){
   const x={reason:reason, nav:n, life:g.life, tilt:g.tilt, cagr:cagr, blowups:g.blowups};
   const e=ENDINGS.find(function(E){return E.c(x);});
   const bench=benchNav(g);
-  g.ending={id:e.id, t:e.t, nav:n, cagr:cagr, life:g.life, tilt:g.tilt,
+  g.ending={id:e.id, t:e.t, nav:n, cagr:cagr, life:g.life, tilt:g.tilt, trust:g.trust,
             blowups:g.blowups, tax:g.taxPaid, div:g.divTotal, trades:g.trades, years:yrs,
             age:g.age, endYear:2026+g.year-1,
             inflow:g.inflow, bench:bench, edge:(n/Math.max(bench,0.01)-1)*100,
@@ -1979,7 +1983,7 @@ function wrap(g){
 
 /* 頁面用這個數字確認自己拿到的不是快取裡的舊內核。
    改了對外介面就 +1，並同步改 play.html 的 ?v= 與 NEED_VERSION。 */
-const VERSION=38;
+const VERSION=39;
 
 return {newGame:newGame, VERSION:VERSION, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
