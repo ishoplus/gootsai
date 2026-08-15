@@ -893,7 +893,7 @@ function openYear(g){
   let inc;
   if(g.age<19) inc=g.ri(1,3);
   else if(g.age<22) inc=g.ri(4,9);
-  else if(g.career==='pro') inc=0;
+  else if(g.career==='pro') inc=g.ri(5,9);   /* 接案與講課：全職者的兼差現金流，約上班的四成 */
   else inc=Math.round(g.ri(13,26)*(1+0.03*(g.age-22)));
   income(g,inc); g.income=inc;
 
@@ -942,9 +942,13 @@ function openYear(g){
     g.life=clamp(g.life+6,0,100); g.planNote='顧好生活：年初生活狀態 +6。';
   }
 
-  /* 每年固定擲 3～6 顆，與 YaKyoLife 的訓練骰子節奏一致。 */
+  /* 每年擲 3～6 顆。上班的人 −1——時間被公司買走了。
+     學生與全職操作擲滿：完整的骰數本來就是「時間全歸你」的樣子。
+     （方向是「工作減骰」而不是「全職加骰」：滿骰是基準，
+     上班是拿一顆骰子去換每年 13–26 萬的穩定現金流。） */
   const r=g.R();
-  const ap = r<0.35?3 : r<0.75?4 : r<0.95?5 : 6;
+  let ap = r<0.35?3 : r<0.75?4 : r<0.95?5 : 6;
+  if(g.career==='job') ap=Math.max(2,ap-1);
   g.ap=g.apLeft=ap;
   /* 每一點行動點都是一顆骰子。點數在問你之前就先亮出來——
      它不決定你能不能做，決定的是你今年做這件事做得多到位。
@@ -1878,7 +1882,11 @@ function abilityPerformance(g){
   let pct=lowLife; Object.keys(parts).forEach(function(k){
     contribution[k]=parts[k]*(.65+w[k]*1.75); pct+=contribution[k];
   });
-  pct=clamp(pct,-2.5,4.25);
+  /* 全職操作：同樣的能力，專職盯盤的執行力放大 1.5 倍（含上限）。
+     這才是「沒有薪水」換到的東西——不是多幾顆骰子能補的，
+     實測 +1 骰之下全職中位 74 萬對上班 1384 萬、92.7% 垮掉。 */
+  const mult=g.career==='pro'?1.5:1;
+  pct=clamp(pct*mult,-2.5,4.25*mult);
   return {score:score,pct:pct,trait:trait,weights:w,parts:contribution,lifePenalty:lowLife};
 }
 
@@ -1953,7 +1961,7 @@ function closeYear(g){
 
   /* 生活 */
   let dl=fold('life',0,{g:g});
-  dl += g.career==='pro' ? -6 : (g.age>=22 ? -2 : 1);
+  dl += g.career==='pro' ? -3 : (g.age>=22 ? -2 : 1);
   g.life=clamp(g.life+dl,0,100);
 
   /* 習慣：沒餵就退，退到 0 斷掉；固化的不退 */
@@ -2108,8 +2116,8 @@ function wrap(g){
    並同步改 index.html 的 ?v= 與 NEED_VERSION。只增不減，不對人展示。
    SEMVER（語意版本，人讀）——主.次.修：修＝文案與修補、
    次＝玩法/平衡/內容、主＝1.0 正式版。開場頁徽章顯示這個。 */
-const VERSION=44;
-const SEMVER='0.11.0';   /* 分享結局＋埋點基建 */
+const VERSION=45;
+const SEMVER='0.12.0';   /* 全職操作補償還原：每年 +1 顆骰子 */
 
 return {newGame:newGame, VERSION:VERSION, SEMVER:SEMVER, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,

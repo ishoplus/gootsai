@@ -352,7 +352,7 @@ svg.chart{width:100%;height:130px;display:block}
   </div>
 </div></div>
 
-<script src="kernel.js?v=44"></script>
+<script src="kernel.js?v=45"></script>
 <script>
 'use strict';
 /* 這一層是純呈現。鐵律沿用：呈現層一律禁止呼叫內核的亂數——
@@ -414,7 +414,7 @@ applyDisplay();
 
 /* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源，
    直接雙擊打開會載不到內核。與其停在白畫面，不如講清楚怎麼跑。 */
-const NEED_VERSION=44;
+const NEED_VERSION=45;
 if(typeof KERNEL!=='undefined' && !(KERNEL.VERSION>=NEED_VERSION)){
   document.getElementById('start').innerHTML=
     '<h1>內核是舊的<em>STALE KERNEL '+(KERNEL.VERSION||0)+' &lt; '+NEED_VERSION+'</em></h1>'+
@@ -646,13 +646,13 @@ function nextYear(){
 function careerAsk(){
   const s=g.raw.allocStats||{}, proScore=(s.invest||0)*.4+(s.research||0)*.35+(s.funds||0)*.25;
   const opts=[
-    {t:'去上班',main:1,s:'每年有穩定收入，可以繼續投入',f:()=>{
+    {t:'去上班',main:1,s:'每年存 13–26 萬｜上班佔時間：骰子 −1',f:()=>{
       g.raw.careerSet=1; g.career('job');
       card('info','二十二歲 · 職涯選擇','<b>去上班</b><br>你決定去上班。一邊工作，一邊繼續投資。');
       openYear();
     }}
   ];
-  if(proScore>=34) opts.push({t:'全職操作',warn:1,s:'能力達標｜沒有薪水，生活每年 −6',f:()=>{
+  if(proScore>=34) opts.push({t:'全職操作',warn:1,s:'能力達標｜骰子擲滿＋績效 ×1.5｜只有接案收入 5–9 萬，生活消耗大',f:()=>{
     g.raw.careerSet=1; g.career('pro');
     card('info','二十二歲 · 職涯選擇','<b>全職操作</b><br>你的操作能力達到全職門檻。你決定不領固定薪水，靠投資走下去。');
     openYear();
