@@ -303,7 +303,10 @@ const EVENTS=[
  o:[
   {t:'把當沖權限關掉', g:{hab:{close:6},life:3},
    gt:'你打電話去券商。營業員問你是不是遇到什麼事，你說沒有。'},
-  {t:'限制自己每週兩次', p:46, g:{hab:{close:3}},
+  /* 折衷的意義是保留一點上檔換取少一點安全。原本這一項給的跟「關掉」
+     同一種習慣還比較少、又背著下檔——三選一裡它是死的。
+     成功面加 nav+5（還在沖，偶爾真的賺），折衷才成立。 */
+  {t:'限制自己每週兩次', p:46, g:{nav:5,hab:{close:3}},
    gt:'次數少了，勝率反而高了。你開始懷疑之前那些單子到底是在做什麼。',
    b:{nav:-10,life:-2,hab:{close:-2}}, bt:'第一週兩次，第二週五次，第三週你不再算了。'},
   {t:'加大部位，這才有搞頭', p:27, g:{nav:18,mood:10},
@@ -1969,7 +1972,7 @@ function wrap(g){
 
 /* 頁面用這個數字確認自己拿到的不是快取裡的舊內核。
    改了對外介面就 +1，並同步改 play.html 的 ?v= 與 NEED_VERSION。 */
-const VERSION=36;
+const VERSION=37;
 
 return {newGame:newGame, VERSION:VERSION, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
