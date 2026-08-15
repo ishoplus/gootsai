@@ -733,9 +733,16 @@ function allocCard(){
             '<em style="left:'+Math.min(100,cap/80*100)+'%"></em></span>'+
         '</button>';
       }).join('')+
-      '<div class="aacts"><button data-a="undo"'+(alloc.length?'':' disabled')+'>↩ 復原</button>'+
-      '<button data-a="ok" class="main"'+(alloc.length===free.length?'':' disabled')+'>'+
-        (alloc.length===free.length?'確認分配':'還有 '+(free.length-alloc.length)+' 顆')+'</button></div>';
+      /* 五路全滿但骰子還沒分完＝死鎖：列全禁用、確認也禁用、只剩復原能按。
+         借 YaKyoLife 的解法：能力已滿就開放「捨棄剩餘骰子」。 */
+      (function(){
+        const done=alloc.length===free.length;
+        const stuck=!done && next!=null &&
+          ROWS.every(x=>g.allocPreview(x.id,pend(x.id)).value>=80);
+        return '<div class="aacts"><button data-a="undo"'+(alloc.length?'':' disabled')+'>↩ 復原</button>'+
+        '<button data-a="ok" class="main"'+((done||stuck)?'':' disabled')+'>'+
+          (done?'確認分配':stuck?'能力已滿，捨棄剩餘骰子':'還有 '+(free.length-alloc.length)+' 顆')+'</button></div>';
+      })();
     inner.querySelectorAll('button').forEach(b=>{
       b.onclick=()=>{
         if(b.disabled)return;
