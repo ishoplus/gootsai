@@ -233,7 +233,7 @@ const EVENTS=[
  ]},
 
 /* ---- 進場之後 ---- */
-{n:'第一次開融資',stg:'*',
+{n:'第一次開融資',stg:'*',once:1,
  d:'營業員打來：「你的額度下來了，要不要開？開了不用也沒關係。」',
  o:[
   {t:'不開', g:{hab:{cash:4}},
@@ -529,7 +529,7 @@ const EVENTS=[
    b:{borrow:0.4,nav:-31,life:-3,mood:-13}, bt:'部位縮水，貸款一毛沒少。你開始用信用卡的循環利息付信貸的月付金。'}
  ]},
 
-{n:'同學的告別式',stg:'pro',minAge:32,
+{n:'同學的告別式',once:1,stg:'pro',minAge:32,
  d:'心肌梗塞，四十一歲。你在告別式上算了一下自己的年紀。',
  o:[
   {t:'從明天開始運動', g:{hab:{gym:6},life:5},
@@ -554,7 +554,7 @@ const EVENTS=[
    bt:'案子破局，股價一路往下。更麻煩的是，交易所調閱了那段期間的進出紀錄——約談、沒收、罰款，罰的比你想賺的多。留下紀錄的人，有些門從此不再開。'}
  ]},
 
-{n:'帳戶破千萬那天',stg:'*',minNav:1000,
+{n:'帳戶破千萬那天',once:1,stg:'*',minNav:1000,
  d:'你截了圖，打開通訊錄，從頭滑到尾。',
  o:[
   {t:'誰都不說', g:{mood:5,hab:{quiet:3}},
@@ -1283,6 +1283,9 @@ function drawEvent(g){
   const stg=evStage(g), n=nav(g);
   const pool=EVENTS.filter(function(e){
     if(g.yearEv[e.n]) return false;
+    /* once：一生只發生一次的卡。seenEv 一直有在記，只是從來沒人讀——
+       「第一次開融資」不該有第三次，「那天」不該每隔幾年再來一天。 */
+    if(e.once && g.seenEv[e.n]) return false;
     if(e.stg!=='*' && e.stg!==stg) return false;
     if(e.block && hb(g,e.block)>0) return false;     /* 退了群就不會有人報明牌給你 */
     if(e.minAge && g.age<e.minAge) return false;
@@ -2204,8 +2207,8 @@ function wrap(g){
    並同步改 index.html 的 ?v= 與 NEED_VERSION。只增不減，不對人展示。
    SEMVER（語意版本，人讀）——主.次.修：修＝文案與修補、
    次＝玩法/平衡/內容、主＝1.0 正式版。開場頁徽章顯示這個。 */
-const VERSION=50;
-const SEMVER='0.17.0';   /* 資本階級天梯：會跌下去的階級才是階級 */
+const VERSION=51;
+const SEMVER='0.17.1';   /* once 卡：「第一次」不該有第三次 */
 
 return {newGame:newGame, VERSION:VERSION, SEMVER:SEMVER, CLASSES:CLASSES, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
