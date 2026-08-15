@@ -714,6 +714,20 @@ const EVENTS=[
    gt:'你把晚上留給自己。有些報酬率不會打在薪資單上。'}
  ]},
 
+{n:'名單公佈了，上面有你',stg:'pro',career:'job',once:1,
+ after:{card:'公司裁員',opt:'什麼都不做，等消息',ok:false},
+ d:'HR 約你下午三點。紙箱是他們準備好的，n＋1 是算好的。你在電梯裡想的居然是：今天大盤漲還是跌？',
+ o:[
+  {t:'隔天就開始投履歷', p:55, g:{sal:0.08,mood:3},
+   gt:'一個月後你坐進了新的位子，薪水還多了一截——裁員名單意外成了你的跳板。你把紙箱留著，提醒自己別再等別人決定你的行情。',
+   b:{jobless:1,life:-4,mood:-7},
+   bt:'空窗期比你想像的長。那一年，你的定期定額第一次斷掉。'},
+  {t:'領了 n＋1，給自己半年', g:{jobless:1,life:7,mood:4},
+   gt:'你用資遣費去了一趟很長的旅行。隔年回到職場，面試官問你空窗期做了什麼，你說：「把前十年欠自己的補回來。」他錄取了你。'},
+  {t:'「反正也沒工作了。」轉全職操作', g:{career:'pro',mood:5},
+   gt:'你把被裁的那天當成開戶紀念日。沒有退路的全職跟存夠了的全職，是兩種完全不同的遊戲——你現在玩的是難的那種。'}
+ ]},
+
 /* ---- 時事原型三部曲：引用現象，不引用日期——
    ETF 開募之亂（婆媽排隊）、幣圈朋友（跨資產誘惑）、
    新高恐懼（空手等崩盤的機會成本）。 */
@@ -880,6 +894,7 @@ function newGame(seed,opts){
     love:{st:'single',dyrs:0,kids:0,exes:0}, /* 感情線：狀態轉移全部由事件卡觸發 */
     cls:0, clsMax:0,                          /* 資本階級：現在／最高到過 */
     salMult:1,                                /* 本業薪資乘數：跳槽/談薪/進修堆出來 */
+    jobless:0,                                /* 空窗期旗標：下一年沒薪水 */
     seenEv:{}, yearEv:{}, pendEv:null, eventsLeft:0, evLog:[], riskChecked:false, riskResult:null,
     hist:[], log:[], over:false, ending:null, notes:[]
   };
@@ -1014,6 +1029,7 @@ function openYear(g){
   if(g.age<19) inc=g.ri(1,3);
   else if(g.age<22) inc=g.ri(4,9);
   else if(g.career==='pro') inc=g.ri(5,9);   /* 接案與講課：全職者的兼差現金流，約上班的四成 */
+  else if(g.jobless){ inc=0; g.jobless=0; g.notes.push('空窗期——這一年沒有薪水進帳。'); }
   else inc=Math.round(g.ri(13,26)*(1+0.03*(g.age-22))*(g.salMult||1));
   income(g,inc); g.income=inc;
 
@@ -1301,6 +1317,8 @@ function applyFx(g,fx,flow){
   }
   if(fx.life!=null){ g.life=clamp(g.life+fx.life,0,100); out.push({k:'life', v:fx.life, t:'生活 '+(fx.life>0?'+':'')+fx.life}); }
   if(fx.trust!=null){ g.trust=clamp(g.trust+fx.trust,0,100); out.push({k:'trust', v:fx.trust, t:'別人對你的信任 '+(fx.trust>0?'+':'')+fx.trust}); }
+  /* 空窗期：下一年沒有薪水。被裁或主動休息都走這裡 */
+  if(fx.jobless){ g.jobless=1; out.push({k:'jobless',v:-1,t:'空窗期——明年沒有薪水'}); }
   /* 本業薪資成長：跳槽、談薪、進修的回報。加在年收入的乘數上，
      上限 2 倍——本業才是年輕時最大的部位，這條線讓它可以經營。 */
   if(fx.sal){
@@ -1409,6 +1427,7 @@ function stakeText(g,fx){
   if(fx.career) parts.push(fx.career==='pro'?'轉全職':'回職場');
   if(fx.borrow) parts.push('融資 '+Math.round(fx.borrow*100)+'%（欠債計息）');
   if(fx.sal) parts.push('薪資 +'+Math.round(fx.sal*100)+'%');
+  if(fx.jobless) parts.push('空窗一年（沒薪水）');
   if(fx.hab) parts.push('習慣進退');
   return parts.join('・');
 }
@@ -2289,8 +2308,8 @@ function wrap(g){
    並同步改 index.html 的 ?v= 與 NEED_VERSION。只增不減，不對人展示。
    SEMVER（語意版本，人讀）——主.次.修：修＝文案與修補、
    次＝玩法/平衡/內容、主＝1.0 正式版。開場頁徽章顯示這個。 */
-const VERSION=54;
-const SEMVER='0.20.0';   /* 本業經營線＋指數派的第四個答案 */
+const VERSION=55;
+const SEMVER='0.21.0';   /* 裁員有真後果：名單上有你 */
 
 return {newGame:newGame, VERSION:VERSION, SEMVER:SEMVER, CLASSES:CLASSES, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
