@@ -376,8 +376,11 @@ function track(ev){
   if(!GC_CODE || location.protocol==='file:') return;
   try{
     const i=document.createElement('img');
-    i.src='https://'+GC_CODE+'.goatcounter.com/count?p='+encodeURIComponent('/'+(ev||''))+
-          '&t='+encodeURIComponent(ev||'view');
+    /* 事件帶 e=true（GoatCounter 的事件旗標，不然會被當頁面路徑記）；
+       rnd 防瀏覽器快取同一張像素圖不重發。呈現層鐵律：這裡用 Math.random 沒關係，
+       它本來就不准碰種子流。 */
+    i.src='https://'+GC_CODE+'.goatcounter.com/count?p='+encodeURIComponent(ev?ev:'/')+
+          (ev?'&e=true':'')+'&rnd='+Math.random().toString(36).slice(2);
     i.style.display='none';
     if(document.body&&document.body.appendChild) document.body.appendChild(i);
   }catch(e){}
