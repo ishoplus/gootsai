@@ -596,6 +596,30 @@ const EVENTS=[
    bt:'她的限時動態拍到了你的手錶。離婚協議書上，另一半只圈了一句：「孩子的帳戶不動。」'}
  ]},
 
+/* ---- 職涯是活的：辭職轉全職、混不下去回職場，雙向都開 ---- */
+{n:'辭職單就在抽屜裡',stg:'pro',career:'job',minAge:26,minNav:600,
+ d:'存款站上你三年前寫下的那個數字了。你把辭職單印出來已經兩個禮拜。',
+ o:[
+  {t:'遞出去，轉全職', g:{career:'pro',mood:6,life:3},
+   gt:'你把辭職單放在主管桌上。走出大樓那一刻，下午一點的太陽曬得你睜不開眼——你已經很多年沒在這個時間站在外面了。'},
+  {t:'再存一年，把水位調高一格', g:{mood:-2,hab:{cash:2}},
+   gt:'辭職單放回抽屜。你在試算表上把「安全水位」又調高了一格——去年你也調過一格。'},
+  {t:'撕掉。你捨不得的其實不是薪水', g:{life:4,mood:2},
+   gt:'你發現你捨不得的是中午一起吃飯的那群人。有些東西不在對帳單上。'}
+ ]},
+
+{n:'前同事說，公司在找人',stg:'pro',career:'pro',minAge:26,maxNav:400,
+ d:'全職第幾年了？帳戶的數字你比誰都清楚。他傳來職缺連結，沒有多說什麼。',
+ o:[
+  {t:'回去上班', g:{career:'job',life:5,trust:4},
+   gt:'面試官看著履歷上空白的那幾年，你說「我在管理自己的資金」。他問那為什麼想回來，你說：「因為我算得出來。」他點點頭——這是他今天聽過最誠實的答案。'},
+  {t:'再撐一年', p:50, g:{nav:4,mood:4},
+   gt:'這一年你真的做起來了。不是行情變好，是你終於不再急著證明什麼。',
+   b:{life:-5,mood:-6}, bt:'又一年。你開始避開同學會，帳戶的數字沒變，但「全職」兩個字越來越難說出口。'},
+  {t:'婉拒，但接他們的外包案', g:{nav:2,mood:2,hab:{cash:2}},
+   gt:'你開始固定接他們的案子。不是全職也不是上班——你發現路不是只有兩條。'}
+ ]},
+
 /* ---- 時事原型三部曲：引用現象，不引用日期——
    ETF 開募之亂（婆媽排隊）、幣圈朋友（跨資產誘惑）、
    新高恐懼（空手等崩盤的機會成本）。 */
@@ -1181,6 +1205,13 @@ function applyFx(g,fx,flow){
   }
   if(fx.life!=null){ g.life=clamp(g.life+fx.life,0,100); out.push({k:'life', v:fx.life, t:'生活 '+(fx.life>0?'+':'')+fx.life}); }
   if(fx.trust!=null){ g.trust=clamp(g.trust+fx.trust,0,100); out.push({k:'trust', v:fx.trust, t:'別人對你的信任 '+(fx.trust>0?'+':'')+fx.trust}); }
+  /* 職涯轉換：辭職轉全職／回去上班。income、骰數、績效倍率
+     全部讀 g.career，下一個開年自動生效 */
+  if(fx.career&&(fx.career==='job'||fx.career==='pro')&&g.career!==fx.career){
+    g.career=fx.career;
+    out.push({k:'career',v:fx.career==='pro'?1:0,
+      t:fx.career==='pro'?'你轉為全職操作':'你回到職場了'});
+  }
   /* 感情狀態轉移。條件不符就靜默跳過——卡片已經被閘門擋住，這裡是保險 */
   if(fx.love&&g.love){
     const L=g.love;
@@ -1220,6 +1251,9 @@ function drawEvent(g){
     if(e.need_job && g.career!=='job') return false;
     /* 信任閘門：敗過信用的人，某些事就不會發生在他身上 */
     if(e.trustMin!=null && g.trust<e.trustMin) return false;
+    /* 職涯閘門與上限：辭職卡只給上班的人，回職場卡只給混不下去的全職 */
+    if(e.career && g.career!==e.career) return false;
+    if(e.maxNav!=null && n>e.maxNav) return false;
     /* 感情閘門：單身的人不會被問「岳家的錢」。attached＝交往或已婚 */
     if(e.loveSt){
       const st=g.love?g.love.st:'single';
@@ -1249,6 +1283,7 @@ function stakeText(g,fx){
   if(fx.life!=null) parts.push('生活 '+(fx.life>0?'+':'')+fx.life);
   if(fx.trust!=null) parts.push('信任 '+(fx.trust>0?'+':'')+fx.trust);
   if(fx.love) parts.push({dating:'在一起',married:'結婚',baby:'孩子出生','break':'分手',divorce:'離婚'}[fx.love]||'感情變化');
+  if(fx.career) parts.push(fx.career==='pro'?'轉全職':'回職場');
   if(fx.hab) parts.push('習慣進退');
   return parts.join('・');
 }
@@ -2116,8 +2151,8 @@ function wrap(g){
    並同步改 index.html 的 ?v= 與 NEED_VERSION。只增不減，不對人展示。
    SEMVER（語意版本，人讀）——主.次.修：修＝文案與修補、
    次＝玩法/平衡/內容、主＝1.0 正式版。開場頁徽章顯示這個。 */
-const VERSION=45;
-const SEMVER='0.12.0';   /* 全職操作補償還原：每年 +1 顆骰子 */
+const VERSION=46;
+const SEMVER='0.13.0';   /* 職涯雙向轉換 */
 
 return {newGame:newGame, VERSION:VERSION, SEMVER:SEMVER, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
