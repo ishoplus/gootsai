@@ -30,7 +30,7 @@ const sandbox={console,Math,JSON,Object,Array,String,Number,Boolean,Date,isNaN,p
   URLSearchParams:global.URLSearchParams,
   history:{replaceState(){}},
   location:{search:'?seed=smoke',href:'http://x/',reload(){}},
-  document:{body:{appendChild(){},style:{}},getElementById:el,createElement:el,
+  document:{body:el(),getElementById:el,createElement:el,
     querySelector:()=>el(),querySelectorAll:()=>[]}};
 sandbox.window=sandbox; sandbox.globalThis=sandbox;
 vm.createContext(sandbox);
@@ -91,15 +91,144 @@ ok('KERNEL 匯出頁面要用的東西', need.every(k=>K[k]!=null));
 
 const g=K.newGame('smoke');
 const api=['nav','assets','investable','openYear','moves','play','midWindow','playMid','closeYear','career',
-           'event','answerEvent','beat','pass','skipRest','setPlan','autoTick'];
+           'event','deferEvent','beginEvent','answerEvent','beat','pass','skipRest','setPlan','autoTick','riskCheck',
+           'allocPreview','addAlloc','autoAllocate'];
 ok('遊戲物件有頁面要用的方法', api.every(k=>typeof g[k]==='function'));
+
+/* 新版順序：開年先配點，配完才翻事件卡。 */
+(function(){
+  const a=K.newGame('deferred-event'); a.openYear();
+  const had=!!a.event();
+ok('事件可延後到配點之後', !had || (a.deferEvent() && a.phase==='act' && a.beginEvent() && !!a.event()));
+})();
+
+(function(){
+  let badDice=0;
+  for(let i=0;i<200;i++){
+    const a=K.newGame('dice-count-'+i); a.openYear();
+    if(a.raw.dice.length<3||a.raw.dice.length>6||a.raw.dice.some(d=>d<1||d>6))badDice++;
+  }
+  ok('每年固定 3～6 顆，每顆 1～6 點（錯 '+badDice+' 局）',badDice===0);
+})();
+
+(function(){
+  const a=K.newGame('profile-a'), again=K.newGame('profile-a'), b=K.newGame('profile-b');
+  const keys=['invest','research','habit','life','funds'];
+  const valid=keys.every(k=>a.raw.allocStats[k]>=20&&a.raw.allocStats[k]<=32&&
+    a.raw.allocCaps[k]>=46&&a.raw.allocCaps[k]<=80&&a.raw.allocStats[k]<=a.raw.allocCaps[k]);
+  const same=JSON.stringify([a.raw.allocStats,a.raw.allocCaps])===JSON.stringify([again.raw.allocStats,again.raw.allocCaps]);
+  const different=JSON.stringify([a.raw.allocStats,a.raw.allocCaps])!==JSON.stringify([b.raw.allocStats,b.raw.allocCaps]);
+  ok('種子決定初始點數與個別上限，同種子可重現',valid&&same&&different);
+})();
+
+(function(){
+  const a=K.newGame('ability-cost');
+  a.raw.allocStats.invest=58; a.raw.allocCaps.invest=70; a.raw.allocCarry.invest=0;
+  const first=a.addAlloc('invest',3), second=a.addAlloc('invest',1);
+  a.raw.allocStats.invest=70; a.raw.allocCarry.invest=0;
+  const overPot=a.addAlloc('invest',27), finish=a.addAlloc('invest',1);
+  ok('能力愈高升級愈貴，未滿一級的點數會保留，超過天賦後成本 ×4',
+    first.value===58&&first.carry===3&&first.cost===4&&
+    second.value===59&&second.carry===0&&overPot.value===70&&overPot.carry===27&&
+    overPot.cost===28&&finish.value===71&&finish.carry===0);
+})();
+
+(function(){
+  const run=(stats,trait)=>{
+    const a=K.newGame('ability-performance'); a.setPlan(trait); a.openYear();
+    a.raw.allocStats=Object.assign({},stats);
+    a.raw.cash=0; a.raw.book={wide:{sh:1,cost:100}};
+    return a.closeYear();
+  };
+  const low={invest:25,research:25,habit:25,life:25,funds:25};
+  const high={invest:70,research:70,habit:70,life:70,funds:70};
+  const researchHeavy={invest:25,research:70,habit:25,life:25,funds:25};
+  const a=run(low,'craft'), b=run(high,'craft');
+  const craft=run(researchHeavy,'craft'), life=run(researchHeavy,'life');
+  ok('五種能力與開局特質會影響年度操作績效',
+    b.abilityPct>a.abilityPct&&b.abilityGain>a.abilityGain&&craft.abilityPct>life.abilityPct);
+})();
+
+(function(){
+  let low=0,hot=0,normal=0,valid=true;
+  for(let i=0;i<600;i++){
+    const a=K.newGame('year-form-'+i); a.openYear();
+    const row=a.closeYear();
+    if(row.form<0){low++;valid=valid&&row.formFactor===.65;}
+    else if(row.form>0){hot++;valid=valid&&row.formFactor===1.2;}
+    else{normal++;valid=valid&&row.formFactor===1;}
+  }
+  ok('年度狀態約一成失常、一成手感極佳，其餘正常發揮',
+    valid&&low>35&&low<90&&hot>35&&hot<90&&normal>430&&normal<530);
+})();
+
+(function(){
+  const a=K.newGame('automatic-performance'); a.setPlan('safe'); a.openYear();
+  const cashBefore=a.raw.cash, allocation=a.autoAllocate(), hasHolding=!!a.raw.book.wide&&a.raw.cash<cashBefore;
+  const row=a.closeYear();
+  let chanceRaised=false;
+  for(let i=0;i<100&&!chanceRaised;i++){
+    const low=K.newGame('event-ability-'+i), high=K.newGame('event-ability-'+i);
+    low.setPlan('safe'); high.setPlan('safe'); low.openYear(); high.openYear();
+    Object.keys(high.raw.allocStats).forEach(k=>{high.raw.allocStats[k]=70;});
+    const le=low.event(), he=high.event();
+    if(le&&he){
+      const li=le.opts.findIndex(o=>o.gamble);
+      if(li>=0)chanceRaised=he.opts[li].chance>le.opts[li].chance;
+    }
+  }
+  ok('沒有手動持股也會自動計算績效，能力會提高事件成功率',
+    hasHolding&&allocation.amount>0&&Number.isFinite(row.autoMarketPct)&&chanceRaised);
+})();
+
+(function(){
+  const countEvents=a=>{ let n=0,e; while((e=a.event())&&n<5){ a.answerEvent(e.opts[0].i); n++; } return n; };
+  const student=K.newGame('student-events'); student.openYear();
+  const adult=K.newGame('adult-events'); adult.raw.year=6; adult.career('job'); adult.openYear();
+  ok('學生每年 2 個、成年後每年 3 個市場事件',countEvents(student)===2&&countEvents(adult)===3);
+})();
+
+(function(){
+  const safe=K.newGame('plan-effect'); safe.setPlan('safe'); safe.openYear();
+  const life=K.newGame('plan-effect'); life.setPlan('life'); life.openYear();
+  ok('下一年度投資重點會實際改變消息、壓力或生活',
+    safe.raw.tilt===49&&life.raw.life===76);
+})();
+
+(function(){
+  let researchAdd=0,researchMiss=0,reportAdd=0,reportMiss=0;
+  for(let i=0;i<200;i++){
+    const a=K.newGame('signal-bonus-'+i);a.setPlan('craft');a.openYear();
+    a.raw.signalBonus.research?researchAdd++:researchMiss++;
+    const b=K.newGame('report-bonus-'+i);b.setPlan('safe');b.raw.habits.read={streak:3,stage:2};b.openYear();
+    b.raw.signalBonus.report?reportAdd++:reportMiss++;
+  }
+  ok('研究與讀財報各有 50% 機率增加一條市場消息',
+    researchAdd>0&&researchMiss>0&&reportAdd>0&&reportMiss>0);
+})();
+
+(function(){
+  let safe=0,minor=0,major=0,repeatBad=0;
+  for(let i=0;i<500;i++){
+    const a=K.newGame('risk-check-'+i); a.openYear();
+    a.raw.cash=5; a.raw.debt=20; a.raw.book.wide={sh:1,cost:100}; a.raw.tilt=82;
+    const first=a.riskCheck(), nav=a.nav(), second=a.riskCheck();
+    if(first.kind==='safe')safe++; else if(first.kind==='minor')minor++; else if(first.kind==='major')major++;
+    if(first!==second||a.nav()!==nav)repeatBad++;
+  }
+  ok('風險檢查一次完成，能產生正常、小損失與重大危機',safe>0&&minor>0&&major>0&&repeatBad===0);
+})();
 
 /* 第 2 拍：卡沒處理掉，phase 會停在 'event'，moves() 與 beat() 全部回空——
    頁面是這樣做的，測試也必須這樣做，不然量到的是一個停住的遊戲。 */
 function answerCard(a,pick){
-  const e=a.event();
-  if(!e || !e.opts.length) return null;
-  return a.answerEvent(e.opts[pick%e.opts.length].i);
+  let last=null, guard=0;
+  while(guard++<5){
+    const e=a.event();
+    if(!e || !e.opts.length) break;
+    last=a.answerEvent(e.opts[pick%e.opts.length].i);
+  }
+  return last;
 }
 
 let years=0, plays=0, mids=0, kinds={}, cards=0;
@@ -206,7 +335,13 @@ ok('遇過年中窗口（'+mids+' 次）', mids>0);
 ok('抽到過事件卡（'+cards+' 張）', cards>=15);
 ok('有結局', !!g.ending && !!g.ending.t);
 ok('結局有頁面要印的欄位',
-   g.ending && ['nav','inflow','bench','edge','tax','div','trades','blowups','life'].every(k=>g.ending[k]!=null));
+   g.ending && ['nav','inflow','bench','edge','tax','div','trades','blowups','life','age','endYear'].every(k=>g.ending[k]!=null));
+
+(function(){
+  const a=K.newGame('early-burnout-age'); a.openYear(); a.raw.life=0; a.closeYear();
+  ok('「人先垮了」使用實際結算年齡，不會寫死四十歲',
+    a.ending&&a.ending.id==='burnout'&&a.ending.age===16&&a.ending.years===1&&a.ending.endYear===2026);
+})();
 
 /* ---------- 3. 頁面真正走的路徑：beat() ----------
    畫面上不再攤 moves()，而是一次問一個處境。這條路徑必須自己測，

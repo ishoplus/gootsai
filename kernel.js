@@ -123,12 +123,12 @@ function sigW(s,rg){ return Math.max(s.w[rg], SIG_FLOOR); }
    槽位仍然有限，固化也佔位子。斷掉要從頭來。 */
 const HABITS={
   read:  {n:'每季讀財報',     fx:'年初多翻一張訊號牌'},
-  log:   {n:'寫交易日誌',     fx:'心態波動減三成'},
+  log:   {n:'寫交易日誌',     fx:'操作衝動波動減三成'},
   stop:  {n:'停損寫在紙上',   fx:'崩盤年砍得掉的機率 +20'},
-  close: {n:'只在收盤後下單', fx:'手癢時不會替你亂下單'},
+  close: {n:'只在收盤後下單', fx:'操作衝動過高時不會自動追高'},
   dca:   {n:'每月定額',       fx:'薪水的六成自動買市值型 ETF'},
   gym:   {n:'固定運動',       fx:'生活 +5／年'},
-  family:{n:'每年跟家人對帳', fx:'生活 +6／年，心態被拉回中間'},
+  family:{n:'每年跟家人對帳', fx:'生活 +6／年，操作衝動回到中間'},
   cash:  {n:'永遠留三成現金', fx:'可投入資金上限七成，幾乎不可能斷頭'},
   /* 這兩個是為了事件卡加回來的。骨架剛換的時候把它們砍了，因為在純財務模型裡
      它們沒有掛載點——但「退了群就不會有人報明牌給你」正是這款最好的一條規則，
@@ -139,17 +139,20 @@ const HABITS={
 const HK=Object.keys(HABITS);
 const STAGE=[0,0.4,0.75,1.0];
 function hb(g,id){ const h=g.habits[id]; return h?STAGE[h.stage]:0; }
+function av(g,k){ return ((g.allocStats&&g.allocStats[k])||25)-25; }
 function slotsAt(age){ return age>=32?4 : age>=26?3 : 2; }
 
 /* ---- 習慣全部走 hook 註冊。加一個習慣＝加一筆資料 + 一行 on()，核心不動 ---- */
-on('signals','read',    function(n,c){ return n + (hb(c.g,'read')>=0.4?1:0); });
+/* 市場消息加成在 openYear() 依種子判定；不再由 hook 固定增加。 */
 on('tiltdelta','log',   function(v,c){ return v*(1-0.3*hb(c.g,'log')); });
+on('tiltdelta','ability',function(v,c){ return v*(1-clamp(av(c.g,'habit')*.004,0,.22)); });
 on('escape','stop',     function(v,c){ return v + 20*hb(c.g,'stop'); });
 on('itch','close',      function(v,c){ return hb(c.g,'close')>=0.4 ? 0 : v; });
 on('life','gym',        function(v,c){ return v + 5*hb(c.g,'gym'); });
 on('life','family',     function(v,c){ return v + 6*hb(c.g,'family'); });
 on('investable','cash', function(v,c){ return v*(1-0.30*hb(c.g,'cash')); });
 on('scoutacc','broker',  function(v,c){ return v + 12*hb(c.g,'broker'); });
+on('scoutacc','ability', function(v,c){ return v+clamp(av(c.g,'research')*.32,0,16)+(c.g.trait==='craft'?4:0); });
 /* quiet 沒有 hook——它的效果是「這張卡根本不會發生」，寫在抽牌的 block 檢查裡。
    一個習慣最好的效果，是讓你再也不必面對某個處境。 */
 
@@ -627,17 +630,34 @@ function newGame(seed,opts){
 
   const price={}; INST.forEach(function(x){ price[x.id]=100; });
 
+  /* 跟棒球人生的能力生成相同思路：種子先決定初始值，再打亂天賦強弱。
+     使用獨立亂數流，避免新增這組呈現數值後改變既有市場人生。 */
+  const allocKeys=['invest','research','habit','life','funds'];
+  const AR=rngOf(String(seed)+'|alloc-profile');
+  const ari=function(a,b){ return a+Math.floor(AR()*(b-a+1)); };
+  const allocOrder=allocKeys.slice();
+  for(let i=allocOrder.length-1;i>0;i--){
+    const j=Math.floor(AR()*(i+1)), t=allocOrder[i]; allocOrder[i]=allocOrder[j]; allocOrder[j]=t;
+  }
+  const allocStats={}, allocCaps={};
+  allocKeys.forEach(function(k){ allocStats[k]=ari(20,32); });
+  allocOrder.forEach(function(k,i){
+    allocCaps[k]=i===0?ari(72,80):i===1?ari(64,74):i===2?ari(56,68):ari(46,62);
+    allocStats[k]=Math.min(allocStats[k],allocCaps[k]);
+  });
+
   const g={
     seed:String(seed), R:R, ri:ri, N0:N0, pick:pick,
     market:market, hots:hots, price:price,
     year:0, age:16, phase:'idle',
     cash:0, debt:0, book:{},          /* book[id] = {sh, cost} */
-    tilt:55, life:70, habits:{}, career:'none', plan:'craft',
+    tilt:55, life:70, habits:{}, career:'none', plan:'craft', trait:null,
+    allocStats:allocStats, allocCaps:allocCaps, allocCarry:{},
     ap:0, apLeft:0, dice:[], dieUsed:[], dieAt:0, declined:{}, signals:[], hotGuess:null, yr:null, mid:null, scouted:{},
     blowups:0, taxPaid:0, divTotal:0, realized:0, trades:0,
     inflow:0, benchSh:0,
     trust:50, fame:0, honors:[],           /* 事件卡寫得進來的三個外部狀態 */
-    seenEv:{}, pendEv:null, evLog:[],
+    seenEv:{}, yearEv:{}, pendEv:null, eventsLeft:0, evLog:[], riskChecked:false, riskResult:null,
     hist:[], log:[], over:false, ending:null, notes:[]
   };
   return wrap(g);
@@ -651,6 +671,27 @@ function assets(g){
 }
 function nav(g){ return assets(g)-g.debt; }
 function investable(g){ return Math.max(0, fold('investable', g.cash, {g:g})); }
+
+/* 能力點沿用棒球人生的養成曲線：數值愈高，每升一級愈貴；超過種子
+   決定的天賦值後仍可成長，但成本 ×4。沒湊滿一級的點數會保留。 */
+function allocCostAt(cur,potential){
+  let cost=cur>=66?7:cur>=58?4:cur>=50?2:1;
+  if(cur>=potential)cost*=4;
+  return cost;
+}
+function allocResult(g,k,points,commit){
+  const stats=g.allocStats||{}, pots=g.allocCaps||{}, carry=g.allocCarry||(g.allocCarry={});
+  const start=stats[k]||0, potential=pots[k]||62;
+  let cur=start, bud=Math.max(0,Math.floor(points||0))+(carry[k]||0);
+  while(bud>0&&cur<80){
+    const cost=allocCostAt(cur,potential);
+    if(bud<cost)break;
+    bud-=cost; cur++;
+  }
+  const nextCarry=cur>=80?0:bud;
+  if(commit){stats[k]=cur;carry[k]=nextCarry;}
+  return {value:cur,gained:cur-start,carry:nextCarry,cost:cur>=80?0:allocCostAt(cur,potential),potential:potential};
+}
 
 /* ================= 交易 ================= */
 function buy(g,id,amount,priceOverride){
@@ -695,6 +736,44 @@ function income(g,amt){
 }
 function benchNav(g){ return g.benchSh*g.price.wide; }
 
+function signalOutlook(g){
+  const means={}; Object.keys(REGIME).forEach(function(k){means[k]=(REGIME[k].lo+REGIME[k].hi)/2;});
+  const rows=(g.signals||[]).filter(function(x){return x.id!=='theme';}).map(function(row){
+    const sig=SIGNALS.find(function(x){return x.id===row.id;}); if(!sig)return 0;
+    let total=0,sum=0; Object.keys(REGIME).forEach(function(k){const w=sigW(sig,k);total+=w;sum+=w*means[k];});
+    return total?sum/total:0;
+  });
+  return rows.length?rows.reduce(function(a,b){return a+b;},0)/rows.length:0;
+}
+
+/* 能力分配完成後，自動把資金配置到市值型 ETF；這會建立真正持股，
+   而不是把市場損益直接寫進現金。每年只執行一次。 */
+function autoAllocate(g){
+  if(g.autoAllocatedYear===g.year)return {amount:0,exposure:g.autoExposure||0};
+  const investValue=(g.allocStats&&g.allocStats.invest)||25;
+  const researchValue=(g.allocStats&&g.allocStats.research)||25;
+  const outlook=signalOutlook(g), researchUse=clamp(.45+(researchValue-20)*.012,.45,1.05);
+  const signalAdjust=clamp(outlook*.006,-.12,.12)*researchUse;
+  const exposure=clamp((g.trait==='safe' ? .58 : (g.trait==='life' ? .66 : .72))+
+    (investValue-25)*.006+signalAdjust,.40,.95);
+  const total=Math.max(0,assets(g)), held=Object.keys(g.book).reduce(function(sum,id){
+    return sum+g.book[id].sh*g.price[id];
+  },0);
+  const amount=Math.max(0,Math.min(g.cash,total*exposure-held));
+  const themeId='th_'+g.hotGuess;
+  const themeShare=BY_ID[themeId]?clamp(.08+researchValue*.003,.12,.32):0;
+  let themeAmt=amount*themeShare, wideAmt=amount-themeAmt;
+  /* 本金很小時不要因拆成兩筆都低於最低交易額，結果一筆也沒買。 */
+  if(themeAmt<=MIN_TRADE){themeAmt=0;wideAmt=amount;}
+  const wideTrade=wideAmt>MIN_TRADE?buy(g,'wide',wideAmt):null;
+  const themeTrade=themeAmt>MIN_TRADE?buy(g,themeId,themeAmt):null;
+  const invested=(wideTrade?wideTrade.amount:0)+(themeTrade?themeTrade.amount:0);
+  g.autoAllocatedYear=g.year; g.autoExposure=exposure; g.autoInvested=invested;
+  g.autoDecision={outlook:outlook,adjust:signalAdjust,theme:g.hotGuess,themeAmount:themeTrade?themeTrade.amount:0};
+  return {amount:invested,exposure:exposure,outlook:outlook,adjust:signalAdjust,
+    theme:g.hotGuess,themeAmount:g.autoDecision.themeAmount};
+}
+
 /* ================= 年循環 ================= */
 /* 1. 開年：收入、題材、訊號、行動點、手癢 */
 function openYear(g){
@@ -730,7 +809,13 @@ function openYear(g){
   });
 
   /* 訊號：依真實體制加權抽，牌池重疊所以有雜訊 */
-  const n=fold('signals',2,{g:g});
+  /* 上一個年末選的投資重點，下一年在這裡真正生效。 */
+  /* 預設只有最後追加的熱門題材 1 條。研究重點與讀財報各自有 50% 機率
+     再增加 1 條；使用同一種子亂數，所以同種子同選擇仍會得到相同結果。 */
+  const researchBonus=g.plan==='craft'&&g.R()<0.5?1:0;
+  const reportBonus=hb(g,'read')>=0.4&&g.R()<0.5?1:0;
+  const n=researchBonus+reportBonus;
+  g.signalBonus={research:researchBonus,report:reportBonus};
   const pool=SIGNALS.slice(); const out=[];
   for(let i=0;i<n && pool.length;i++){
     let tot=0; pool.forEach(function(s){ tot+=sigW(s,m.rg); });
@@ -741,18 +826,22 @@ function openYear(g){
     out.push({id:pool[k].id, t:pool[k].t}); pool.splice(k,1);
   }
   /* 題材訊號：55% 指對，其餘指向一個冷門題材 */
-  g.hotGuess = g.R()*100<THEME_SIG_ACC ? hot : g.pick(THEMES.filter(function(t){return t!==hot;}));
+  const themeAcc=clamp(THEME_SIG_ACC+av(g,'research')*.35,45,75);
+  g.hotGuess = g.R()*100<themeAcc ? hot : g.pick(THEMES.filter(function(t){return t!==hot;}));
+  g.themeSignalAccuracy=Math.round(themeAcc);
   out.push({id:'theme', t:'市場現在都在講「'+g.hotGuess+'」', theme:g.hotGuess});
   g.signals=out;
+  if(g.plan==='craft') g.planNote=researchBonus?'多做研究成功：今年多看到 1 條市場消息。':'多做研究：今年沒有找到額外消息。';
+  else if(g.plan==='safe'){
+    addTilt(g,-6); g.planNote='控制風險：操作衝動 −6，較不容易追高。';
+  }else{
+    g.life=clamp(g.life+6,0,100); g.planNote='顧好生活：年初生活狀態 +6。';
+  }
 
-  /* 行動點 */
+  /* 每年固定擲 3～6 顆，與 YaKyoLife 的訓練骰子節奏一致。 */
   const r=g.R();
-  let ap = r<0.34?3 : r<0.74?4 : r<0.94?5 : 6;
-  if(g.age<=21) ap+=1;
-  if(g.age>=34) ap-=1;
-  if(g.career==='pro') ap+=1;
-  if(g.tilt<35 || g.tilt>85) ap-=1;
-  g.ap=g.apLeft=Math.max(2,ap);
+  const ap = r<0.35?3 : r<0.75?4 : r<0.95?5 : 6;
+  g.ap=g.apLeft=ap;
   /* 每一點行動點都是一顆骰子。點數在問你之前就先亮出來——
      它不決定你能不能做，決定的是你今年做這件事做得多到位。
      舊版的骰子點數只換成熟練度，那是一個看不見的數字；
@@ -760,6 +849,8 @@ function openYear(g){
   /* 用掉的不一定是連號的：玩家可以挑那顆 6 去養習慣、把 1 丟給「先放著」。
      所以記的是「哪幾顆用掉了」，不是「用到第幾顆」。 */
   g.dice=[]; g.dieUsed=[];
+  /* 依 YaKyoLife 的分配節奏：每顆保留 1～6 的點數，玩家依序把整顆骰子分配給項目。
+     項目顯示的是收到的點數總和，不是骰子顆數。 */
   for(let i=0;i<g.ap;i++){ g.dice.push(1+Math.floor(g.R()*6)); g.dieUsed.push(0); }
   g.dieAt=0;
 
@@ -767,13 +858,19 @@ function openYear(g){
   if(g.tilt>=80 && fold('itch',1,{g:g})){
     const th=BY_ID['th_'+g.hotGuess];
     const amt=investable(g)*0.3;
-    if(amt>MIN_TRADE && th){ buy(g,th.id,amt); useDie(g,0); g.notes.push('你手癢，年初就先追了 '+g.hotGuess+'——這一點不是你決定的'); }
+    if(amt>MIN_TRADE && th){ buy(g,th.id,amt); useDie(g,0); g.notes.push('操作衝動過高，年初自動追買了 '+g.hotGuess+'——這一點不是你決定的'); }
   }
   g.scouted={}; g.autoDone={};
+  g.yearEv={};
+  g.riskChecked=false; g.riskResult=null;
   /* 第 2 拍：今年發生在你身上的事。抽得到就先問它，抽不到才直接進出牌。
      phase 停在 'event' 的時候 moves()／beat()／autoTick() 全部回空——
      呼叫端必須先把卡處理掉。closeYear() 留了一張安全網，見那裡的註解。 */
+  /* 學生期每年 2 個市場事件，進入職場／全職投資後每年 3 個。
+     一次只抽下一張，避免同年度重複抽到尚未標記為看過的事件。 */
+  g.eventsLeft=g.age<22?2:3;
   g.pendEv=drawEvent(g);
+  if(!g.pendEv) g.eventsLeft=0;
   g.phase=g.pendEv?'event':'act';
   return {age:g.age, income:inc, signals:g.signals, ap:g.ap, nav:nav(g), event:!!g.pendEv};
 }
@@ -835,7 +932,9 @@ function play(g,moveId,arg){
   const target=cut<0?null:moveId.slice(cut+1);
   const idx=pickDie(g,arg.dieIdx);
   if(idx<0) return null;
-  const die=g.dice[idx], sl=slip(die);
+  /* 點數分配畫面可把骰子總和拆成單點投入。points 是這次投入的強度；
+     noUse 讓整張分配表確認後再統一核銷骰子，避免把一點誤當成一顆。 */
+  const die=arg.points==null?g.dice[idx]:arg.points, sl=slip(die);
   let res=null;
   if(kind==='buy'){
     res=buy(g,target,investable(g)*(arg.frac==null?1:arg.frac), g.price[target]*(1+sl));
@@ -882,7 +981,7 @@ function play(g,moveId,arg){
     income(g,amt); g.life=clamp(g.life-7,0,100);
     res={earned:amt, die:die};
   } else return null;
-  useDie(g,idx);
+  if(!arg.noUse) useDie(g,idx);
   res.dieIdx=idx; res.die=die;
   return res;
 }
@@ -961,26 +1060,27 @@ function applyFx(g,fx,flow){
     const amt=evMoney(g,fx.nav,flow);
     if(Math.abs(amt)>=0.05) out.push({k:'nav', v:amt, t:(amt>0?'帳上多了 ':'帳上少了 ')+Math.abs(amt).toFixed(1)+' 萬'});
   }
-  if(fx.tilt!=null){ addTilt(g,fx.tilt); out.push({k:'tilt', v:fx.tilt, t:'心態 '+(fx.tilt>0?'+':'')+fx.tilt}); }
+  if(fx.tilt!=null){ addTilt(g,fx.tilt); out.push({k:'tilt', v:fx.tilt, t:'操作衝動 '+(fx.tilt>0?'+':'')+fx.tilt}); }
   if(fx.life!=null){ g.life=clamp(g.life+fx.life,0,100); out.push({k:'life', v:fx.life, t:'生活 '+(fx.life>0?'+':'')+fx.life}); }
   if(fx.trust!=null){ g.trust=clamp(g.trust+fx.trust,0,100); out.push({k:'trust', v:fx.trust, t:'別人對你的信任 '+(fx.trust>0?'+':'')+fx.trust}); }
   if(fx.hab) for(const k in fx.hab){
     const r=evHabit(g,k,fx.hab[k]);
     if(!r) continue;
     out.push({k:'hab', v:r.step,
-      t: r.broke ? '「'+HABITS[k].n+'」斷了'
-        : (r.step>0?'「'+HABITS[k].n+'」往前走了'+(r.step>1?'兩年':'一年'):'「'+HABITS[k].n+'」退了一年')});
+      t: r.broke ? '「'+HABITS[k].n+'」中斷了，需要重新養成'
+        : (r.step>0?'你更能堅持「'+HABITS[k].n+'」了'+(r.step>1?'，這次特別有效':''):
+          '你最近沒有繼續堅持「'+HABITS[k].n+'」')});
   }
   return out;
 }
 
 function evStage(g){ return g.age<22?'young':'pro'; }
 /* 有些卡的敘述斷言了玩家的狀態——帳上八萬的人不該抽到「帳戶破千萬那天」。
-   抽牌時依當下的年齡、淨值、身分過濾，抽過的不再出現。 */
+   抽牌時依當下的年齡、淨值、身分過濾；同一年不重複，市場循環則可能隔年再遇到。 */
 function drawEvent(g){
   const stg=evStage(g), n=nav(g);
   const pool=EVENTS.filter(function(e){
-    if(g.seenEv[e.n]) return false;
+    if(g.yearEv[e.n]) return false;
     if(e.stg!=='*' && e.stg!==stg) return false;
     if(e.block && hb(g,e.block)>0) return false;     /* 退了群就不會有人報明牌給你 */
     if(e.minAge && g.age<e.minAge) return false;
@@ -997,31 +1097,54 @@ function evOpts(g,e){
   const out=[];
   e.o.forEach(function(o,i){
     if(o.need && !(hb(g,o.need)>0)) return;
-    out.push({i:i, t:o.t, gamble:o.p!=null, need:o.need||null});
+    const mode=i===0?'保守應對':i===1?'照常執行':'全力投入';
+    const impact=i===0?'風險較低':i===1?'標準風險':'風險較高';
+    const chance=eventChance(g,o);
+    out.push({i:i, t:mode, action:o.t, chance:chance, impact:impact,
+      gamble:o.p!=null, need:o.need||null});
   });
   return out;
+}
+function eventChance(g,o){
+  if(o.p==null)return 100;
+  const fx=o.g||{}, keys=[];
+  if(fx.nav!=null){keys.push('invest','research','funds');}
+  if(fx.mood!=null||fx.tilt!=null||fx.hab)keys.push('habit');
+  if(fx.life!=null)keys.push('life');
+  if(!keys.length)keys.push('research');
+  const avg=keys.reduce(function(sum,k){return sum+((g.allocStats&&g.allocStats[k])||25);},0)/keys.length;
+  return Math.round(clamp(o.p+(avg-25)*.25+(g.trait==='craft'?5:0),5,95));
 }
 function event(g){
   const e=g.pendEv;
   if(!e || g.phase!=='event') return null;
   return {n:e.n, d:e.d, opts:evOpts(g,e)};
 }
+/* 呈現層可把事件延後到年度配點完成後；預設流程仍保持舊行為，不影響模擬器。 */
+function deferEvent(g){ if(g.phase==='event'&&g.pendEv){ g.phase='act'; return true; } return false; }
+function beginEvent(g){ if(g.pendEv&&g.phase==='act'){ g.phase='event'; return true; } return false; }
 function answerEvent(g,i){
   const e=g.pendEv;
   if(!e || g.phase!=='event') return null;
   const o=e.o[i];
   if(!o) return null;
   if(o.need && !(hb(g,o.need)>0)) return null;
-  const ok = o.p==null ? true : (g.R()*100 < o.p);
+  const eventP=eventChance(g,o);
+  const ok = o.p==null ? true : (g.R()*100 < eventP);
   const fx = ok ? o.g : (o.b||o.g);
   const text = ok ? o.gt : (o.bt||o.gt);
   const eff = applyFx(g,fx, o.p==null);   /* 不擲骰的＝生活現金流，對照組跟著付 */
   if(ok && o.fame) g.fame++;
   if(!ok && o.honor) g.honors.push(o.honor);
   g.seenEv[e.n]=1;
-  g.pendEv=null;
-  g.phase='act';
-  const row={year:g.year, age:g.age, card:e.n, opt:o.t, ok:ok, text:text, eff:eff, gamble:o.p!=null};
+  g.yearEv[e.n]=1;
+  g.eventsLeft=Math.max(0,(g.eventsLeft||1)-1);
+  g.pendEv=g.eventsLeft>0?drawEvent(g):null;
+  if(!g.pendEv) g.eventsLeft=0;
+  g.phase=g.pendEv?'event':'act';
+  const row={year:g.year, age:g.age, card:e.n, opt:o.t,
+    mode:i===0?'保守應對':i===1?'照常執行':'全力投入',
+    ok:ok, text:text, eff:eff, gamble:o.p!=null};
   g.evLog.push(row);
   return row;
 }
@@ -1118,8 +1241,8 @@ function sellNote(g,id,frac,die){
 }
 function coverNote(g,dDebt,dAssets){
   const d=g.debt+(dDebt||0);
-  if(d<=0) return '債務清空';
-  return '維持率 '+((assets(g)+(dAssets||0))/d*100).toFixed(0)+'%';
+  if(d<=0) return '借的錢全部還清';
+  return '安全度 '+((assets(g)+(dAssets||0))/d*100).toFixed(0)+'%';
 }
 const BEATS=[
   /* 停利：帳面很好看的時候，賣不賣得下手 */
@@ -1128,21 +1251,21 @@ const BEATS=[
     if(!h) return null;
     return {q:h.n+' 已經幫你'+pctText(h.pl)+'。你每天打開軟體第一個看的就是它。',
       opts:[
-        {t:'賣一半，先把本金抽回來', n:sellNote(g,h.id,0.5,curDie(g)), s:'剩下的讓它跑',
+        {t:'賣一半，先拿回一些錢', n:sellNote(g,h.id,0.5,curDie(g)), s:'剩下的繼續放著',
          mv:'sell:'+h.id, arg:{frac:0.5}},
         {t:'全部落袋', n:sellNote(g,h.id,1,curDie(g)), s:'從此不再看它',
          mv:'sell:'+h.id, arg:{frac:1}},
         {t:'一張都不賣', s:'你是這樣告訴自己的', skip:1}
       ]};
   }},
-  /* 停損：套牢的時候，攤平還是認錯 */
+  /* 賠錢時：再買一些，還是承認這次選錯 */
   {id:'cut', ask:1, pick:function(g){
     const h=held(g).filter(function(x){ return x.pl<=-28; })[0];
     if(!h) return null;
     const can=investable(g)>MIN_TRADE;
-    const o=[{t:'認賠出場', n:sellNote(g,h.id,1,curDie(g)), s:'帳就結了',
+    const o=[{t:'全部賣掉，接受這次賠錢', n:sellNote(g,h.id,1,curDie(g)), s:'不再繼續賠',
               mv:'sell:'+h.id, arg:{frac:1}}];
-    if(can) o.push({t:'往下攤平', n:buyNote(g,0.6,curDie(g)), s:'成本拉低',
+    if(can) o.push({t:'趁便宜再買一些', n:buyNote(g,0.6,curDie(g)), s:'賠的錢可能變多',
                     mv:'buy:'+h.id, arg:{frac:0.6}});
     o.push({t:'放著不管', s:'沒賣就不算賠', skip:1});
     return {q:h.n+' 已經'+pctText(h.pl)+'。你打開對帳單的次數變少了。', opts:o};
@@ -1177,16 +1300,16 @@ const BEATS=[
     if(g.cash>MIN_TRADE)
       o.push({t:'用現金還掉一部分', n:(function(){
         const a=Math.min(g.cash,g.debt);
-        return '還 '+amt(a)+'・維持率 '+(assets(g)/g.debt*100).toFixed(0)+'% → '+
-               coverNote(g,-a,-a).replace('維持率 ','');
+        return '還 '+amt(a)+'・安全度 '+(assets(g)/g.debt*100).toFixed(0)+'% → '+
+               coverNote(g,-a,-a).replace('安全度 ','');
       })(), s:'唯一有用的動作', mv:'repay'});
     const h=held(g)[0];
     /* 賣出不寫維持率——因為它不動。上面那個選項寫了前後值，
        兩個放在一起，「賣了不會救到維持率」自己就看得出來。 */
     if(h) o.push({t:'賣掉'+h.n+'，先把錢換回來', n:sellNote(g,h.id,1,curDie(g)),
-                  s:'維持率不動，但有錢還了', mv:'sell:'+h.id, arg:{frac:1}});
-    o.push({t:'撐著，它會回來', s:'跌破 130% 強制平倉', skip:1, warn:1});
-    return {q:'維持率 '+cover.toFixed(0)+'%。券商的簡訊今天發了第二封。', opts:o};
+                  s:'先有錢可以還債', mv:'sell:'+h.id, arg:{frac:1}});
+    o.push({t:'撐著，它會回來', s:'安全度低於 130% 會被強制賣掉', skip:1, warn:1});
+    return {q:'你借錢買的投資正在賠錢，安全度只剩 '+cover.toFixed(0)+'%。券商又催你補錢了。', opts:o};
   }},
   /* 生活：撐不住的時候 */
   {id:'life', pick:function(g){
@@ -1210,7 +1333,7 @@ const BEATS=[
     const die=curDie(g), o=[];
     o.push({t:'買'+g.hotGuess+'概念股', n:buyNote(g,0.6,die), s:'下車要更快',
             mv:'buy:'+hot, arg:{frac:0.6}});
-    o.push({t:'買市值型 ETF', n:buyNote(g,1,die), s:'跟著大盤',
+    o.push({t:'什麼都買一點', n:buyNote(g,1,die), s:'ETF：跟著整個市場',
             mv:'buy:wide', arg:{frac:1}});
     /* 防守端：手上已經有東西就退到債券，什麼都沒有就先進高股息 */
     const def = hs.length ? 'bond' : 'div';
@@ -1224,12 +1347,12 @@ const BEATS=[
        實測有一半的題目是五個選項，小螢幕上最後一個會被切掉——
        一個看不到的選項，比沒有這個選項更糟。 */
     if(g.tilt>=70 && g.debt<=0)
-      o.push({t:'融資追'+g.hotGuess, n:(function(){
+      o.push({t:'借錢追'+g.hotGuess, n:(function(){
         const b=nav(g)*0.6;
         return '借 '+amt(b)+'・'+coverNote(g,b,b);
-      })(), s:'跌破 130% 斷頭', mv:'margin:'+hot, warn:1});
+      })(), s:'安全度低於 130% 會被強制賣掉', mv:'margin:'+hot, warn:1});
     o.push({t:'先放著', s:'現金一年 1.5%', skip:1});
-    return {q:'帳上有 '+inv.toFixed(0)+' 萬。今年市場在講的是'+g.hotGuess+'。', opts:o};
+    return {q:'你有 '+inv.toFixed(0)+' 萬可以用。今年大家都在談'+g.hotGuess+'。錢要放哪裡？', opts:o};
   }},
   /* 習慣：只問「要不要開一個新的」。
      維持既有的habit不問——那不是決定，那是照做，autoTick 會寫成敘述跑掉。
@@ -1256,9 +1379,9 @@ const BEATS=[
   {id:'scout', pick:function(g){
     const h=held(g).filter(function(x){ return g.scouted[x.id]==null; })[0];
     if(!h) return null;
-    return {q:'要不要花幾個晚上，把'+h.n+'的財報從頭讀一遍？',
+    return {q:'要不要花幾個晚上，仔細看看'+h.n+'這家公司賺不賺錢？',
       opts:[
-        {t:'讀', s:dieFace(curDie(g))+'換一個「它今年會不會贏大盤」的判斷，準確率 '+
+        {t:'花時間研究', s:dieFace(curDie(g))+'得到一個「它會不會比市場賺更多」的判斷，準確率 '+
              Math.round(44+curDie(g)*6+18*hb(g,'read'))+'%（點數 ×6）', mv:'scout:'+h.id},
         {t:'算了', s:'', skip:1}
       ]};
@@ -1306,15 +1429,15 @@ const SAY={
     '你把週末空出來。沒做什麼，就是沒有看盤。'
   ],
   keep:[
-    '你照著做了：{n}，第 {k} 年。',
-    '{n}——今年也沒有斷，第 {k} 年了。',
-    '沒有特別想，時間到了就去做{n}。第 {k} 年。',
-    '{n}這件事你已經不用提醒自己，第 {k} 年。'
+    '你今年也有做到「{n}」，這件事越來越順手。',
+    '你繼續堅持「{n}」，慢慢變成固定做法。',
+    '你不再反覆考慮，自然地照著「{n}」去做。',
+    '「{n}」越來越不需要提醒自己。'
   ],
   big:[
-    '這一年你是真的在{n}——一年抵兩年。',
-    '{n}這件事，今年你做得比哪一年都認真，一年抵兩年。',
-    '不知道為什麼，今年特別做得下去。{n}，一年抵兩年。'
+    '今年你很認真地堅持「{n}」，這次特別有效。',
+    '今年「{n}」做得特別穩定。',
+    '今年特別容易堅持「{n}」，離固定做法更近了。'
   ],
   lock:[
     '　現在它已經是你的一部分，不用再花力氣。',
@@ -1381,10 +1504,10 @@ function autoTick(g){
   return null;
 }
 
-/* 這顆骰子在「這個」處境裡做什麼。以前畫面固定印「價差 0.6%」，
-   但開新習慣沒有價差——那一題印出來的是一句跟它無關的話。 */
+/* 行動點在「這個」處境裡對應的標準效果。
+   函式名保留 dieNote，避免破壞已有的呈現層 API。 */
 function dieNote(id,die){
-  if(id==='habit') return die>=5 ? '這顆高，進度 +2（一年抵兩年）' : '進度 +1';
+  if(id==='habit') return die>=5 ? '這次效果特別好，更快變成固定習慣' : '更容易養成這個習慣';
   const v=slip(die)*100;
   return die<=2 ? '成交價差 +'+v.toFixed(1)+'%（比較差的價位）'
        : die<=4 ? '成交價差 +'+v.toFixed(1)+'%'
@@ -1534,6 +1657,70 @@ function playMid(g,choice){
   return out;
 }
 
+/* 一次點擊完成年度風險判定。當下的借款、集中度、現金、壓力、生活與行情
+   都會進入機率；結果可能正常、小額損失或重大資金危機。 */
+function riskCheck(g){
+  if(g.riskChecked) return g.riskResult;
+  g.riskChecked=true;
+  const a=Math.max(assets(g),0.01), held=Object.keys(g.book);
+  const debtRatio=g.debt/a, cashRatio=g.cash/a;
+  let largest=0; held.forEach(function(id){largest=Math.max(largest,g.book[id].sh*g.price[id]);});
+  const concentration=largest/a;
+  let p=8+Math.min(28,debtRatio*45);
+  if(concentration>=0.7)p+=12; else if(concentration>=0.5)p+=6;
+  if(cashRatio<0.08)p+=8;
+  if(g.tilt>=75)p+=8; else if(g.tilt>=65)p+=4;
+  if(g.life<35)p+=6;
+  p-=clamp(av(g,'habit')*.12,0,7);
+  p-=clamp(av(g,'funds')*.16,0,9);
+  if(g.trait==='safe')p-=6;
+  const rg=g.market[g.year].rg;
+  if(rg==='crash')p+=16; else if(rg==='bear')p+=8; else if(rg==='boom')p+=4;
+  p=Math.round(clamp(p,5,72));
+  if(g.R()*100>=p){
+    return g.riskResult={kind:'safe',p:p,loss:0,text:'資金與持股狀況正常，沒有發生額外損失。'};
+  }
+  const major=g.R()*100<30, pct=major?g.ri(8,15):g.ri(2,5);
+  const loss=Math.abs(evMoney(g,-pct,false));
+  if(major){
+    addTilt(g,-12); g.life=clamp(g.life-5,0,100);
+    if(g.debt>0)g.debt*=1.03;
+    return g.riskResult={kind:'major',p:p,loss:loss,
+      text:'資金壓力同時爆發，被迫賣出部分持股，生活也受到影響。'};
+  }
+  addTilt(g,-6);
+  return g.riskResult={kind:'minor',p:p,loss:loss,
+    text:'臨時需要現金，只好在不理想的時間賣出一小部分持股。'};
+}
+
+/* 五種能力共同形成每年的「操作績效」。投資風格是開局固定的特質，
+   只改變五種能力的比重，不直接送報酬；能力愈高，實際持有部位愈能
+   少犯錯、降低摩擦並抓住機會。初始能力約 20～32，因此開局加成很小。 */
+const PERF_W={
+  craft:{invest:.22,research:.32,habit:.20,life:.10,funds:.16},
+  safe: {invest:.16,research:.16,habit:.27,life:.14,funds:.27},
+  life: {invest:.16,research:.14,habit:.24,life:.30,funds:.16}
+};
+function abilityPerformance(g){
+  const s=g.allocStats||{}, trait=g.trait||'craft', w=PERF_W[trait]||PERF_W.craft;
+  let score=0; Object.keys(w).forEach(function(k){score+=(s[k]||0)*w[k];});
+  const parts={
+    invest:av(g,'invest')*.035,
+    research:av(g,'research')*.020,
+    habit:av(g,'habit')*.018,
+    life:av(g,'life')*.012,
+    funds:av(g,'funds')*.015
+  };
+  let lowLife=g.life<50?-(50-g.life)*.045*(1-clamp(av(g,'life')*.012,0,.55)):0;
+  if(trait==='life')lowLife*=.5;
+  const contribution={};
+  let pct=lowLife; Object.keys(parts).forEach(function(k){
+    contribution[k]=parts[k]*(.65+w[k]*1.75); pct+=contribution[k];
+  });
+  pct=clamp(pct,-2.5,4.25);
+  return {score:score,pct:pct,trait:trait,weights:w,parts:contribution,lifePenalty:lowLife};
+}
+
 /* 4. 結算 */
 function closeYear(g){
   if(g.over) return null;
@@ -1542,6 +1729,9 @@ function closeYear(g){
   if(g.pendEv){ g.pendEv=null; g.phase='act'; }
   const m=g.market[g.year];
   const before=nav(g);
+  const investedBefore=Object.keys(g.book).reduce(function(sum,id){
+    return sum+g.book[id].sh*g.price[id];
+  },0);
 
   /* 股利：以年初價為基礎；除息的坑已經在價格報酬裡扣掉了 */
   let divCash=0;
@@ -1560,10 +1750,23 @@ function closeYear(g){
   INST.forEach(function(x){ g.price[x.id]=Math.max(0.5, g.price[x.id]*(1+g.yr[x.id]/100)); });
   g.benchSh+=benchDiv/g.price.wide;
 
+  /* 能力加成只作用在玩家實際投入的部位；空手不會靠能力生出報酬。 */
+  const perf=abilityPerformance(g);
+  /* 和棒球人生的低潮／生涯年相同：能力不變，只改變今年的發揮。 */
+  const formRoll=g.R();
+  const form=formRoll<.10?-1:(formRoll<.20?1:0);
+  const formFactor=form<0 ? 0.65 : (form>0 ? 1.20 : 1);
+  const abilityPct=perf.pct*formFactor;
+  const exposure=g.autoExposure||0;
+  const abilityBase=investedBefore;
+  const abilityGain=abilityBase*abilityPct/100;
+  g.cash+=abilityGain;
+
   /* 融資利息與斷頭 */
   let blew=false;
   if(g.debt>0){
-    g.debt*=(1+DEBT_RATE);
+    const fundCut=clamp(av(g,'funds')*.006,0,.28)+(g.trait==='safe' ? 0.10 : 0);
+    g.debt*=(1+DEBT_RATE*(1-fundCut));
     const a=assets(g);
     if(a/g.debt<MAINT){
       for(const id in g.book) delete g.book[id];
@@ -1603,7 +1806,13 @@ function closeYear(g){
   });
 
   const row={year:g.year, age:g.age, rg:m.rg, mkt:m.ret, nav:after, ret:rp,
-             tilt:g.tilt, life:g.life, blew:blew, div:divCash};
+             tilt:g.tilt, life:g.life, blew:blew, div:divCash,
+             abilityScore:perf.score, abilityPct:abilityPct, abilityBasePct:perf.pct,
+             abilityGain:abilityGain, abilityParts:perf.parts, lifePenalty:perf.lifePenalty,
+             autoMarketPct:g.yr.wide, autoMarketGain:0, autoInvested:g.autoInvested||0,
+             autoDecision:g.autoDecision||null,
+             exposure:exposure,
+             form:form, formFactor:formFactor, trait:perf.trait};
   g.log.push(row); g.hist.push(after);
   g.mid=null; g.year++; g.phase='idle';
 
@@ -1618,7 +1827,13 @@ function careerChoice(g,which){ g.career=which==='pro'?'pro':'job'; }
 
 /* ================= 結局 ================= */
 const ENDINGS=[
+  /* 自主收手：唯一一個由玩家主動觸發的結局。原型是 2021 年在頂點
+     全數出清的航海王——不是賣在最高點，是知道什麼時候該還在。 */
+  {id:'walkaway',c:function(x){return x.reason==='walkaway';},t:'收手，去過日子'},
   {id:'burnout', c:function(x){return x.reason==='burnout';}, t:'人先垮了'},
+  /* 斷過頭又歸零＝錢賠完之外，信用也賠進去了。台股的違約交割
+     留五年紀錄，2018 起 783 件裡四成不到 39 歲。 */
+  {id:'default', c:function(x){return x.reason==='ruin'&&x.blowups>=1;}, t:'違約交割'},
   {id:'ruin',    c:function(x){return x.reason==='ruin';},    t:'歸零'},
   {id:'phoenix', c:function(x){return x.blowups>=1&&x.nav>=3000;}, t:'斷過頭，又爬回來'},
   {id:'whale',   c:function(x){return x.nav>=15000;},         t:'隱形富豪'},
@@ -1629,6 +1844,34 @@ const ENDINGS=[
   {id:'flat',    c:function(x){return x.cagr>=0;},            t:'二十四年，剛好打平'},
   {id:'leek',    c:function(){return true;},                  t:'韭菜'}
 ];
+/* 每個結局配一段「後來」——借野球模擬器的第二人生劇本：
+   終止不是懲罰，是敘事出口。素材全部來自真實案例（航海王、
+   雷伯龍、Livermore、違約交割世代、存股裸辭族）。
+   固定文本不抽亂數：結局那一刻不該再消耗種子流。 */
+const EPILOGUE={
+  walkaway:'你把最後一張賣掉的那天，行情還在漲，群組裡都說你瘋了。'+
+    '兩年後同學會，當年笑你的人沒有來——他抱到了最高點，也抱到了腰斬再腰斬。'+
+    '你沒有賣在最高點。你只是還在。',
+  'default':'催繳的電話你沒接，但那筆錢不會消失。違約紀錄跟著你五年，這五年你不能開戶。'+
+    '你回去上班了。奇怪的是，睡得比看盤那幾年好。'+
+    '五年後你重新開戶，第一筆單：定期定額，市值型。這次你打算慢慢來。',
+  ruin:'你信奉愈低愈買，這句話在前面十幾年都是對的。'+
+    '最後一年你才發現，「愈低愈買」需要一個前提：錢是你自己的。'+
+    '曾經在群組裡喊水會結凍的人，最後一筆交易是把看盤 App 刪掉。',
+  burnout:'帳戶裡還有錢，人先沒電了。你把自動轉帳關掉，睡了三個月。'+
+    '後來在河堤跑步的時候你想通一件事：報酬率沒有辦法補償你錯過的那些晚餐。',
+  phoenix:'斷頭那天你以為人生結束了。'+
+    '後來你把那筆錢當學費算進成本，攤提二十年——年化起來，其實不貴。',
+  whale:'沒有人知道你有錢。你開的車、住的地方、點的便當都跟二十年前一樣。'+
+    '只有你自己知道，這是一場很長很長的複利。',
+  big:'你賺到了錢，也還記得當初為什麼要賺錢。'+
+    '這兩件事同時成立的人，比大戶少得多。',
+  rich:'大戶。名片上不會印這兩個字，但營業員接你電話的速度會。',
+  mid:'不是傳奇。但夠付頭期款、夠讓爸媽退休。多數的好人生，長這個樣子。',
+  steady:'二十幾年沒有一個能拿出來說嘴的故事——這就是那個故事。',
+  flat:'打平。券商賺了你的手續費，政府賺了你的稅，你賺了一課。',
+  leek:'市場不記得你，但你記得市場。這已經比大部分人誠實了。'
+};
 function finish(g,reason){
   if(g.over) return;
   g.over=true; g.phase='over';
@@ -1640,7 +1883,9 @@ function finish(g,reason){
   const bench=benchNav(g);
   g.ending={id:e.id, t:e.t, nav:n, cagr:cagr, life:g.life, tilt:g.tilt,
             blowups:g.blowups, tax:g.taxPaid, div:g.divTotal, trades:g.trades, years:yrs,
-            inflow:g.inflow, bench:bench, edge:(n/Math.max(bench,0.01)-1)*100};
+            age:g.age, endYear:2026+g.year-1,
+            inflow:g.inflow, bench:bench, edge:(n/Math.max(bench,0.01)-1)*100,
+            story:EPILOGUE[e.id]||''};
 }
 
 /* ================= 對外介面 ================= */
@@ -1655,6 +1900,8 @@ function wrap(g){
     investable:function(){ return investable(g); },
     openYear:function(){ return openYear(g); },
     event:function(){ return event(g); },
+    deferEvent:function(){ return deferEvent(g); },
+    beginEvent:function(){ return beginEvent(g); },
     answerEvent:function(i){ return answerEvent(g,i); },
     moves:function(){ return moves(g); },
     play:function(id,arg){ return play(g,id,arg); },
@@ -1664,17 +1911,36 @@ function wrap(g){
     skipRest:function(){ return skipRest(g); },
     midWindow:function(){ return midWindow(g); },
     playMid:function(c){ return playMid(g,c); },
+    riskCheck:function(){ return riskCheck(g); },
     closeYear:function(){ return closeYear(g); },
+    allocPreview:function(k,p){ return allocResult(g,k,p,false); },
+    addAlloc:function(k,p){ return allocResult(g,k,p,true); },
+    autoAllocate:function(){ return autoAllocate(g); },
     career:function(w){ return careerChoice(g,w); },
-    setPlan:function(k){ if(PLANS[k]) g.plan=k; return g.plan; },
+    setPlan:function(k){
+      if(PLANS[k]){
+        g.plan=k;
+        /* 第一次選的是生涯特質；年末選項只是下一年的投資重點。 */
+        if(g.trait==null&&g.year===0&&g.phase==='idle') g.trait=k;
+      }
+      return g.plan;
+    },
     autoTick:function(){ return autoTick(g); },
-    beats:function(d){ return beats(g,d); }
+    beats:function(d){ return beats(g,d); },
+    /* 自主收手：30 歲以上、淨值站上中實戶門檻（600 萬）才給。
+       股市人生最重要的一課是知道什麼時候離場——但太早或太窮的收手
+       只是放棄，不是選擇。 */
+    canWalkaway:function(){ return !g.over && g.age>=30 && nav(g)>=600; },
+    walkaway:function(){
+      if(!(!g.over && g.age>=30 && nav(g)>=600)) return false;
+      finish(g,'walkaway'); return true;
+    }
   };
 }
 
 /* 頁面用這個數字確認自己拿到的不是快取裡的舊內核。
    改了對外介面就 +1，並同步改 play.html 的 ?v= 與 NEED_VERSION。 */
-const VERSION=17;
+const VERSION=33;
 
 return {newGame:newGame, VERSION:VERSION, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,

@@ -9,15 +9,23 @@
   style-src 'self' 'unsafe-inline' https://fonts.googleapis.com;
   font-src https://fonts.gstatic.com;
   img-src 'self' data:;
+  connect-src 'self';
   base-uri 'none';
   form-action 'none'">
 <title>少年股神 · 內核 v2 試玩</title>
-<meta name="description" content="持股跨年延續、訊號牌可解讀、心態會動你的選項。內核 v2 的可玩骨架。">
+<meta name="description" content="16 歲用壓歲錢開始投資。每年把點數分配到你在意的事，到 40 歲看你賺了多少，也看你過得好不好。">
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 32 32%22%3E%3Crect width=%2232%22 height=%2232%22 fill=%22%23e8e4da%22/%3E%3Cpath d=%22M3 24 L10 16 L15 20 L22 8 L29 12%22 stroke=%22%238c2f2f%22 stroke-width=%222.5%22 fill=%22none%22 stroke-linejoin=%22round%22/%3E%3C/svg%3E">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=Noto+Sans+TC:wght@400;500;700;900&family=Noto+Serif+TC:wght@600;900&display=swap" rel="stylesheet">
 <style>
+/* ================================================================
+   重蓋的版面：單欄訊息流。
+   前一版是「顯示面板＋輸入面板」分食一個固定高度的螢幕，
+   手機上兩格互相遮蔽的 bug 修一個冒一個——結構問題修不完。
+   這一版整頁只有一條自然捲動的訊息流，決定就長在流的最尾端：
+   沒有 dock、沒有覆蓋層、沒有狀態機，遮蔽在結構上不可能發生。
+   ================================================================ */
 :root{
   --bg:#ddd8cb; --card:#faf8f2; --card2:#f0ece2; --edge:#d8d1c1;
   --ink:#1d1a15; --dim:#736a5c; --accent:#8c2f2f; --accent2:#b04545;
@@ -27,89 +35,214 @@
   --serif:'Noto Serif TC',Georgia,serif;
   --r:14px;
 }
+body[data-theme="green"]{--bg:#07150f;--card:#10251b;--card2:#0b1d15;--edge:#284638;
+  --ink:#eee8d8;--dim:#9baa9f;--accent:#d5aa58;--accent2:#e4bd70;--up:#79c98d;--dn:#ef7777}
+body[data-theme="blue"]{--bg:#101722;--card:#182333;--card2:#121d2b;--edge:#30435b;
+  --ink:#eef4fa;--dim:#91a5ba;--accent:#55b9e8;--accent2:#76c8ed;--up:#70d0a0;--dn:#ff7f86}
+body[data-theme="mono"]{--bg:#dedede;--card:#fff;--card2:#f3f3f3;--edge:#bdbdbd;
+  --ink:#111;--dim:#666;--accent:#222;--accent2:#444;--up:#12612e;--dn:#981919}
+body.big-text{font-size:17px}
+body.big-text button{font-size:16px}
 *{box-sizing:border-box}
-html,body{margin:0;padding:0;height:100%}
-body{background:var(--bg);color:var(--ink);font-family:var(--sans);font-size:15px;line-height:1.7;
-  -webkit-text-size-adjust:100%;overflow:hidden}
+html{margin:0;padding:0}
+body{margin:0;padding:0;background:var(--bg);color:var(--ink);
+  font-family:var(--sans);font-size:15px;line-height:1.7;-webkit-text-size-adjust:100%}
 b.up{color:var(--up)} b.dn{color:var(--dn)} b.hl{color:var(--accent)} b.gd{color:var(--gold)}
-.mono{font-family:var(--mono)}
+.num{display:inline-block;padding:0 4px;border-radius:5px;background:rgba(140,47,47,.1);
+  color:var(--accent);font-weight:700;font-variant-numeric:tabular-nums}
+.num.up{background:rgba(29,107,58,.11);color:var(--up)}
+.num.dn{background:rgba(165,30,30,.11);color:var(--dn)}
 
-/* 一支手機的形狀。桌面不再攤成兩欄儀表板——
-   這款一次只問你一件事，兩欄只會讓那件事變小。 */
-.phone{max-width:460px;margin:0 auto;height:100vh;height:100dvh;
-  display:flex;flex-direction:column;background:var(--card2);
-  box-shadow:0 0 0 1px var(--edge)}
+/* ---- 版心：一欄到底，桌機也是同一欄置中 ---- */
+#start,#game{width:100%;max-width:560px;margin:0 auto;background:var(--card2);
+  box-shadow:0 0 0 1px var(--edge);min-height:100vh;min-height:100svh}
+/* flex 直欄＋#feed flex:1（借 YaKyoLife 的 #app/#mid）：
+   內容短的年份，訊息流會撐開把輸入面板推到螢幕底邊——
+   不然 sticky 面板會浮在內容正下方、畫面中間，收合起來像沒收乾淨。 */
+#game{display:flex;flex-direction:column}
+#feed{flex:1 1 auto}
 
 /* ---- 開場 ---- */
-#start{display:block;overflow-y:auto;padding:40px 20px calc(40px + env(safe-area-inset-bottom))}
+#start{display:block;padding:40px 20px calc(40px + env(safe-area-inset-bottom))}
 h1{font-family:var(--serif);font-size:40px;line-height:1.08;margin:0 0 6px;font-weight:900}
-h1 em{display:block;font-family:var(--mono);font-style:normal;font-size:10px;letter-spacing:.4em;
-  color:var(--accent);margin-top:12px;font-weight:500;padding-top:10px;border-top:1px solid var(--edge)}
+h1 em{display:block;font-family:var(--sans);font-style:normal;font-size:13px;letter-spacing:.34em;
+  text-indent:.34em;color:var(--accent);margin:14px auto 0;font-weight:700;max-width:300px;
+  padding-top:10px;border-top:1px solid var(--edge)}
+#start h1{text-align:center;margin-top:12px;font-size:43px;letter-spacing:.04em}
 .tape{height:2px;border-radius:2px;background:linear-gradient(90deg,var(--up),var(--dn),var(--up));
-  opacity:.7;margin:16px 0 20px}
+  opacity:.55;margin:18px auto;max-width:300px}
 .sub{color:var(--dim);font-size:13.5px;line-height:1.85;margin:0 0 22px}
-.sub a{color:var(--accent)}
+#start>.sub{text-align:center;line-height:1.75;letter-spacing:.02em;margin-bottom:24px}
 .field{margin-bottom:16px}
-.field>label{display:block;font-size:9.5px;letter-spacing:.24em;color:var(--dim);
-  font-family:var(--mono);margin-bottom:7px;text-transform:uppercase}
+.field>label{display:block;font-size:11px;font-weight:700;color:var(--dim);margin-bottom:7px}
 input{width:100%;padding:12px 13px;background:var(--card);color:var(--ink);border-radius:10px;
   border:1px solid var(--edge);font-size:15px;font-family:var(--mono);outline:none}
 input:focus{border-color:var(--accent)}
-.hint{color:var(--dim);font-size:12px;line-height:1.7;margin:8px 2px 0}
-.hint a{color:var(--accent)}
+#plans{display:grid;grid-template-columns:repeat(3,1fr);gap:7px}
+#plans button{padding:10px 4px;text-align:center;white-space:nowrap;margin:0}
+#plan-desc{min-height:22px;margin:7px 2px 0;color:var(--dim);font-size:11.5px;line-height:1.55}
+#go{margin-top:22px;min-height:48px;text-align:center;font-weight:700}
+.seedline{margin-top:22px;padding-top:18px;border-top:1px solid var(--edge);
+  font-family:var(--mono);font-size:11px;line-height:1.8;color:var(--dim)}
+.seedline #seed{display:inline-block;width:130px;margin-left:6px;padding:5px 7px;
+  text-align:center;font-size:11px}
+#display-settings{margin-top:18px;color:var(--dim);font:12px/1.6 var(--mono)}
+#display-settings>summary{cursor:pointer;list-style:none;padding:3px 0}
+#display-settings>summary::-webkit-details-marker{display:none}
+#display-settings>summary::before{content:'▸';display:inline-block;margin-right:7px;font-size:10px}
+#display-settings[open]>summary::before{transform:rotate(90deg)}
+#display-settings .cfg{margin-top:12px}
+#display-settings .cfg label{display:block;margin-bottom:6px;font-size:10px;letter-spacing:.15em}
+#display-settings .cfg-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:6px}
+#display-settings button{min-height:38px;padding:7px 8px;margin:0;text-align:center;font-size:12px}
+#display-settings button.on{color:var(--accent);border-color:var(--accent);font-weight:700}
 
-/* ---- 上方：主數據 ---- */
-#hud{flex:none;background:var(--card);border-bottom:1px solid var(--edge);
-  padding:calc(10px + env(safe-area-inset-top)) 14px 9px}
-#hud .top{display:flex;align-items:flex-end;justify-content:space-between;gap:10px}
-#hud .yr{font-family:var(--serif);font-size:23px;font-weight:900;line-height:1.1}
-#hud .yr small{display:block;font-family:var(--mono);font-size:10px;font-weight:400;
-  letter-spacing:.16em;color:var(--dim);margin-top:2px}
-#hud .nav{text-align:right;line-height:1.1}
-#hud .nav .k{display:block;font-family:var(--mono);font-size:9.5px;letter-spacing:.2em;color:var(--dim)}
-#hud .nav .v{font-family:var(--mono);font-size:25px;font-weight:700;letter-spacing:-.02em}
-#hud .chips{display:flex;gap:6px;margin-top:9px}
-#hud .chip{flex:1;background:var(--card2);border-radius:9px;padding:5px 8px;
-  font-family:var(--mono);font-size:13px;font-weight:700;line-height:1.35;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-#hud .chip span{display:block;font-size:9px;letter-spacing:.16em;color:var(--dim);font-weight:400}
-#hud .chip b{font-size:10.5px;font-weight:700;margin-left:2px}
-/* 骰子自己說話：每一顆底下寫它做了什麼。
-   只把用掉的劃掉是不夠的——超過一半的骰子是自動事務花掉的，
-   玩家按一次卻少三顆，看起來像跳號。標上去之後那三顆各有各的去處。 */
-#hud .dicebar{display:flex;gap:4px;margin-top:6px;background:var(--card2);
-  border-radius:9px;padding:4px 7px 3px;overflow:hidden}
-#hud .dicebar .k{font-family:var(--mono);font-size:9px;letter-spacing:.14em;color:var(--dim);
-  align-self:center;padding-right:2px;white-space:nowrap}
-.d{flex:1 1 0;min-width:0;text-align:center}
-.d i{display:block;font-style:normal;font-size:19px;line-height:1.15;color:var(--edge)}
-.d em{display:block;font-style:normal;font-size:8.5px;line-height:1.35;color:var(--dim);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.d.used i{color:var(--accent)}
-.d.now i{color:var(--ink)}
-.d.now em{color:var(--accent);font-weight:700}
-.die{display:inline-block;font-size:20px;line-height:1;color:var(--accent)}
+/* ---- HUD：唯一固定的東西，一條瘦的 ---- */
+#hud{position:sticky;top:0;z-index:30;background:var(--card);
+  border-bottom:1px solid var(--edge);
+  padding:calc(7px + env(safe-area-inset-top)) 14px 7px}
+#hud .top{display:flex;align-items:baseline;justify-content:space-between;gap:10px}
+#hud .yr{font-family:var(--serif);font-size:19px;font-weight:900;line-height:1.2}
+#hud .yr small{font-family:var(--mono);font-size:9.5px;font-weight:400;
+  letter-spacing:.14em;color:var(--dim);margin-left:7px}
+#hud .nav{font-family:var(--mono);font-size:20px;font-weight:700;color:var(--accent);
+  letter-spacing:-.02em}
+#hud .nav small{font-size:9px;letter-spacing:.18em;color:var(--dim);font-weight:400;margin-right:6px}
+#hud .chips{display:flex;gap:6px;margin-top:6px}
+#hud .chip{flex:1 1 0;min-width:0;background:var(--card2);border:none;border-radius:8px;
+  padding:3px 8px 4px;font-family:var(--mono);font-size:12.5px;font-weight:700;color:var(--ink);
+  line-height:1.35;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;text-align:left;
+  min-height:0;margin:0}
+#hud .chip span{display:block;font-size:8.5px;letter-spacing:.14em;color:var(--dim);font-weight:400}
+#hud .chip.warn{color:var(--dn)}
+/* width:auto 蓋掉全域 button{width:100%}——不蓋的話這顆 chip 會把
+   整行撐到 442px，layout viewport 跟著變寬，整頁（連固定浮層）都被推歪 */
+#hud .chip.btn{cursor:pointer;border:1px solid var(--edge);color:var(--accent);text-align:center;
+  flex:0 0 auto;width:auto;min-height:0;margin:0;padding:3px 12px 4px}
+/* 相位燈（借 YaKyoLife 的季初/賽季中/季末）：一眼知道年循環走到哪一步 */
+#lamps{display:flex;gap:12px;margin-top:6px}
+.lamp{display:flex;align-items:center;gap:4px;font:10px/1.2 var(--mono);
+  letter-spacing:.12em;color:var(--dim);opacity:.45}
+.lamp i{width:6px;height:6px;border-radius:50%;background:var(--edge);font-style:normal}
+.lamp.on{opacity:1;color:var(--accent);font-weight:700}
+.lamp.on i{background:var(--accent);box-shadow:0 0 0 3px rgba(140,47,47,.15)}
 
-/* ---- 中間：顯示面板 ----
-   整頁不捲，只有這一格捲。上面的數據與下面的選單永遠在原地，
-   所以「現在你有多少錢」與「現在要你決定什麼」不會被內容推走。 */
-/* flex-basis 0 ＋ min-height：這一格才會「讓」出空間。
-   選項多的年份由它縮，而不是讓選項自己長出一條捲軸——
-   要你決定的東西不該有一半藏在畫面外。 */
-#stage{flex:1 1 0;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
-  padding:11px 11px 14px}
+/* ---- 輸入面板：sticky 底部、可收合、內部自己捲 ---- */
+#dock{position:sticky;bottom:0;z-index:20;background:var(--card);
+  border-top:2px solid var(--edge);border-radius:14px 14px 0 0;
+  box-shadow:0 -8px 24px rgba(20,17,12,.14)}
+#dock-head{display:flex;align-items:center;gap:10px;width:100%;margin:0;padding:9px 14px 7px;
+  min-height:0;background:none;border:none;border-radius:14px 14px 0 0;cursor:pointer;text-align:left}
+#dock-head span#dock-t{flex:1;font-size:13px;font-weight:700;line-height:1.4;
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+#dock-head span#dock-c{font-family:var(--mono);font-size:11px;color:var(--dim);flex:none}
+#dock-body{max-height:52vh;max-height:52svh;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:2px 12px calc(12px + env(safe-area-inset-bottom))}
+/* 配點展開＝全部攤開，不內捲。內容壓緊到一般手機（667px 高）整面裝得下；
+   面板以內容定高，必要時蓋到 HUD 上（z-index 提高）。
+   max-height 只是 480px 級古董機的最後保險，正常尺寸碰不到。 */
+#dock.alloc{z-index:40}
+#dock.alloc #dock-body{max-height:calc(100vh - 8px);max-height:calc(100svh - 8px)}
+#dock.collapsed #dock-body{display:none}
+#dock:empty,#dock.idle{display:none}
+.dockq{font-size:13.5px;line-height:1.6;color:var(--dim);margin:2px 2px 8px}
+
+/* ---- 訊息流 ---- */
+#feed{padding:12px 12px 16px}
+.yr-sec{margin-bottom:4px}
+.yr-head{text-align:center;color:var(--dim);font:11px/1.5 var(--mono);letter-spacing:.22em;
+  padding:10px 0 8px;cursor:pointer;user-select:none}
+.yr-head::before,.yr-head::after{content:'——';letter-spacing:0;margin:0 7px}
+.yr-head::after{content:'——  ▾'}
+.yr-sec.collapsed .yr-head::after{content:'——  ▸'}
+.yr-sec.collapsed .yr-body{display:none}
+.yr-body{display:flex;flex-direction:column;gap:9px}
 .card{background:var(--card);border:1px solid var(--edge);border-radius:var(--r);
-  padding:12px 13px;margin-bottom:9px}
-.card>h3{margin:0 0 9px;font-size:9.5px;letter-spacing:.24em;color:var(--dim);
-  font-family:var(--mono);text-transform:uppercase;font-weight:500}
-.card:last-child{margin-bottom:0}
+  padding:12px 14px}
+.card h4{display:flex;align-items:center;gap:7px;margin:0 0 6px;color:var(--dim);
+  font:700 11px/1.5 var(--mono);letter-spacing:.16em}
+.card h4::before{content:'■';font-size:8px;color:currentColor}
+.card p{margin:0;font-size:13.5px;line-height:1.75}
+.card.good h4{color:var(--up)} .card.bad h4{color:var(--dn)}
+.card.info h4{color:var(--accent)} .card.gold h4{color:var(--gold)}
+.card .s{font-size:11.5px;color:var(--dim);font-family:var(--mono)}
+.sigline{display:flex;gap:7px;align-items:flex-start;font-size:13.5px;line-height:1.6}
+.sigline i{font-style:normal;color:var(--accent);font-family:var(--mono);font-size:11px;padding-top:3px}
+.sigline.theme{color:var(--accent);font-weight:700}
 
-/* ---- 風向 ---- */
-.sig{display:flex;gap:8px;align-items:flex-start;padding:5px 0;font-size:14px;line-height:1.6}
-.sig i{font-style:normal;color:var(--accent);font-family:var(--mono);font-size:11px;padding-top:3px}
-.sig.theme{color:var(--accent);font-weight:700}
+/* ---- 決定卡：選項就長在流的尾端 ---- */
+.card.ask{border-color:var(--accent);box-shadow:0 2px 14px rgba(20,17,12,.07)}
+.card.ask h4{color:var(--accent)}
+button{font-family:var(--sans);font-size:14.5px;cursor:pointer;text-align:left;border-radius:10px;
+  background:var(--card2);color:var(--ink);border:1px solid var(--edge);padding:10px 12px;width:100%;
+  min-height:44px;line-height:1.4;margin:0 0 7px;transition:none}
+button:last-child{margin-bottom:0}
+button:hover:not(:disabled){border-color:var(--accent)}
+button:disabled{opacity:.4;cursor:default}
+button .s{display:block;font-size:11px;line-height:1.45;color:var(--dim);font-family:var(--mono);
+  margin-top:2px}
+button .s b{color:var(--ink);font-weight:700}
+button.main{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
+button.main .s{color:rgba(255,255,255,.82)}
+button.main .s b{color:#fff}
+button.main:hover:not(:disabled){background:var(--accent2);border-color:var(--accent2)}
+button.warn{border-color:var(--dn);color:var(--dn)}
+button.warn .s b{color:var(--dn)}
+.ask .opts{margin-top:9px}
+.picked{margin-top:9px;padding:8px 11px;border-left:3px solid var(--accent);
+  background:var(--card2);border-radius:0 8px 8px 0;font-size:13.5px;font-weight:700}
 
-/* ---- 持股 ---- */
+/* ---- 配點卡 ---- */
+/* 配點內容要在 667px 高的手機一次全攤開，所以每一段都壓到最省 */
+.dice{display:flex;gap:6px;margin:6px 0 8px;padding:5px 7px;background:var(--card2);
+  border:1px solid var(--edge);border-radius:11px}
+.dz{flex:1 1 0;min-width:0;text-align:center}
+.dz i{display:grid;place-items:center;width:100%;max-width:32px;aspect-ratio:1;margin:auto;
+  border-radius:50%;background:var(--card);border:2px solid var(--edge);color:var(--ink);
+  font:700 14px/1 var(--mono);font-style:normal;box-shadow:inset 0 -2px 0 rgba(0,0,0,.1)}
+.dz em{display:block;font-style:normal;font-size:8px;line-height:1.3;color:var(--dim);
+  margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dz.used i{background:var(--edge);opacity:.45}
+.dz.done i{border-color:var(--gold);color:var(--gold)}
+.dz.done em{color:var(--gold);font-weight:700}
+.dz.now i{border-color:var(--accent);box-shadow:0 0 0 2px rgba(140,47,47,.16),inset 0 -3px 0 rgba(0,0,0,.1)}
+.arow{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:0 8px;align-items:center;
+  width:100%;min-height:0;margin:0 0 5px;padding:6px 10px;border-radius:10px}
+.arow .an{font-weight:700;font-size:13.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;
+  line-height:1.35}
+.arow .ad{grid-column:1;font-size:10px;color:var(--dim);line-height:1.35}
+.arow .put{grid-column:2;grid-row:1/3;font-family:var(--mono);font-weight:700;color:var(--accent);
+  text-align:right;font-size:13.5px;line-height:1.25}
+.arow .put small{display:block;font-size:8.5px;font-weight:500;color:var(--dim)}
+.arow .put small.up{color:var(--up)}
+.arow .bar{grid-column:1/3;position:relative;height:4px;background:var(--card2);
+  border-radius:5px;overflow:visible;margin-top:3px}
+.arow .bar i{display:block;height:100%;background:var(--accent);border-radius:5px}
+.arow .bar em{position:absolute;top:-2px;bottom:-2px;width:2px;background:var(--gold)}
+.arow:disabled{opacity:.45}
+.aacts{display:grid;grid-template-columns:1fr 2fr;gap:7px;margin-top:3px}
+.aacts button{margin:0;text-align:center;min-height:40px}
+/* 矮螢幕再擠一級：說明行讓位給「全部攤開」 */
+@media(max-height:620px){
+  .arow .ad{display:none}
+  .dockq{display:none}
+}
+
+/* ---- 盤面面板（唯讀，蓋不住任何決定） ---- */
+#peek{position:fixed;inset:0;z-index:60;background:rgba(20,17,12,.5);
+  display:none;justify-content:center;align-items:flex-end}
+#peek.show{display:flex}
+#peek .in{width:100%;max-width:560px;max-height:82vh;max-height:82svh;display:flex;
+  flex-direction:column;background:var(--card);border-radius:16px 16px 0 0;
+  box-shadow:0 -8px 30px rgba(20,17,12,.3)}
+#peek .head{flex:none;display:flex;align-items:center;justify-content:space-between;gap:10px;
+  padding:12px 14px 8px;border-bottom:1px solid var(--edge)}
+#peek .head span{font:700 11px/1.4 var(--mono);letter-spacing:.22em;color:var(--dim)}
+#peek .head button{width:auto;margin:0;padding:6px 13px;min-height:0;font-size:12.5px}
+#peek .body{flex:0 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;
+  padding:12px 14px calc(14px + env(safe-area-inset-bottom))}
+#peek h5{margin:14px 0 7px;font:700 10px/1.5 var(--mono);letter-spacing:.2em;color:var(--dim)}
+#peek h5:first-child{margin-top:0}
 table.book{width:100%;border-collapse:collapse;font-family:var(--mono);font-size:12.5px}
 table.book th{text-align:right;color:var(--dim);font-weight:400;font-size:9.5px;letter-spacing:.14em;
   padding:0 0 5px;border-bottom:1px solid var(--edge)}
@@ -118,6 +251,11 @@ table.book td{padding:7px 0;border-bottom:1px solid var(--edge);text-align:right
 table.book td:first-child{text-align:left;font-family:var(--sans);font-size:13.5px}
 table.book tr:last-child td{border-bottom:none}
 .empty{color:var(--dim);font-size:13px;padding:8px 0}
+svg.chart{width:100%;height:130px;display:block}
+.legend{font-family:var(--mono);font-size:10.5px;color:var(--dim);display:flex;gap:14px;margin-top:6px}
+.legend i{font-style:normal;display:inline-block;width:14px;height:2px;vertical-align:middle;margin-right:4px}
+
+/* ---- 結局 ---- */
 .card.end{border-color:var(--accent)}
 .endt{font-family:var(--serif);font-size:25px;font-weight:900;line-height:1.15;
   margin:-2px 0 8px;color:var(--accent)}
@@ -129,261 +267,118 @@ table.book tr:last-child td{border-bottom:none}
 .tl span{display:block;font-family:var(--mono);font-size:9px;line-height:1.35;letter-spacing:.12em;
   color:var(--dim);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .tl b{font-family:var(--mono);font-size:14px;font-weight:700;line-height:1.3}
-.scout{font-size:10px;font-family:var(--mono);padding:1px 5px;border:1px solid currentColor;
-  border-radius:6px;margin-left:5px}
-
-/* ---- 剛剛／紀錄 ---- */
-/* 前後對照那一行：標籤與箭頭壓淡，「之後」實色粗體——
-   眼睛要找的是那個數字，不是箭頭 */
-.fx{display:block;font-family:var(--mono);font-size:11px;line-height:1.5;
-  color:var(--dim);margin-top:3px}
-.fx b{color:var(--ink);font-weight:700}
-.log .row{border-left:2px solid var(--edge);padding:7px 0 7px 11px;margin-bottom:9px;font-size:13.5px;
-  line-height:1.75}
-.log .row:last-child{margin-bottom:0}
-.log .row.good{border-color:var(--up)} .log .row.bad{border-color:var(--dn)}
-.log .row.mkt{border-color:var(--accent)}
-/* 照方針自動跑掉的事，顏色比你自己的決定淡一階——
-   看得到它發生過，但不會跟你按下去的那些搶。 */
-.log .row.auto{border-color:var(--edge);color:var(--dim)}
-.log .row .t{font-family:var(--mono);font-size:10px;letter-spacing:.16em;color:var(--dim);
-  text-transform:uppercase;display:block;margin-bottom:2px}
-
-/* ---- 圖 ---- */
-svg.chart{width:100%;height:130px;display:block}
-.legend{font-family:var(--mono);font-size:10.5px;color:var(--dim);display:flex;gap:14px;margin-top:6px}
-.legend i{font-style:normal;display:inline-block;width:14px;height:2px;vertical-align:middle;margin-right:4px}
-
-/* ---- 下方：選單，可收納 ----
-   收起來只剩一條把手＋分頁列，中間那格就拿回整個螢幕；
-   要出牌的時候再拉開。這條把手同時是「現在輪到你決定什麼」的標題。 */
-/* min-height:0 ＋ 自己也是 flex：畫面真的不夠高的時候，
-   這一格要會「縮」而不是被切掉。被切掉的話最後一個選項連同分頁列
-   一起消失在畫面外，而且沒有任何捲軸告訴你它還在那裡——
-   實測 580px 高的視窗就會發生。 */
-#dock{flex:0 1 auto;min-height:0;max-height:100%;display:flex;flex-direction:column;
-  background:var(--card);border-top:1px solid var(--edge);
-  border-radius:16px 16px 0 0;box-shadow:0 -6px 22px rgba(20,17,12,.13);
-  padding-bottom:env(safe-area-inset-bottom)}
-#grab{flex:none;display:flex;align-items:center;gap:10px;width:100%;padding:8px 14px 7px;min-height:0;
-  margin-bottom:0;
-  background:none;border:none;border-radius:16px 16px 0 0;cursor:pointer;text-align:left}
-#grab .bar{position:absolute;left:50%;transform:translateX(-50%);top:5px;
-  width:34px;height:3px;border-radius:3px;background:var(--edge)}
-#grab .t{flex:1;font-size:13px;font-weight:700;line-height:1.4}
-#grab .c{font-family:var(--mono);font-size:11px;color:var(--dim)}
-#dock{position:relative}
-/* 沒有 max-height：選項有多高，這一格就多高。
-   上面的 #stage 會讓位。overflow 只是最後一道保險，
-   正常玩到的年份（最多 5 個選項）碰不到它。 */
-#dock-body{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 11px 9px}
-#dock.min #dock-body{display:none}
-#tabs{flex:none;display:flex;border-top:1px solid var(--edge);background:var(--card)}
-#tabs button{flex:1;background:none;border:none;border-top:2px solid transparent;margin:-1px 0 0;
-  min-height:0;padding:8px 2px calc(8px + env(safe-area-inset-bottom));font-size:12.5px;
-  color:var(--dim);text-align:center;font-weight:500;cursor:pointer;border-radius:0}
-#tabs button.on{color:var(--accent);border-top-color:var(--accent);font-weight:700}
-
-/* ---- 處境卡：今年還能決定的事，一次全部攤開 ---- */
-.card.sit{padding:11px 12px 9px}
-.sq{font-size:15px;line-height:1.55;margin:0 0 6px}
-.dhint{display:flex;align-items:center;gap:6px;font-size:11px;line-height:1.3;
-  color:var(--dim);margin:0 0 8px}
-.opt{display:flex;align-items:baseline;gap:0 8px;width:100%;text-align:left;
-  background:var(--card2);border:1px solid var(--edge);border-radius:10px;padding:9px 11px;
-  min-height:40px;margin-bottom:6px;font-family:var(--sans);cursor:pointer}
-.opt:last-child{margin-bottom:0}
-.opt .on{font-size:14.5px;line-height:1.35}
-.opt .ov{margin-left:auto}
-.opt .ov{font-family:var(--mono);font-size:12.5px;font-weight:700;white-space:nowrap}
-/* 口氣跟名稱同一行（不是自己一行）：八個選項就是省下一百多 px，
-   而中間那格總共只有三百多 */
-.opt .of{font-size:10.5px;color:var(--dim);font-family:var(--mono);line-height:1.35;
-  overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:11em}
-.opt.warn{border-color:var(--dn)} .opt.warn .on,.opt.warn .ov{color:var(--dn)}
-.opt:hover{border-color:var(--accent)}
-
-/* 收起來的處境：看得到它在，點一下換過去 */
-.sit-head{display:flex;align-items:center;gap:8px;width:100%;text-align:left;
-  background:var(--card);border:1px solid var(--edge);border-radius:var(--r);
-  padding:9px 12px;margin-bottom:9px;min-height:42px;cursor:pointer}
-.sit-head .hq{flex:1 1 auto;min-width:0;font-size:13.5px;line-height:1.35;
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.sit-head .hc{font-family:var(--mono);font-size:10px;letter-spacing:.14em;color:var(--accent)}
-
-/* ---- 骰子盤：點一顆，上面的數字就照那一顆重算 ---- */
-#tray{display:flex;gap:5px;margin:0 0 8px}
-.dz{flex:1 1 0;min-width:0;text-align:center;background:var(--card2);
-  border:1px solid var(--edge);border-radius:10px;padding:3px 2px;margin:0;min-height:0;
-  cursor:pointer}
-.dz i{display:block;font-style:normal;font-size:21px;line-height:1.1;color:var(--accent)}
-.dz em{display:block;font-style:normal;font-size:8.5px;line-height:1.3;color:var(--dim);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
-.dz.sel{border-color:var(--accent);box-shadow:inset 0 0 0 1px var(--accent);background:var(--card)}
-.dz.sel em{color:var(--accent);font-weight:700}
-.dz.used{opacity:.45}
-.dz.used i{color:var(--edge)}
-
-/* ---- 出牌 ---- */
-/* 五個選項要在一個螢幕裡全部看得到，所以每一顆都壓到最省：
-   標題一行、副標一行、上下各 9px。再省就按不準了。 */
-button{font-family:var(--sans);font-size:14.5px;cursor:pointer;text-align:left;border-radius:10px;
-  background:var(--card2);color:var(--ink);border:1px solid var(--edge);padding:9px 11px;width:100%;
-  min-height:44px;line-height:1.4;margin-bottom:6px;transition:none}
-button:last-child{margin-bottom:0}
-button:hover:not(:disabled){border-color:var(--accent)}
-button:disabled{opacity:.4;cursor:default}
-/* 一行之內分主次：數字實色粗體，口氣壓成灰。
-   整行同一個灰的時候，「投入 1.4 萬」會埋在句子裡找不到。 */
-button .s{display:block;font-size:11px;line-height:1.4;color:var(--dim);font-family:var(--mono);
-  margin-top:1px}
-button .s b{color:var(--ink);font-weight:700}
-button.main .s b{color:#fff}
-button.warn .s b{color:var(--dn)}
-button.main{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
-button.main .s{color:rgba(255,255,255,.8)}
-button.main:hover:not(:disabled){background:var(--accent2);border-color:var(--accent2)}
-button.warn{border-color:var(--dn);color:var(--dn)}
-button.skipall{background:transparent;color:var(--dim);border-style:dashed;min-height:38px;
-  font-size:13px;padding:8px 11px}
-/* 上一步的結果。壓到兩行以內——它是回顧，不能跟「現在要決定什麼」搶位子 */
-.last{background:var(--card2);border-left:2px solid var(--accent);border-radius:8px;
-  padding:6px 9px 7px;margin:0 0 8px;font-size:12px;line-height:1.5;max-height:62px;overflow:hidden}
-.last .t{font-family:var(--mono);font-size:9px;letter-spacing:.16em;color:var(--dim);
-  display:inline-block;margin-right:6px}
-.last .fx{margin-top:2px;font-size:10.5px}
-.last br{display:none}
-.q{font-size:15px;line-height:1.6;margin:0 0 6px;padding:0 2px}
-/* 骰子壓成一行。原本是一個有邊框的方塊，光它就吃掉 46px——
-   在小螢幕上那 46px 直接換成「最後一個選項看不到」。 */
-.dieline{display:flex;align-items:center;gap:7px;margin:0 0 8px;padding:0 2px;
-  font-size:11.5px;line-height:1.3;color:var(--dim)}
-.dieline b{color:var(--ink);font-weight:700}
-
-/* ---- 彈窗 ---- */
-#mask{position:fixed;inset:0;background:rgba(20,17,12,.72);z-index:60;display:flex;
-  align-items:flex-end;justify-content:center;padding:16px}
-#mask .m{background:var(--card);border:1px solid var(--edge);border-radius:16px;max-width:460px;
-  width:100%;padding:20px 16px calc(16px + env(safe-area-inset-bottom));
-  max-height:86vh;overflow-y:auto}
-#mask h2{font-family:var(--serif);font-size:24px;margin:0 0 8px;font-weight:900}
-#mask p{margin:0 0 15px;font-size:14.5px;line-height:1.8}
-#mask p.fxline{font-family:var(--mono);font-size:12.5px;border-top:1px solid var(--edge);
-  padding-top:11px;margin-bottom:13px}
-@media(min-height:620px){ #mask{align-items:center} }
-
-.foot{color:var(--dim);font-size:11px;font-family:var(--mono);
-  display:flex;gap:12px;flex-wrap:wrap;padding:12px 2px 0}
-.foot a{color:var(--dim)}
 </style>
 </head>
 <body>
 
-<div id="start" class="phone">
-  <h1>少年股神<em>KERNEL V2 · 試玩</em></h1>
+<div id="start">
+  <h1>少年股神<em>股市人生模擬器</em></h1>
   <div class="tape"></div>
-  <!-- 開場原本有兩百多字的說明：三個「這一版的差別」、方針的用途、
-       種子的意義。那些是設計筆記，不是玩家開始前需要知道的事——
-       規則在撞上的那一刻教就好。留一句話跟一個選擇。 -->
-  <p class="sub">十六歲開戶，四十歲結算。</p>
+  <p class="sub">十六歲開戶 → 學會投資 → 經歷牛熊市場 → 四十歲結算。<br>每一顆骰子都算數。</p>
   <div class="field">
-    <label>你是哪種人</label>
+    <label>投資風格</label>
     <div id="plans"></div>
+    <div id="plan-desc"></div>
   </div>
-  <button class="main" id="go">開戶，開始</button>
-  <p class="hint" style="margin-top:16px">
-    <input id="seed" maxlength="24" placeholder="種子（留空隨機）"
-      style="font-size:13px;padding:9px 11px">
-    相同種子＝相同人生。<a href="KERNEL.md">說明</a>
-  </p>
+  <button class="main" id="go">開始投資人生 ▸ 十六歲開戶</button>
+  <details id="display-settings">
+    <summary>顯示設定</summary>
+    <div class="cfg"><label>佈景主題</label><div class="cfg-grid" id="cfg-theme">
+      <button data-v="paper" class="on">米白帳本</button><button data-v="green">深綠看板</button>
+      <button data-v="blue">電子藍</button><button data-v="mono">黑白報紙</button>
+    </div></div>
+    <div class="cfg"><label>字級</label><div class="cfg-grid" id="cfg-font">
+      <button data-v="normal" class="on">標準</button><button data-v="big">大字</button>
+    </div></div>
+  </details>
+  <p class="seedline">世界種子
+    <input id="seed" maxlength="24">
+    <br>相同種子＋相同選擇＝相同人生（可直接輸入朋友的種子碼）</p>
 </div>
 
-<div id="game" class="phone" style="display:none">
-
-  <!-- 上：主數據。永遠在原地 -->
-  <div id="hud">
+<div id="game" style="display:none">
+  <header id="hud">
     <div class="top">
-      <div class="yr"><span id="h-yr">16 歲</span><small id="h-year">第 1 年</small></div>
-      <div class="nav"><span class="k">淨值</span><span class="v" id="h-nav">—</span></div>
+      <div class="yr"><span id="h-yr">16 歲</span><small id="h-year"></small></div>
+      <div class="nav"><small>總資產</small><span id="h-nav">0</span></div>
     </div>
     <div class="chips">
-      <div class="chip"><span>現金</span><span id="h-cash">—</span></div>
-      <div class="chip"><span>心態</span><span id="h-tilt">—</span></div>
-      <div class="chip"><span>生活</span><span id="h-life">—</span></div>
+      <span class="chip" id="c-cash"><span>手上現金</span>—</span>
+      <span class="chip" id="c-tilt"><span>操作衝動</span>—</span>
+      <span class="chip" id="c-life"><span>生活狀態</span>—</span>
+      <button class="chip btn" id="c-peek">盤面</button>
     </div>
-
-  </div>
-
-  <!-- 中：顯示面板。一次只看一頁，由下面的分頁列切換 -->
-  <div id="stage">
-    <div id="p-now">
-      <!-- 今年還能決定的事，一次全部攤在這裡。
-           以前是一次問一個處境（beat()），骰子照順序被吃掉，你只能承受；
-           現在 beats() 把它們一起給出來，下面挑哪一顆骰子，這裡的數字就跟著換。 -->
-      <div id="sits"></div>
+    <div id="lamps">
+      <span class="lamp" id="lp0"><i></i>年初規劃</span>
+      <span class="lamp" id="lp1"><i></i>市場事件</span>
+      <span class="lamp" id="lp2"><i></i>年末結算</span>
     </div>
-    <div id="p-sig" style="display:none">
-      <div class="card" id="c-sig"><h3>今年的風向</h3><div id="sigs"></div></div>
-    </div>
-    <div id="p-book" style="display:none">
-      <div class="card"><h3>持股</h3><div id="book"></div></div>
-    </div>
-    <div id="p-chart" style="display:none">
-      <div class="card"><h3>走勢</h3>
-        <svg class="chart" id="chart" viewBox="0 0 600 120" preserveAspectRatio="none"></svg>
-        <div class="legend"><span><i style="background:var(--accent)"></i>你</span>
-          <span><i style="background:var(--dim)"></i>全買市值型 ETF</span></div>
-      </div>
-    </div>
-    <div id="p-log" style="display:none">
-      <div class="card"><h3>紀錄</h3><div class="log" id="log"></div></div>
-      <div class="foot">
-        <span id="f-seed"></span>
-        <a href="KERNEL.md">骨架說明</a>
-      </div>
-    </div>
-  </div>
-
-  <!-- 下：選單。把手可以把它收起來 -->
+  </header>
+  <main id="feed"></main>
+  <!-- 輸入面板（借 YaKyoLife 的 #act-side）：sticky 浮在會捲動的頁面底部。
+       顯示面板是整頁的自然捲動，永遠捲得到面板上方——這跟舊版
+       「兩格瓜分固定高度」根本不同，不會互相擠壓。可收合。 -->
   <div id="dock">
-    <button id="grab"><i class="bar"></i><span class="t" id="act-h">今年的骰子</span><span class="c" id="grab-c">▾</span></button>
-    <div id="dock-body">
-      <!-- 上一步的結果，放在你的手邊 -->
-      <div id="last" class="last" style="display:none"></div>
-      <!-- 骰子盤：點一顆，上面的數字跟著換；再點處境裡的選項，就是把它放上去 -->
-      <div id="tray"></div>
-      <div id="act"></div>
-    </div>
-    <div id="tabs">
-      <button data-p="now" class="on">決定</button>
-      <button data-p="sig">風向</button>
-      <button data-p="book">持股</button>
-      <button data-p="chart">走勢</button>
-      <button data-p="log">紀錄</button>
-    </div>
+    <button id="dock-head"><span id="dock-t">　</span><span id="dock-c">收合 ⌄</span></button>
+    <div id="dock-body"></div>
   </div>
 </div>
 
-<script src="kernel.js?v=17"></script>
+<!-- 盤面：唯讀資訊（持股、走勢）。它是查閱不是決定，
+     所以做成隨開隨關的浮層也不會把任何一條路堵死。 -->
+<div id="peek"><div class="in">
+  <div class="head"><span>盤面</span><button id="peek-close">關閉</button></div>
+  <div class="body">
+    <h5>我買的</h5><div id="pk-book"></div>
+    <h5>資產走勢</h5><svg id="pk-chart" class="chart" viewBox="0 0 600 118" preserveAspectRatio="none"></svg>
+    <div class="legend"><span><i style="background:var(--accent)"></i>你</span>
+      <span><i style="background:var(--dim)"></i>全部買市值型 ETF 的對照組</span></div>
+  </div>
+</div></div>
+
+<script src="kernel.js?v=33"></script>
 <script>
 'use strict';
-/* 這一層是純呈現。鐵律沿用舊版：呈現層一律禁止呼叫內核的亂數——
-   多消耗一次，後面整條人生就會錯位。這裡只讀狀態、只呼叫 g.play/closeYear。 */
+/* 這一層是純呈現。鐵律沿用：呈現層一律禁止呼叫內核的亂數——
+   多消耗一次，後面整條人生就會錯位。這裡只讀狀態、只照原本的順序呼叫內核。 */
 const $=id=>document.getElementById(id);
 const SAFE=/[^\w㐀-䶿一-鿿぀-ヿ-]/g;
 const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;')
   .replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+function facts(s){
+  return esc(s).replace(/([+−-]?\d+(?:\.\d+)?(?:\s?(?:%|萬|億|元|點))?)/g,function(n){
+    const c=/^[+−-]/.test(n) ? (/^[+−]/.test(n)?(/^[+]/.test(n)?' up':' dn'):'') : '';
+    return '<b class="num'+c+'">'+n+'</b>';
+  });
+}
+function money(v){
+  const a=Math.abs(v);
+  if(a>=10000) return (v/10000).toFixed(2)+'億';
+  if(a>=1000)  return Math.round(v)+'萬';
+  return v.toFixed(1)+'萬';
+}
+function sgn(v,d){ d=d==null?1:d; return (v>=0?'+':'')+v.toFixed(d); }
 
-let g=null, benchHist=[], navHist=[];
+/* 顯示設定不參與種子與遊戲運算，只改頁面外觀。 */
+const DISPLAY_KEY='stocklife-display';
+let displayPref={theme:'paper',font:'normal'};
+try{ displayPref=Object.assign(displayPref,JSON.parse(localStorage.getItem(DISPLAY_KEY)||'{}')); }catch(e){}
+function applyDisplay(){
+  document.body.dataset.theme=displayPref.theme;
+  document.body.classList.toggle('big-text',displayPref.font==='big');
+  ['theme','font'].forEach(k=>{
+    document.querySelectorAll('#cfg-'+k+' button').forEach(b=>b.classList.toggle('on',b.dataset.v===displayPref[k]));
+  });
+  try{localStorage.setItem(DISPLAY_KEY,JSON.stringify(displayPref));}catch(e){}
+}
+['theme','font'].forEach(k=>{
+  document.querySelectorAll('#cfg-'+k+' button').forEach(b=>b.onclick=()=>{displayPref[k]=b.dataset.v;applyDisplay();});
+});
+applyDisplay();
 
-/* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源
-   （file 文件的 origin 是不透明的），所以直接雙擊打開會載不到內核。
-   與其讓畫面停在一片空白，不如講清楚怎麼跑。 */
-const NEED_VERSION=17;
-/* GitHub Pages 送的是 cache-control: max-age=600。兩次發布相隔不到十分鐘，
-   瀏覽器就會拿新的 play.html 配快取裡的舊 kernel.js——舊內核沒有 beat()，
-   renderActs() 一呼叫就丟 TypeError，面板從此空著，而且畫面上什麼都不說。
-   實際發生過一次。所以：script src 帶 ?v=，載入後再對一次版本。 */
+/* kernel.js 是外部檔案，而 CSP 的 script-src 'self' 在 file:// 底下比對不到來源，
+   直接雙擊打開會載不到內核。與其停在白畫面，不如講清楚怎麼跑。 */
+const NEED_VERSION=33;
 if(typeof KERNEL!=='undefined' && !(KERNEL.VERSION>=NEED_VERSION)){
   document.getElementById('start').innerHTML=
     '<h1>內核是舊的<em>STALE KERNEL '+(KERNEL.VERSION||0)+' &lt; '+NEED_VERSION+'</em></h1>'+
@@ -406,49 +401,32 @@ if(typeof KERNEL==='undefined'){
   throw new Error('KERNEL not loaded');
 }
 
-const DIE=['','⚀','⚁','⚂','⚃','⚄','⚅'];
-/* 骰子不決定你能不能做，決定的是做出來什麼樣。這句話要寫在你按之前看得到的地方——
-   每個選項後面那句是它在那個選項上的實際數字，這一行是它的方向。 */
-/* 這一行講的是「這顆骰子在買賣上值多少」，選項後面那句講的是
-   「換算成這一手的錢是多少」。一個是規則，一個是這次的金額。 */
-/* 「第 2／5 顆」在上面的骰子列已經看得到，這裡不必再講一次。
-   一個決定的畫面上原本有兩百多個字，重複的那些先砍。 */
-const DIETIP=['','價差 +2.0%','價差 +2.0%','價差 +0.6%','價差 +0.6%',
-  '價位好 0.4%','價位好 0.4%'];
-function money(v){
-  const a=Math.abs(v);
-  if(a>=10000) return (v/10000).toFixed(2)+'億';
-  if(a>=1000)  return Math.round(v)+'萬';
-  return v.toFixed(1)+'萬';
-}
-function sgn(v,d){ d=d==null?1:d; return (v>=0?'+':'')+v.toFixed(d); }
-
 /* ================= 開場 ================= */
-/* 方針決定「不需要問你的那些事」自動照什麼順序做。
-   它不是難度，是你這個人平常會先做哪一件。 */
 let plan='craft';
 function renderPlans(){
   const box=$('plans');
   if(!box || typeof box.querySelectorAll!=='function') return;
+  const shortName={craft:'研究派',safe:'穩健派',life:'生活派'};
   box.innerHTML=(KERNEL.PLAN_K||[]).map(k=>
-    '<button data-k="'+esc(k)+'"'+(k===plan?' class="main"':'')+'>'+esc(KERNEL.PLANS[k].n)+
-    '<span class="s">'+esc(KERNEL.PLANS[k].d)+'</span></button>').join('');
+    '<button data-k="'+esc(k)+'"'+(k===plan?' class="main"':'')+'>'+esc(shortName[k]||KERNEL.PLANS[k].n)+'</button>').join('');
+  const desc=$('plan-desc'); if(desc)desc.textContent=KERNEL.PLANS[plan].d;
   box.querySelectorAll('button').forEach(b=>{
     b.onclick=()=>{ if(b.dataset && b.dataset.k) plan=b.dataset.k; renderPlans(); };
   });
 }
 renderPlans();
 
+let g=null, benchHist=[], navHist=[];
 $('go').onclick=()=>{
   const raw=($('seed').value||'').replace(SAFE,'').slice(0,24);
   const seed=raw||Math.random().toString(36).slice(2,10);
   try{ history.replaceState(null,'','?seed='+encodeURIComponent(seed)); }catch(e){}
   g=KERNEL.newGame(seed);
   g.setPlan(plan);
-  $('f-seed').textContent='種子 '+seed;
   $('start').style.display='none';
   $('game').style.display='';
-  benchHist=[]; navHist=[]; $('log').innerHTML='';
+  benchHist=[]; navHist=[];
+  const f=$('feed'); if(f)f.innerHTML='';
   nextYear();
 };
 (function(){
@@ -456,539 +434,460 @@ $('go').onclick=()=>{
   if(q) $('seed').value=q.replace(SAFE,'').slice(0,24);
 })();
 
-/* ================= 年循環 ================= */
+/* ================= 訊息流的積木 =================
+   append-only：卡片只往尾端加，加完把畫面捲到底。
+   「現在要決定什麼」永遠是流的最後一張卡——它不可能被蓋住，
+   因為沒有任何東西在它下面。 */
+let yearSec=null;
+function scrollEnd(){
+  try{ if(window.scrollTo) window.scrollTo({top:document.body.scrollHeight,behavior:'smooth'}); }catch(e){}
+}
+function startYearSec(year){
+  const feed=$('feed'); if(!feed)return;
+  /* 前一年自動收合：流不會越長越難捲，點年份那行可以再展開 */
+  if(yearSec&&yearSec.classList) yearSec.classList.add('collapsed');
+  const sec=document.createElement('section');
+  sec.className='yr-sec';
+  sec.innerHTML='<div class="yr-head">'+(2026+year)+' 年 · '+(16+year)+' 歲 · 第 '+(year+1)+' 年</div>'+
+    '<div class="yr-body"></div>';
+  const head=sec.querySelector('.yr-head');
+  if(head) head.onclick=()=>sec.classList.toggle('collapsed');
+  feed.appendChild(sec);
+  yearSec=sec;
+}
+function card(cls,title,body){
+  const host=(yearSec&&yearSec.querySelector)?yearSec.querySelector('.yr-body'):$('feed');
+  if(!host)return null;
+  const d=document.createElement('div');
+  d.className='card'+(cls?' '+cls:'');
+  d.innerHTML=(title?'<h4>'+title+'</h4>':'')+(body?'<p>'+body+'</p>':'');
+  host.appendChild(d);
+  scrollEnd();
+  return d;
+}
+/* ---- 輸入面板（借 YaKyoLife 的 #act-side + choose()）----
+   決定一律進底部面板，發生過的事一律進訊息流。兩邊分開，
+   面板出新問題時自動展開（它的 choose() 也這樣做）。 */
+function dockOpen(title,mode){
+  const dk=$('dock'), body=$('dock-body'), t=$('dock-t');
+  if(!dk||!body) return null;
+  if(dk.classList){ dk.classList.remove('collapsed'); dk.classList.remove('idle');
+    dk.classList.toggle('alloc',mode==='alloc'); }
+  if(t) t.textContent=title||'　';
+  const c=$('dock-c'); if(c) c.textContent='收合 ⌄';
+  body.innerHTML='';
+  body.scrollTop=0;
+  return body;
+}
+function dockClear(){
+  const dk=$('dock'), body=$('dock-body'), t=$('dock-t');
+  if(body) body.innerHTML='';
+  if(t) t.textContent='　';
+  if(dk&&dk.classList){ dk.classList.remove('alloc'); dk.classList.add('idle'); }
+}
+(function(){
+  const h=$('dock-head');
+  if(!h) return;
+  h.onclick=()=>{
+    const dk=$('dock'); if(!dk||!dk.classList) return;
+    dk.classList.toggle('collapsed');
+    const c=$('dock-c'); if(c) c.textContent=dk.classList.contains('collapsed')?'展開 ⌃':'收合 ⌄';
+  };
+})();
+/* 決定：問題的脈絡進訊息流（永遠捲得到），選項進面板 */
+function ask(title,body,opts){
+  if(body||title) card('ask',title,body);
+  const box=dockOpen(title,null);
+  if(!box){ if(opts[0])opts[0].f(); return; }
+  box.innerHTML=opts.map(o=>'<button class="'+(o.main?'main':o.warn?'warn':'')+'">'+esc(o.t)+
+    (o.s?'<span class="s">'+o.s+'</span>':'')+'</button>').join('');
+  box.querySelectorAll('button').forEach((b,i)=>{
+    b.onclick=()=>{ if(!opts[i])return; dockClear(); opts[i].f(); };
+  });
+  scrollEnd();
+}
+
+/* ---- 階段閘門（借 YaKyoLife 的 choose('▸ 下一階段') 模式）----
+   每個階段之間放一顆寫著「接下來是什麼」的確認鈕，
+   結果在你按下去之前不揭曉。放在輸入面板裡，按掉就換下一題。 */
+function gate(label,f){
+  const box=dockOpen('　',null);
+  if(!box){ f(); return; }
+  const b=document.createElement('button');
+  b.className='main gate';
+  b.textContent='▸ '+label;
+  b.onclick=()=>{ dockClear(); f(); };
+  box.appendChild(b);
+  scrollEnd();
+}
+function setLamp(i){
+  for(let k=0;k<3;k++){
+    const el=$('lp'+k);
+    if(el&&el.classList) el.classList.toggle('on',k===i);
+  }
+}
+
+/* ================= HUD ================= */
+function paint(){
+  if(!g)return;
+  const r=g.raw;
+  $('h-yr').textContent=r.age+' 歲';
+  $('h-year').textContent='第 '+(r.year+1)+' 年 · '+(2026+r.year);
+  $('h-nav').textContent=money(g.nav());
+  const cc=$('c-cash'); if(cc)cc.innerHTML='<span>手上現金</span>'+money(r.cash);
+  const ct=$('c-tilt');
+  if(ct){ ct.innerHTML='<span>操作衝動</span>'+Math.round(r.tilt)+(r.tilt>=80?' 追高':r.tilt<=20?' 不敢':'');
+    ct.className='chip'+(r.tilt>=80||r.tilt<=20?' warn':''); }
+  const cl=$('c-life');
+  if(cl){ cl.innerHTML='<span>生活狀態</span>'+Math.round(r.life)+(r.life<=30?' 撐不住':'');
+    cl.className='chip'+(r.life<=30?' warn':''); }
+}
+
+/* ================= 盤面（唯讀浮層） ================= */
+function renderPeek(){
+  const r=g.raw, host=$('pk-book');
+  if(host){
+    const ids=Object.keys(r.book||{});
+    if(!ids.length && r.debt<=0){
+      host.innerHTML='<div class="empty">目前沒有手動持股。自動配置的部位在年末結算卡裡。</div>';
+    }else{
+      let h='<table class="book"><tr><th>標的</th><th>市值</th><th>成本</th><th>未實現</th></tr>';
+      ids.forEach(id=>{
+        const b=r.book[id], p=r.price[id], mv=b.sh*p, pl=(p/b.cost-1)*100;
+        h+='<tr><td>'+esc(KERNEL.BY_ID[id].n)+'</td><td>'+money(mv)+'</td><td>'+b.cost.toFixed(1)+'</td>'+
+           '<td><b class="'+(pl>=0?'up':'dn')+'">'+sgn(pl)+'%</b></td></tr>';
+      });
+      if(r.debt>0){
+        const cover=g.assets()/r.debt*100;
+        h+='<tr><td><b class="dn">借款</b></td><td><b class="dn">−'+money(r.debt)+'</b></td>'+
+           '<td colspan="2">維持率 '+cover.toFixed(0)+'%</td></tr>';
+      }
+      host.innerHTML=h+'</table>';
+    }
+  }
+  const sv=$('pk-chart');
+  if(sv){
+    if(navHist.length<2){ sv.innerHTML=''; }
+    else{
+      const all=navHist.concat(benchHist).map(v=>Math.log10(Math.max(0.5,v)));
+      const mn=Math.min.apply(null,all), mx=Math.max.apply(null,all), rg=(mx-mn)||1;
+      const line=(arr,color,w)=>{
+        const pts=arr.map((v,i)=>{
+          const x=(i/(navHist.length-1||1))*596+2;
+          const y=114-((Math.log10(Math.max(0.5,v))-mn)/rg)*108;
+          return x.toFixed(1)+','+y.toFixed(1);
+        }).join(' ');
+        return '<polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="'+w+'"/>';
+      };
+      sv.innerHTML=line(benchHist,'var(--dim)',1.2)+line(navHist,'var(--accent)',2);
+    }
+  }
+}
+(function(){
+  const open=$('c-peek'), close=$('peek-close'), pk=$('peek');
+  if(open) open.onclick=()=>{ if(g){ renderPeek(); if(pk&&pk.classList)pk.classList.add('show'); } };
+  if(close) close.onclick=()=>{ if(pk&&pk.classList)pk.classList.remove('show'); };
+  if(pk) pk.onclick=e=>{ if(e&&e.target===pk&&pk.classList)pk.classList.remove('show'); };
+})();
+
+/* ================= 年循環 =================
+   內核呼叫順序與改版前完全相同：
+   openYear → deferEvent → addAlloc×n → autoAllocate → skipRest →
+   beginEvent → answerEvent×n → riskCheck → midWindow/playMid → closeYear。
+   順序動一格，同一顆種子就是另一條人生。 */
 function nextYear(){
   if(g.over){ ending(); return; }
-  /* 二十二歲的分岔：唯一一個職業決定 */
-  if(g.raw.year===6 && !g.raw.careerSet){
-    g.raw.careerSet=1;
-    modal('二十二歲','畢業了。要上班，還是全職操盤？',[
-      {t:'去上班',n:'每年存 13～26 萬',s:'穩定',f:()=>{ g.career('job'); openYear(); }},
-      {t:'全職操盤',n:'沒有薪水，每年多一顆骰子',s:'生活每年 −6',warn:1,
-        f:()=>{ g.career('pro'); openYear(); }}
-    ]);
-    return;
-  }
+  if(g.raw.year===6 && !g.raw.careerSet){ careerAsk(); return; }
   openYear();
+}
+function careerAsk(){
+  const s=g.raw.allocStats||{}, proScore=(s.invest||0)*.4+(s.research||0)*.35+(s.funds||0)*.25;
+  const opts=[
+    {t:'去上班',main:1,s:'每年有穩定收入，可以繼續投入',f:()=>{
+      g.raw.careerSet=1; g.career('job');
+      card('info','二十二歲 · 職涯選擇','<b>去上班</b><br>你決定去上班。一邊工作，一邊繼續投資。');
+      openYear();
+    }}
+  ];
+  if(proScore>=34) opts.push({t:'全職操作',warn:1,s:'能力達標｜沒有薪水，生活每年 −6',f:()=>{
+    g.raw.careerSet=1; g.career('pro');
+    card('info','二十二歲 · 職涯選擇','<b>全職操作</b><br>你的操作能力達到全職門檻。你決定不領固定薪水，靠投資走下去。');
+    openYear();
+  }});
+  ask('二十二歲','畢業了。接下來要怎麼走？'+(proScore<34?'<br><span class="s">（全職操作需要操作能力 34，你目前 '+Math.round(proScore)+'）</span>':''),opts);
 }
 function openYear(){
   const o=g.openYear();
   if(!o){ ending(); return; }
-  flashClear();          /* 「剛剛」講的是今年，跨年就清掉 */
-  /* 骰子的去處是今年的帳，跨年重來。心態太高的年份，
-     第一顆在你看到第一題之前就被「手癢」花掉了——那一顆也要標出來。 */
-  dieUse=[]; pickIdx=null;
-  g.raw.dieUsed.forEach((u,i)=>{ if(u) dieUse[i]='手癢'; });
-  logRow('mkt', o.age+' 歲 · 第 '+(g.raw.year+1)+' 年',
-    (o.income>0?'今年存下 <b class="up">'+money(o.income)+'</b>。':'全職操盤，沒有薪水。'));
-  g.raw.notes.forEach(n=>logRow('bad','', esc(n)));
-  render();
-  eventModal();
+  g.deferEvent();
+  startYearSec(g.raw.year);
+  paint();
+  const r=g.raw;
+  const cashFlow=o.income>0
+    ? (r.age<19?'零用錢與打工':r.age<22?'打工存款':'工作收入')+'存下 <b class="up">'+money(o.income)+'</b>，已加入現金。'
+    : '全職操作沒有固定收入，本年現金 <b>＋0</b>。';
+  const clues=(r.signals||[]).map(s=>'<span class="sigline'+(s.id==='theme'?' theme':'')+'"><i>'+
+    (s.id==='theme'?'★':'▸')+'</i><span>'+esc(s.t)+'</span></span>').join('<br>');
+  let body='<b>年度金流</b>：'+cashFlow;
+  if(r.planNote) body+='<br><b class="up">'+esc(r.planNote)+'</b>';
+  if(clues) body+='<br><br><b>今年看到的市場現象</b><br>'+clues;
+  if(g.raw.year===0){
+    card('info','投資者誕生','2026 年春天，16 歲的你用壓歲錢開了第一個投資帳戶。未來的錢要放在哪裡，要自己選。'+
+      '<br><span class="s">提示：每項能力有不同天賦值；超過天賦後仍能成長，但需要更多點數。真正最高是 80。</span>');
+  }
+  card('','年度開始',body);
+  (r.notes||[]).forEach(n=>card('bad','',esc(n)));
+  setLamp(0);
+  gate('年初規劃（'+r.dice.length+' 顆骰子）',allocCard);
 }
 
-/* ---- 第 2 拍：今年發生在你身上的事 ----
-   事件不花行動點。行動點是你決定要做的事，事件是發生在你身上的事——
-   為了應付它而少做一件自己的事，那是雙重懲罰。 */
-function eventModal(){
+/* ================= 配點卡 =================
+   骰子、五列、復原與確認全部在同一張卡裡，卡就長在流的尾端。
+   卡有多高，頁面就多長——沒有任何东西需要被固定、被捲、被搬家。 */
+const ROWS=[
+  {id:'invest',  n:'投資', d:'提升持股操作帶來的年度績效'},
+  {id:'research',n:'研究', d:'提高研究個股時的判斷準確率'},
+  {id:'habit',   n:'紀律', d:'減少操作衝動波動與風險檢查機率'},
+  {id:'life',    n:'生活', d:'減少生活狀態不佳造成的績效折損'},
+  {id:'funds',   n:'資金', d:'降低借款利息與資金危機機率'}
+];
+function allocCard(){
+  const r=g.raw;
+  const free=[]; for(let i=0;i<r.dieUsed.length;i++) if(!r.dieUsed[i]) free.push(i);
+  const alloc=[];        /* [{row, points, dieIdx}] 依骰子順序 */
+  const box=dockOpen('年初規劃 · '+r.age+' 歲','alloc');
+  if(!box)return;
+  const q=document.createElement('div');
+  q.className='dockq'; q.textContent='把每顆骰子的點數分配到一個項目，全部分完再確認。';
+  box.appendChild(q);
+  const inner=document.createElement('div');
+  box.appendChild(inner);
+  function pend(id){ return alloc.filter(a=>a.row===id).reduce((n,a)=>n+a.points,0); }
+  function render(){
+    const next=free[alloc.length];
+    const caps=r.allocCaps||{};
+    inner.innerHTML=
+      '<div class="dice">'+r.dice.map((v,i)=>{
+        if(r.dieUsed[i]) return '<span class="dz used"><i>'+v+'</i><em>追高</em></span>';
+        const p=free.indexOf(i), a=alloc[p];
+        if(a) return '<span class="dz done"><i>'+v+'</i><em>'+esc((ROWS.find(x=>x.id===a.row)||{}).n||'')+'</em></span>';
+        return '<span class="dz'+(p===alloc.length?' now':'')+'"><i>'+v+'</i><em>'+(p===alloc.length?'現在':'待分配')+'</em></span>';
+      }).join('')+'</div>'+
+      ROWS.map(x=>{
+        const pv=g.allocPreview(x.id,pend(x.id)), capped=pv.value>=80;
+        const cap=caps[x.id]||80;
+        const off=next==null||capped;
+        return '<button class="arow" data-row="'+x.id+'"'+(off?' disabled':'')+'>'+
+          '<span class="an">'+esc(x.n)+'</span>'+
+          '<span class="ad">'+esc(x.d)+'</span>'+
+          '<span class="put">'+pv.value+' <small>/ 天賦 '+cap+'</small>'+
+            (pend(x.id)?'<small class="up">'+(pv.gained?'本年 ＋'+pv.gained:'升級進度 '+pv.carry+' / '+pv.cost)+'</small>':
+             '<small>'+(capped?'已達最高 80':next==null?'已分完':(pv.cost>1?'升級需 '+pv.cost+' 點':'點一下分配'))+'</small>')+
+          '</span>'+
+          '<span class="bar"><i style="width:'+Math.min(100,pv.value/80*100)+'%"></i>'+
+            '<em style="left:'+Math.min(100,cap/80*100)+'%"></em></span>'+
+        '</button>';
+      }).join('')+
+      '<div class="aacts"><button data-a="undo"'+(alloc.length?'':' disabled')+'>↩ 復原</button>'+
+      '<button data-a="ok" class="main"'+(alloc.length===free.length?'':' disabled')+'>'+
+        (alloc.length===free.length?'確認分配':'還有 '+(free.length-alloc.length)+' 顆')+'</button></div>';
+    inner.querySelectorAll('button').forEach(b=>{
+      b.onclick=()=>{
+        if(b.disabled)return;
+        if(b.dataset.a==='undo'){ alloc.pop(); render(); return; }
+        if(b.dataset.a==='ok'){ confirm(); return; }
+        const row=b.dataset.row, dieIdx=free[alloc.length];
+        if(row==null||dieIdx==null)return;
+        alloc.push({row:row,points:r.dice[dieIdx],dieIdx:dieIdx});
+        render();
+      };
+    });
+  }
+  function confirm(){
+    dockClear();
+    const grown=[];
+    ROWS.forEach(x=>{
+      const pts=pend(x.id); if(!pts)return;
+      const before=r.allocStats[x.id]||0, res=g.addAlloc(x.id,pts);
+      grown.push('<b>'+esc(x.n)+'</b> '+before+(res.gained?' → <b class="up">'+res.value+'</b>':
+        '（升級進度 '+res.carry+' / '+res.cost+'）'));
+    });
+    const auto=g.autoAllocate();
+    grown.push('<b>市場現象判讀</b> '+(auto.outlook>3?'偏多':auto.outlook<-3?'偏空':'方向不明')+
+      '｜投入比例 '+Math.round(auto.exposure*100)+'%'+(auto.adjust?'（訊號 '+sgn(auto.adjust*100,1)+'%）':'')+
+      '<br><b>自動配置</b> 本年投入 <b class="hl">'+money(auto.amount)+'</b>：市值型 ETF ＋ '+esc(auto.theme)+'題材');
+    card('good','能力成長',grown.join('<br>'));
+    paint();
+    if(g.raw.apLeft>0) g.skipRest();
+    /* beginEvent 照原本的順序呼叫（內核狀態推進），
+       但事件內容等玩家按了閘門才揭曉 */
+    if(g.beginEvent()) gate('市場事件',eventStep);
+    else gate('投資風險檢查',riskStep);
+  }
+  render();
+  scrollEnd();
+}
+
+/* ================= 市場事件 ================= */
+function eventStep(){
   const e=g.event();
-  if(!e) return false;
-  modal(e.n, e.d, e.opts.map(o=>({
+  if(!e){ riskStep(); return; }
+  setLamp(1);
+  ask('市場事件 · '+esc(e.n),esc(e.d),e.opts.map(o=>({
     t:o.t,
-    s:[o.need?'因為你有「'+KERNEL.HABITS[o.need].n+'」':'', o.gamble?'要擲骰':''].filter(Boolean).join('　'),
-    warn:o.gamble,
+    main:o.t==='照常執行',
+    warn:o.t==='全力投入',
+    s:'<b>成功率 '+o.chance+'%</b>｜'+esc(o.impact)+'<br>'+esc(o.action)+
+      (o.need?'｜因為你有「'+esc(KERNEL.HABITS[o.need].n)+'」':''),
     f:()=>{
-      const b4=snap();
       const r=g.answerEvent(o.i);
-      nextFx=delta(b4);
-      reportEvent(r); render();
-      /* 結果留在畫面正中間，不要只丟進紀錄——
-         你按完的那一刻眼睛在彈窗上，結果印在別的地方等於沒有印。
-         事件卡是這款唯一的故事時刻，它值得一個自己的畫面。 */
-      outcomeModal(r);
+      if(r){
+        const fx=r.eff.length?'<br>'+r.eff.map(x=>'<b class="'+(x.v>=0?'up':'dn')+'">'+esc(x.t)+'</b>').join('　'):'';
+        card(r.gamble?(r.ok?'good':'bad'):'info',esc(r.card)+'｜'+esc(r.mode),
+          '<b>'+esc(r.opt)+'</b><br>'+esc(r.text)+fx);
+      }
+      paint();
+      if(g.event()) gate('下一個市場事件',eventStep);
+      else gate('投資風險檢查',riskStep);
     }
   })));
-  return true;
 }
-function outcomeModal(r){
-  if(!r) return;
-  const fx = r.eff.length
-    ? '<p class="fxline">'+r.eff.map(x=>'<b class="'+(x.v>=0?'up':'dn')+'">'+esc(x.t)+'</b>').join('　')+'</p>'
-    : '';
-  modal(r.gamble ? (r.ok?'成了':'沒成') : r.opt, r.text,
-        [{t:'繼續', main:1, f:()=>{}}], fx);
-}
-function reportEvent(r){
-  if(!r) return;
-  let s='<b class="hl">'+esc(r.opt)+'</b><br>'+esc(r.text);
-  if(r.eff.length) s+='<br><span style="color:var(--dim)">'+r.eff.map(x=>esc(x.t)).join('　')+'</span>';
-  logRow(r.gamble?(r.ok?'good':'bad'):'', r.card, s);
-}
-function endTurn(){
+
+/* ================= 年末：風險 → 年中窗口 → 結算 ================= */
+function riskStep(){
+  setLamp(2);
+  const r=g.riskCheck();
+  if(r){
+    const cls=r.kind==='safe'?'info':'bad';
+    const title=r.kind==='safe'?'風險正常':r.kind==='minor'?'小額損失':'重大資金危機';
+    card(cls,'投資風險檢查｜'+title,esc(r.text)+
+      '<br>本年發生風險的機率 <b>'+r.p+'%</b>'+
+      (r.loss>0?'<br><b class="dn">資產減少 '+money(r.loss)+'</b>':''));
+    paint();
+  }
   const w=g.midWindow();
-  if(w){ midModal(w); return; }
-  settle();
+  if(w) midAsk(w); else gate('年末結算',settle);
 }
-/* 副標改由內核給（帶金額），畫面不再自己寫死一份。
-   寫死的那份講的是「三成現金」，而內核算得出來那是多少錢；
-   更糟的是它跟選項的存在條件脫鉤——沒錢的年份照樣寫著「再追三成現金進去」。 */
-function midModal(w){
+function midAsk(w){
   const crash=w.kind==='crash';
-  modal(crash?'年中':'年中·狂牛',
-    crash
-      ? '指數跌了 '+Math.abs(w.sofar)+'%，還沒止住。'
-      : '指數漲了 '+w.sofar+'%。群組裡沒有人在談風險。',
-    w.options.map(o=>({
-      t:o.label,
-      n:o.n||'', s:o.s||'',
-      warn:o.id==='add'&&!crash,
-      f:()=>{ const b4=snap(); const r=g.playMid(o.id); nextFx=delta(b4);
-              midReport(w,o,r); settle(); }
-    })));
-}
-function midReport(w,o,r){
-  /* playMid() 買不動的時候回 null。安靜地什麼都不印，
-     跟以前無條件印「往下加碼了」是同一種說謊——只是換一個方向。 */
-  if(!r){ logRow('bad','年中','沒買成——可投入的現金不夠。'); return; }
-  if(o.id==='cut'){
-    if(r.sold.length) logRow('good','年中',r.sold.map(id=>KERNEL.BY_ID[id].n).join('、')+' 砍掉了。');
-    if(r.failed.length) logRow('bad','年中',
-      r.failed.map(id=>KERNEL.BY_ID[id].n).join('、')+' <b class="dn">跌停鎖死，賣不掉</b>。');
-  } else if(o.id==='add') logRow('','年中',
-    (w.kind==='crash'?'往下加碼了':'又追了一筆')+'，投入 <b class="hl">'+money(r.bought)+'</b>。');
-  else if(o.id==='take') logRow('good','年中','獲利了結一半。');
-  else logRow('','年中','你什麼都沒做。');
+  const desc=crash?'指數跌了 '+Math.abs(w.sofar)+'%，還沒止住。':'指數漲了 '+w.sofar+'%，市場情緒偏熱。';
+  ask('市場波動應對',esc(desc),w.options.map(o=>({
+    t:o.label,
+    warn:o.id==='add'&&!crash,
+    s:[o.n,o.s].filter(Boolean).map(esc).join('　'),
+    f:()=>{
+      const res=g.playMid(o.id);
+      if(!res) card('bad','年中','沒買成——可投入的現金不夠。');
+      else if(o.id==='cut'){
+        if(res.sold.length) card('good','年中',res.sold.map(id=>esc(KERNEL.BY_ID[id].n)).join('、')+' 砍掉了。');
+        if(res.failed.length) card('bad','年中',
+          res.failed.map(id=>esc(KERNEL.BY_ID[id].n)).join('、')+' <b class="dn">跌停鎖死，賣不掉</b>。');
+      }
+      else if(o.id==='add') card('','年中',(crash?'往下加碼了':'又追了一筆')+'，投入 <b class="hl">'+money(res.bought)+'</b>。');
+      else if(o.id==='take') card('good','年中','獲利了結一半。');
+      else card('','年中','你什麼都沒做。');
+      paint();
+      gate('年末結算',settle);
+    }
+  })));
 }
 function settle(){
-  const before=g.nav();
   const row=g.closeYear();
   if(!row){ ending(); return; }
   navHist.push(row.nav);
   benchHist.push(g.raw.benchSh*g.raw.price.wide);
   const rg=KERNEL.REGIME[row.rg];
-  let s='<b class="'+(row.mkt>=0?'up':'dn')+'">'+rg.n+' '+sgn(row.mkt)+'%</b>'+
-        '　你的部位 <b class="'+(row.ret>=0?'up':'dn')+'">'+sgn(row.ret)+'%</b>'+
-        '　淨值 <b class="hl">'+money(row.nav)+'</b>';
-  if(row.div>0.05) s+='<br>股利入袋 <b class="up">'+money(row.div)+'</b>。';
-  if(row.blew) s+='<br><b class="dn">維持率跌破 130%，被強制平倉。</b>';
-  logRow(row.blew?'bad':(row.ret>=0?'good':'bad'),'結算',s);
-  render();
-  if(g.over){ ending(); return; }
-  actOnly([{t:'下一年',main:1,f:nextYear}]);
-}
-
-/* ================= 畫面 ================= */
-/* 順序有意義：renderActs() 裡的 autoRun() 會把不需要問你的事跑掉，
-   而那些事會動到現金、生活、心態，以及骰子用到第幾顆。
-   先畫再跑的話，上面那一排永遠慢一步——實際看到的是骰子只劃掉兩顆、
-   「剛剛」卻已經寫著第三件事。所以先跑，跑完再畫。 */
-function render(){
-  try{ renderActs(); }
-  finally{ paint(); }
-}
-function paint(){
-  const r=g.raw;
-  $('h-yr').textContent=r.age+' 歲';
-  $('h-year').textContent='第 '+(r.year+1)+' 年';
-  $('h-nav').textContent=money(g.nav());
-  $('h-cash').textContent=money(r.cash);
-  $('h-tilt').innerHTML=Math.round(r.tilt)+
-    (r.tilt>=80?' <b class="dn">手癢</b>':r.tilt<=20?' <b class="dn">不敢</b>':'');
-  $('h-life').innerHTML=Math.round(r.life)+(r.life<=30?' <b class="dn">撐不住</b>':'');
-  renderSignals(); renderBook(); renderChart();
-}
-/* 每一顆骰子底下寫它的去處。
-   「用掉了」不是答案——超過一半的骰子是自動事務花的，
-   玩家按一次卻少掉兩三顆，不標出來就是跳號。 */
-const DIETAG={buy:'買',sell:'賣',margin:'融資',repay:'還錢',scout:'研究',
-  habit:'習慣',life:'休息',work:'加班',itch:'手癢',skip:'沒用'};
-let dieUse=[];
-function markDie(kind,at){ dieUse[at==null?g.raw.dieAt:at]=DIETAG[kind]||'做事'; }
-
-function renderSignals(){
-  $('sigs').innerHTML=g.raw.signals.map(s=>
-    '<div class="sig'+(s.id==='theme'?' theme':'')+'"><i>'+(s.id==='theme'?'★':'▸')+'</i><span>'+
-    esc(s.t)+'</span></div>').join('');
-}
-function renderBook(){
-  const r=g.raw, ids=Object.keys(r.book);
-  if(!ids.length && r.debt<=0){
-    $('book').innerHTML='<div class="empty">空手。錢全部在現金，一年 1.5%。</div>'; return;
+  const perf='<b class="'+(row.mkt>=0?'up':'dn')+'">'+esc(rg.n)+'　市場 '+sgn(row.mkt)+'%</b>　'+
+    '<b class="'+(row.ret>=0?'up':'dn')+'">你的投資 '+sgn(row.ret)+'%</b><br>'+
+    (row.ret>=row.mkt?'<span class="up">今年跑贏市場 '+(row.ret-row.mkt).toFixed(1)+'%</span>':
+      '<span class="dn">今年落後市場 '+(row.mkt-row.ret).toFixed(1)+'%</span>');
+  let body='年末總資產 <b class="hl">'+money(row.nav)+'</b>'+
+    '<br>手上現金 <b class="hl">'+money(g.raw.cash)+'</b>'+
+    (g.raw.debt>0?'<br>尚未償還 <b class="dn">'+money(g.raw.debt)+'</b>':'<br><span class="up">目前沒有借款</span>');
+  if(row.div>0.05) body+='<br>今年收到股利 <b class="up">'+money(row.div)+'</b>';
+  if(row.blew) body+='<br><b class="dn">維持率跌破 130%，被強制平倉。</b>';
+  const traitName={craft:'研究派',safe:'穩健派',life:'生活派'}[row.trait]||'研究派';
+  body+='<br><b>自動配置</b>：'+Math.round((row.exposure||0)*100)+'% 資金投入市值型 ETF'+
+    ' 與題材股；市值型 ETF 今年 <b class="'+(row.autoMarketPct>=0?'up':'dn')+'">'+sgn(row.autoMarketPct,2)+'%</b>';
+  if(row.autoDecision) body+='<br><b>市場現象判讀</b>：'+
+    (row.autoDecision.outlook>3?'偏多，多投入 ':row.autoDecision.outlook<-3?'偏空，少投入 ':'方向不明，調整 ')+
+    '<b class="'+(row.autoDecision.adjust>=0?'up':'dn')+'">'+sgn(row.autoDecision.adjust*100,1)+'%</b>；'+
+    esc(row.autoDecision.theme)+'題材投入 '+money(row.autoDecision.themeAmount||0);
+  body+='<br><b>'+traitName+'能力加成</b>：操作績效 <b class="'+(row.abilityPct>=0?'up':'dn')+'">'+
+    sgn(row.abilityPct,2)+'%</b>（本年 '+(row.abilityGain>=0?'增加 ':'減少 ')+money(Math.abs(row.abilityGain))+'）';
+  const partName={invest:'投資',research:'研究',habit:'紀律',life:'生活',funds:'資金'};
+  if(row.abilityParts) body+='<br><span class="s">'+Object.keys(partName).map(k=>partName[k]+' '+sgn(row.abilityParts[k]||0,2)+'%').join('　')+
+    (row.lifePenalty<0?'　狀態不佳 '+sgn(row.lifePenalty,2)+'%':'')+'</span>';
+  card(row.ret>=0?'good':'bad','年末結算',perf+'<br><br>'+body);
+  if(row.form!==0){
+    const hot=row.form>0;
+    card(hot?'gold':'bad',hot?'手感極佳':'操作失常',(hot?
+      '今年判斷特別順，五項能力帶來的績效效果變成 <b class="up">1.2 倍</b>。':
+      '今年幾次判斷沒有做好，五項能力帶來的績效效果只發揮 <b class="dn">65%</b>。')+
+      '<br>能力值沒有改變，明年會重新判定。');
   }
-  let h='<table class="book"><tr><th>標的</th><th>市值</th><th>成本</th><th>未實現</th></tr>';
-  ids.forEach(id=>{
-    const b=r.book[id], p=r.price[id], mv=b.sh*p, pl=(p/b.cost-1)*100;
-    const sc=r.scouted[id];
-    h+='<tr><td>'+esc(KERNEL.BY_ID[id].n)+
-       (sc!=null?'<span class="scout" style="color:var(--'+(sc?'up':'dn')+')">'+
-         (sc?'看好':'看壞')+'</span>':'')+
-       '</td><td>'+money(mv)+'</td><td>'+b.cost.toFixed(1)+'</td>'+
-       '<td><b class="'+(pl>=0?'up':'dn')+'">'+sgn(pl)+'%</b></td></tr>';
-  });
-  if(r.debt>0){
-    const cover=g.assets()/r.debt*100;
-    h+='<tr><td><b class="dn">融資負債</b></td><td><b class="dn">−'+money(r.debt)+'</b></td>'+
-       '<td colspan="2">維持率 <b class="'+(cover<160?'dn':'')+'">'+cover.toFixed(0)+'%</b></td></tr>';
-  }
-  $('book').innerHTML=h+'</table>';
-}
-function renderChart(){
-  const sv=$('chart');
-  if(navHist.length<2){ sv.innerHTML=''; return; }
-  const all=navHist.concat(benchHist).map(v=>Math.log10(Math.max(0.5,v)));
-  const mn=Math.min.apply(null,all), mx=Math.max.apply(null,all), rg=(mx-mn)||1;
-  const line=(arr,color,w)=>{
-    const pts=arr.map((v,i)=>{
-      const x=(i/(navHist.length-1||1))*596+2;
-      const y=114-((Math.log10(Math.max(0.5,v))-mn)/rg)*108;
-      return x.toFixed(1)+','+y.toFixed(1);
-    }).join(' ');
-    return '<polyline points="'+pts+'" fill="none" stroke="'+color+'" stroke-width="'+w+'"/>';
-  };
-  sv.innerHTML=line(benchHist,'var(--dim)',1.2)+line(navHist,'var(--accent)',2);
-}
-
-/* ---- 分頁：中間那格一次只顯示一頁 ----
-   四張卡疊在一起要捲三個螢幕，而其中三張（持股、走勢、紀錄）
-   是你想看才看的東西。攤開來只是把「現在的處境」擠出畫面。 */
-const PAGES=['now','sig','book','chart','log'];
-function showPage(name){
-  PAGES.forEach(p=>{ const el=$('p-'+p); if(el) el.style.display = p===name ? '' : 'none'; });
-  const tabs=$('tabs');
-  if(tabs && typeof tabs.querySelectorAll==='function')
-    tabs.querySelectorAll('button').forEach(b=>{
-      if(b.classList) b.classList.toggle('on', b.dataset && b.dataset.p===name);
-    });
-  scrollTop();
-}
-(function(){
-  const tabs=$('tabs');
-  if(!tabs || typeof tabs.querySelectorAll!=='function') return;
-  tabs.querySelectorAll('button').forEach(b=>{
-    b.onclick=()=>showPage(b.dataset?b.dataset.p:'now');
-  });
-})();
-function scrollTop(){
-  const st=$('stage');
-  if(st && typeof st.scrollTo==='function'){ try{ st.scrollTo({top:0,behavior:'smooth'}); }catch(e){ st.scrollTop=0; } }
-  else if(st) st.scrollTop=0;
-}
-
-/* ---- 收納 ----
-   收起來的時候把手還在，而且把手上寫著「還有幾件事」——
-   收起來不等於忘記還沒做完。 */
-let docked=false;
-function setDock(min){
-  docked=!!min;
-  const d=$('dock');
-  if(d && d.classList) d.classList.toggle('min', docked);
-  const c=$('grab-c');
-  if(c) c.textContent = docked ? '▴' : '▾';
-}
-(function(){
-  const gb=$('grab');
-  if(gb) gb.onclick=()=>setDock(!docked);
-})();
-
-/* ---- 一次攤開，自己分配骰子 ----
-   以前是一次問一個處境，骰子照順序被吃掉。KERNEL.md:41 把這種隨機列在
-   「壞的隨機」那一節：玩家只能承受，不能反應——你看得到那顆 6，
-   卻不能決定它去哪裡。
-
-   現在 beats() 一次給出今年還問得到的全部處境（實測 88% 的年份是 1～2 個），
-   下面的骰子盤點哪一顆，上面每個選項的數字就照那一顆重算。
-   選骰子不消耗任何亂數，所以同種子同選擇仍然是同一條人生。 */
-let pickIdx=null, openSit=0;
-function freeIdx(){
-  const u=g.raw.dieUsed;
-  for(let i=0;i<u.length;i++) if(!u[i]) return i;
-  return -1;
-}
-function curIdx(){
-  const u=g.raw.dieUsed;
-  if(pickIdx!=null && pickIdx<u.length && !u[pickIdx]) return pickIdx;
-  return freeIdx();
-}
-function renderActs(){
-  try{ autoRun(); renderTray(); renderSits(); renderEnd(); }
-  catch(err){
-    /* 這一格空著也看不出壞掉——寧可把錯誤印在臉上 */
-    $('act-h').textContent='壞掉了';
-    $('act').innerHTML='<button class="main" onclick="location.reload(true)">重新載入</button>';
-    const h=$('sits');
-    if(h) h.innerHTML='<div class="card sit"><div class="sq">這一格炸了：'+
-      esc(err&&err.message||err)+'</div></div>';
-    setDock(false);
-    throw err;
-  }
-}
-/* ---- 不需要問你的事，照方針自動跑掉 ----
-   餵既有的習慣、讀財報、撐不住的時候休息、缺錢的時候接案——
-   這些不是決定，是照做。停下來問，一年就變成六次點擊的雜事清單。
-
-   永遠留一顆骰子給你：實測不留的話有 27% 的年份你一句話都插不上，
-   那一年不是你在過。留一顆之後掉到 0.6%。 */
-function autoRun(){
-  const r=g.raw;
-  if(r.phase!=='act') return;
-  let guard=0;
-  while(r.apLeft>0 && guard++<12){
-    if(r.apLeft<=1 && g.beat()) return;   /* 最後一顆，而且有事要問你——留著 */
-    const at=freeIdx();
-    const b4=snap();
-    const say=g.autoTick();
-    if(!say) return;
-    markDie(say.kind, at);
-    nextFx=delta(b4);
-    logRow('auto', DIETAG[say.kind]||'', esc(say.text));
-  }
-}
-/* ---- 中間：處境卡 ---- */
-function renderSits(){
-  const r=g.raw, host=$('sits');
-  if(!host) return;
-  /* 卡還沒處理就不能出牌。彈窗被關掉的時候，這裡是唯一的回頭路 */
-  if(r.phase==='event'){
-    host.innerHTML='<div class="card sit"><div class="sq">今年發生了一件事。</div>'+
-      '<button class="opt"><span class="on">看看是什麼</span></button></div>';
-    const b=host.querySelector('button');
-    if(b) b.onclick=eventModal;
+  paint();
+  if(g.over){
+    ask('投資人生完成','',[{t:'查看人生總結',main:1,f:ending}]);
     return;
   }
-  const idx=curIdx();
-  const bs = idx<0 ? [] : g.beats(idx);
-  if(!bs.length){
-    host.innerHTML='<div class="card sit"><div class="sq">'+
-      (r.apLeft>0?'今年沒有別的事要決定了。':'今年的骰子用完了。')+'</div></div>';
-    return;
-  }
-  /* 兩個處境攤開就是八顆按鈕，光按鈕本身就 320px，而中間那格只有 336px——
-     667px 的螢幕放不下，這是算術問題不是排版問題。
-     所以：全部的處境都看得到（標題那一行），但一次只展開一個。
-     實測 54% 的年份只有一個處境，那些年份完全不受影響。 */
-  if(openSit>=bs.length) openSit=0;
-  host.innerHTML=bs.map((b,bi)=>{
-    if(bi!==openSit)
-      return '<button class="sit-head" data-h="'+bi+'"><span class="hq">'+esc(b.q)+'</span>'+
-             '<span class="hc">展開</span></button>';
-    return '<div class="card sit"><div class="sq">'+esc(b.q)+'</div>'+
-    '<div class="dhint"><span class="die">'+DIE[b.die]+'</span><span>'+
-      esc(b.dieNote||'')+'</span></div>'+
-    b.opts.map((o,oi)=>'<button class="opt'+(o.warn?' warn':'')+'" data-b="'+bi+'" data-o="'+oi+'">'+
-      '<span class="on">'+esc(o.t)+'</span>'+
-      (o.s?'<span class="of">'+esc(o.s)+'</span>':'')+
-      (o.n?'<span class="ov">'+esc(o.n)+'</span>':'')+
-      '</button>').join('')+'</div>';
-  }).join('');
-  host.querySelectorAll('button').forEach(btn=>{
-    btn.onclick=()=>{
-      if(btn.dataset && btn.dataset.h!=null && btn.dataset.h!==''){
-        openSit=+btn.dataset.h; renderSits(); scrollTop(); return;
-      }
-      const b=bs[+(btn.dataset.b||0)], o=b.opts[+(btn.dataset.o||0)];
-      if(!b||!o) return;
-      if(o.skip){ g.pass(b.id); openSit=0; render(); return; }
-      const arg={};
-      if(o.arg) for(const k in o.arg) arg[k]=o.arg[k];
-      arg.dieIdx=curIdx();
-      openSit=0;
-      doPlay(o.mv,arg);
-    };
-  });
-}
-/* ---- 底部：骰子盤 ---- */
-function renderTray(){
-  const r=g.raw, tray=$('tray');
-  if(!tray) return;
-  const cur=curIdx();
-  tray.innerHTML=r.dice.map((d,i)=>{
-    if(r.dieUsed[i])
-      return '<span class="dz used"><i>'+DIE[d]+'</i><em>'+esc(dieUse[i]||'用掉')+'</em></span>';
-    const on=(i===cur);
-    return '<button class="dz'+(on?' sel':'')+'" data-i="'+i+'"><i>'+DIE[d]+'</i><em>'+
-      (on?'用這顆':d+' 點')+'</em></button>';
-  }).join('');
-  tray.querySelectorAll('button').forEach(b=>{
-    b.onclick=()=>{ pickIdx=+(b.dataset.i||0); renderTray(); renderSits(); };
-  });
-  $('act-h').textContent = r.apLeft>0 ? '今年的骰子（還有 '+r.apLeft+' 顆）' : '今年的骰子用完了';
-}
-/* ---- 底部：結束這一年 ---- */
-function renderEnd(){
-  const r=g.raw;
-  if(r.phase==='event'){ $('act').innerHTML=''; return; }
-  const more = r.apLeft>0 && g.beats().length>0;
-  $('act').innerHTML='<button class="main">'+(more?'今年就這樣':'結束這一年')+'</button>';
-  const b=$('act').querySelector('button');
-  if(!b) return;
-  b.onclick=()=>{
-    if(g.raw.apLeft>0){
-      for(let i=0;i<g.raw.dice.length;i++) if(!g.raw.dieUsed[i]) dieUse[i]='沒用';
-      g.skipRest();
+  const choices=[
+    {k:'craft',t:'多做研究',s:'下一年有 50% 機率多看 1 條消息',result:'下一年有 50% 機率多看到 1 條市場消息。'},
+    {k:'safe', t:'控制風險',s:'下一年操作衝動 −6',result:'下一年操作衝動 −6，較不容易追高。'},
+    {k:'life', t:'顧好生活',s:'下一年年初生活 +6',result:'下一年年初生活狀態 +6。'}
+  ];
+  const opts=choices.map(x=>({
+    t:x.t, main:x.k===plan, s:esc(x.s),
+    f:()=>{
+      plan=x.k; g.setPlan(plan);
+      card('info','下一年度投資重點','<b>'+esc(x.t)+'</b><br>'+esc(x.result));
+      nextYear();
     }
-    endTurn();
-  };
-}
-function doPlay(id,arg){
-  const cut=id.indexOf(':');
-  const m={id:id, kind:cut<0?id:id.slice(0,cut), inst:cut<0?null:id.slice(cut+1)};
-  const b4=snap();
-  const res=g.play(id,arg);
-  if(res){
-    /* 標在回傳的 dieIdx 上：玩家挑的那一顆不一定是下一顆 */
-    markDie(m.kind, res.dieIdx);
-    pickIdx=null;
-    nextFx=delta(b4);
-    reportPlay(m,res);
-  }
-  render();
-}
-function reportPlay(m,res){
-  if(!m) return;
-  if(m.kind==='buy')  logRow('','買進','買了 '+esc(KERNEL.BY_ID[m.inst].n)+' <b class="hl">'+money(res.amount)+'</b>。');
-  else if(m.kind==='sell') logRow(res.pl>=0?'good':'bad','賣出',
-    '賣掉 '+esc(KERNEL.BY_ID[m.inst].n)+'，實現 <b class="'+(res.pl>=0?'up':'dn')+'">'+
-    sgn(res.pl)+'萬</b>（證交稅 0.3% 已扣）。');
-  else if(m.kind==='margin') logRow('bad','融資',
-    '借了 <b class="dn">'+money(res.borrowed)+'</b> 去買 '+esc(KERNEL.BY_ID[m.inst].n)+'。');
-  else if(m.kind==='scout') logRow('','研究',
-    esc(KERNEL.BY_ID[m.inst].n)+'——你判斷它今年<b class="'+(res.beatsMarket?'up':'dn')+'">'+
-    (res.beatsMarket?'會贏大盤':'不會贏大盤')+'</b>。<span style="color:var(--dim)">這個判斷的準確率 '+
-    res.acc+'%</span>');
-  else if(m.kind==='habit') logRow('good','習慣',
-    esc(KERNEL.HABITS[m.id.slice(6)].n)+'——'+
-    ['','剛開始','已經是習慣了','固化了，不用再花力氣維持'][res.stage]+'。');
-  else if(m.kind==='work') logRow('','加班','接了案子，進帳 <b class="up">'+money(res.earned)+'</b>，生活 −7。');
-  else if(m.kind==='life') logRow('good','生活','你把生活過回來了一點。');
-}
-/* 結算完、結局那兩處用的：把下面那格換成一兩顆按鈕。
-   這裡以前呼叫 setAct()，而 setAct 是舊出牌面板的東西，
-   改成骰子分配的時候被我一起刪掉了——於是結算完要畫「下一年」時
-   丟 ReferenceError，整局卡在十六歲。不再依賴外面的東西。 */
-function actOnly(list){
-  const h=$('act-h'); if(h) h.textContent='　';
-  const tray=$('tray'); if(tray) tray.innerHTML='';
-  const act=$('act');
-  if(!act) return;
-  act.innerHTML=list.map(o=>'<button class="main">'+esc(o.t)+'</button>').join('');
-  const bs=act.querySelectorAll('button');
-  if(bs.forEach) bs.forEach((b,i)=>{ if(list[i]) b.onclick=list[i].f; });
-  setDock(false);
-}
-/* 一則紀錄同時寫兩個地方：「紀錄」分頁（完整歷史）
-   與「現況」最上面的「剛剛」（你眼睛真正在看的地方）。
-   只寫紀錄的話，結果會落在一個你不會去翻的分頁裡——等於沒有寫。 */
-
-/* ---- 選完之後，你的數字變成什麼 ----
-   「買了記憶體概念股 1.4 萬」講的是那筆交易，不是你的處境。
-   玩家真正想知道的是「所以我現在剩多少」——那個數字在上面的 HUD 裡
-   換掉了，但沒有人看得到它換之前是多少。所以把前後都印出來。
-
-   nextFx 是一次性的：設了之後下一則紀錄會用掉它。 */
-const DFIELD=[['cash','現金',1],['pos','持股',1],['debt','負債',1],
-              ['life','生活',0],['tilt','心態',0]];
-function snap(){
-  const r=g.raw;
-  return {cash:r.cash, pos:g.assets()-r.cash, debt:r.debt, life:r.life, tilt:r.tilt};
-}
-function delta(a){
-  if(!a) return '';
-  const b=snap(), out=[];
-  DFIELD.forEach(f=>{
-    const x=a[f[0]], y=b[f[0]], mny=f[2];
-    if(Math.abs(y-x) < (mny?0.05:0.5)) return;
-    const fmt = mny ? money : (v=>String(Math.round(v)));
-    out.push(f[1]+' '+fmt(x)+' → <b>'+fmt(y)+'</b>');
+  }));
+  /* 自主收手：30 歲以上、淨值站上 600 萬才出現。
+     不是難度選項，是股市人生最重要的一課——知道什麼時候離場。 */
+  if(g.canWalkaway&&g.canWalkaway()) opts.push({
+    t:'收手，把錢搬去過生活', warn:1,
+    s:'結束投資人生，現在結算',
+    f:()=>{ if(g.walkaway()) ending(); else nextYear(); }
   });
-  return out.join('　');
-}
-let nextFx='', nextFxKeep='', lastTag='';
-function logRow(cls,tag,html){
-  nextFxKeep = nextFx ? '<span class="fx">'+nextFx+'</span>' : '';
-  lastTag = tag||'';
-  const body=(tag?'<span class="t">'+esc(tag)+'</span>':'')+html+nextFxKeep;
-  nextFx='';
-  const d=document.createElement('div');
-  d.className='row'+(cls?' '+cls:'');
-  d.innerHTML=body;
-  const L=$('log'); L.insertBefore(d,L.firstChild);
-  flash(cls,body);
-}
-/* 最新的一則放在選項正上方，完整的歷史留在「紀錄」分頁。
-   中間那格不再重複印一次——選項展開時它只剩三十幾 px，
-   印在那裡跟印在畫面外沒有差別。 */
-/* dock 上那一條只放「做了什麼」與「數字變成什麼」。
-   完整那句留在「紀錄」——它是故事，但故事不該擠在下一個決定的正上方，
-   而且它每一年都會出現，是家具不是情節。 */
-function flash(cls,body){
-  const last=$('last');
-  if(!last) return;
-  last.style.display='';
-  last.innerHTML=(lastTag?'<span class="t">'+esc(lastTag)+'</span>':'')+
-    (nextFxKeep||'<span class="fx">'+esc(lastPlain(body))+'</span>');
-}
-/* 沒有數字可印的時候（研究、開習慣那類），退回原本那句話的第一個句子 */
-function lastPlain(body){
-  const t=String(body).replace(/<[^>]*>/g,'');
-  const cut=t.indexOf('。');
-  return cut>0 ? t.slice(0,cut+1) : t.slice(0,28);
-}
-function flashClear(){
-  const l=$('last'); if(l){ l.style.display='none'; l.innerHTML=''; }
-}
-
-/* ---- 彈窗 ---- */
-function modal(title,body,opts,extra){
-  const m=document.createElement('div'); m.id='mask';
-  m.innerHTML='<div class="m"><h2>'+esc(title)+'</h2><p>'+esc(body)+'</p>'+
-    (extra||'')+
-    opts.map(o=>'<button class="'+(o.main?'main':(o.warn?'warn':''))+'">'+esc(o.t)+
-      ((o.n||o.s)?'<span class="s">'+(o.n?'<b>'+esc(o.n)+'</b>':'')+
-        (o.n&&o.s?'　':'')+esc(o.s||'')+'</span>':'')+'</button>').join('')+'</div>';
-  document.body.appendChild(m);
-  m.querySelectorAll('button').forEach((b,i)=>b.onclick=()=>{ m.remove(); opts[i].f(); });
+  ask('下一年怎麼做？','選擇下一年度的投資重點。',opts);
 }
 
 /* ================= 結局 ================= */
 function ending(){
   const e=g.ending;
-  const cell=(k,v)=>'<tr><td>'+k+'</td><td style="text-align:right"><b>'+v+'</b></td></tr>';
-  /* 十列的表在 375×667 上要捲兩下才看得完，而這是整局唯一的總結——
-     它該一次全部進到眼睛裡。改成兩欄的方塊：淨值自己一行大字，
-     其餘八個數字排成 2×4。 */
+  const endAge=e.age==null?g.raw.age:e.age;
   const tile=(k,v,cls)=>'<div class="tl"><span>'+k+'</span><b'+(cls?' class="'+cls+'"':'')+'>'+v+'</b></div>';
-  const box=document.createElement('div');
-  box.className='card end';
-  box.innerHTML='<h3>四十歲 · 結算</h3><div class="endt">'+esc(e.t)+'</div>'+
-    '<div class="endnav"><span>淨值</span><b>'+money(e.nav)+'</b></div>'+
-    '<div class="grid">'+
-      tile('年化',sgn(e.cagr)+'%',e.cagr>=0?'up':'dn')+
-      tile('贏過 ETF',sgn(e.edge)+'%',e.edge>=0?'up':'dn')+
-      tile('生活',Math.round(e.life))+
-      tile('存進去',money(e.inflow))+
-      tile('ETF 對照',money(e.bench))+
-      tile('股利',money(e.div))+
-      tile('稅費',money(e.tax))+
-      tile('交易',e.trades+' 次')+
-      tile('斷頭',e.blowups+' 次')+
-    '</div>';
-  const col=$('p-now');
-  if(col) col.insertBefore(box,col.firstChild);
-  /* 結局這一頁只留結算表。「剛剛」與「風向」講的是還在進行的那一年，
-     而那一年已經結束了——留著只會把表推出畫面。 */
-  flashClear();
-  const sig=$('c-sig'); if(sig) sig.style.display='none';
-  showPage('now');
-  /* 結算表插進「現況」最上面，然後彈窗只報結局的名字。
-     原本這裡唯一的按鈕是「再來一次」，而它會 location.reload()——
-     等於這張表插進去之後，沒有任何一條路徑看得到它。
-     現在按掉彈窗就是結算表，重玩改放在下面的選單裡。 */
-  modal(e.t,'二十四年，結算。',[{t:'看結算', main:1, f:()=>{}}]);
-  actOnly([
-    {t:'再玩一次（同一顆種子）', main:1, f:()=>location.reload()},
-    {t:'換一顆種子', f:()=>{ location.href=location.pathname; }}
+  const feed=$('feed');
+  if(feed){
+    if(yearSec&&yearSec.classList) yearSec.classList.add('collapsed');
+    yearSec=null;   /* 結局卡放在最外層，不收進任何一年 */
+    const d=document.createElement('div');
+    d.className='card end';
+    d.innerHTML='<h4>'+endAge+' 歲 · 結算</h4><div class="endt">'+esc(e.t)+'</div>'+
+      '<div class="endnav"><span>淨值</span><b>'+money(e.nav)+'</b></div>'+
+      '<div class="grid">'+
+        tile('年化',sgn(e.cagr)+'%',e.cagr>=0?'up':'dn')+
+        tile('贏過 ETF',sgn(e.edge)+'%',e.edge>=0?'up':'dn')+
+        tile('生活',Math.round(e.life))+
+        tile('存進去',money(e.inflow))+
+        tile('ETF 對照',money(e.bench))+
+        tile('股利',money(e.div))+
+        tile('稅費',money(e.tax))+
+        tile('交易',e.trades+' 次')+
+        tile('斷頭',e.blowups+' 次')+
+      '</div>';
+    feed.appendChild(d);
+  }
+  /* 「後來」：每個結局的第二人生（素材來自真實案例）。
+     終止不是懲罰，是敘事出口。 */
+  if(e.story) card('info','後來',esc(e.story));
+  ask('投資 '+e.years+' 年，結束了','',[
+    {t:'再玩一次（同一顆種子）',main:1,f:()=>location.reload()},
+    {t:'換一顆種子',f:()=>{ location.href=location.pathname; }}
   ]);
-  $('act-h').textContent='四十歲，結束了';
-  setDock(false);
+  paint();
 }
 </script>
 </body>
