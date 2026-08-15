@@ -222,7 +222,7 @@ const EVENTS=[
    b:{nav:-16,mood:-8}, bt:'開學前它跌了三成。你連午餐都改吃最便宜的那種。'}
  ]},
 
-{n:'她問你在忙什麼',stg:'young',
+{n:'她問你在忙什麼',stg:'young',loveSt:'dating',
  d:'你想了三種講法，每一種聽起來都像在炫耀或像個怪人。',
  o:[
   {t:'照實說', p:55, g:{life:5,mood:6},
@@ -426,7 +426,7 @@ const EVENTS=[
    b:{life:-5,mood:-11}, bt:'他的定存是解約的。你把錢賠給他，他收下了，但你們沒有再一起吃過飯。'}
  ]},
 
-{n:'另一半說該買房了',stg:'pro',minAge:26,
+{n:'另一半說該買房了',stg:'pro',minAge:26,loveSt:'attached',
  d:'「你的錢都在股票裡，我知道。可是我們要住哪裡？」',
  o:[
   {t:'先看房，部位砍一半', g:{life:8,nav:-11,hab:{cash:4}},
@@ -452,7 +452,7 @@ const EVENTS=[
    b:{life:-7,mood:-13}, bt:'你算錯了。錢是後來湊到的，但你記得自己猶豫過那幾秒。'}
  ]},
 
-{n:'岳家的錢',stg:'pro',minAge:28,
+{n:'岳家的錢',stg:'pro',minAge:28,loveSt:'married',
  d:'「我們退休金放定存也是放著，你幫我們操作嘛。」',
  o:[
   {t:'不接', g:{life:4,mood:3},
@@ -580,6 +580,45 @@ const EVENTS=[
    b:{nav:-20,life:-4,mood:-11}, bt:'升息那年你才知道，兩邊都要的意思是兩邊都撐。'}
  ]},
 
+/* ---- 感情線：狀態轉移全部由這三張卡觸發 ----
+   單身→(相遇)→交往→(求婚)→已婚→(生子)。求婚卡的「再等等」每次
+   重抽都是一次分手賭——跨年重遇＝自然升壓，不需要另寫遞增規則。 */
+{n:'朋友約了飯局，說有人想認識你',stg:'*',minAge:18,loveSt:'single',
+ d:'週五晚上。你本來排好要複盤這一週的行情。',
+ o:[
+  {t:'去，手機留在口袋', g:{love:'dating',life:4,mood:4},
+   gt:'她問你平常都在做什麼。你說了，但沒有講數字。那晚走路回家，你覺得路燈都比平常亮。'},
+  {t:'去，但邊吃邊看盤後檢討', p:45, g:{love:'dating',life:2,mood:6},
+   gt:'她假裝沒注意到。後來她說，那天你看手機的樣子「像在照顧一個生病的家人」。',
+   b:{life:-2,mood:-4}, bt:'第二次約，她沒來。你盯著自選股清單，想不起來她點的飲料。'},
+  {t:'「最近行情太忙。」推掉', g:{mood:2,hab:{log:2}},
+   gt:'你多了一個晚上讀財報。那檔股票，後來也沒漲。'}
+ ]},
+
+{n:'她看別人婚禮的影片，看了很久',stg:'*',minAge:22,loveSt:'dating',dyrsMin:2,
+ d:'影片播完，她沒有關掉，讓推薦的下一支繼續放。',
+ o:[
+  {t:'就是現在——求婚', g:{love:'married',life:8,mood:5,trust:5},
+   gt:'她哭著點頭。婚禮上你致詞：「這是我這輩子最好的一筆進場。」台下你的營業員笑得最大聲。'},
+  {t:'把帳戶給她看，讓她決定', p:60, g:{love:'married',life:5,trust:8},
+   gt:'她滑完對帳單只問一句：「有多少是借的？」你說零。她說：「那好。」',
+   b:{life:-4,mood:-5}, bt:'數字沒有問題。她想了三天，說：「你把最重要的事都交給數字決定，包括我。」'},
+  {t:'「等這波行情結束再說。」', p:55, g:{nav:4,mood:2},
+   gt:'她笑著說好。你假裝沒看到她眼裡的東西。這一年你賺得很專心。',
+   b:{love:'break',life:-7,mood:-8}, bt:'她說她等不到了。搬走那天，行情正好創新高。'}
+ ]},
+
+{n:'她把驗孕棒放在你的鍵盤上',stg:'pro',loveSt:'married',
+ d:'兩條線。旁邊是你昨晚畫到一半的 K 線圖。',
+ o:[
+  {t:'關掉看盤軟體，抱住她', g:{love:'baby',life:8,mood:4},
+   gt:'那天你沒有看收盤。後來你發現那天大盤跌了 1.8%，而你完全不記得。'},
+  {t:'第一句話：「養小孩要多少錢？」', g:{love:'baby',life:3,mood:-3,trust:-3,hab:{cash:3}},
+   gt:'她說你沒救了。但她在笑。你當晚真的開了一張二十年的現金流試算表。'},
+  {t:'默默開一個戶，戶名留給孩子', g:{love:'baby',life:5,hab:{dca:3}},
+   gt:'零股定期定額，每月一千。二十年後那個帳戶的報酬率贏過你自己的——因為它從來不進出。'}
+ ]},
+
 /* trustMin:50＝初始值。不是「賺到信任才解鎖」，是「敗過信用就不會遇到」——
    吹牛、亂發對帳單、割過朋友的人，沒有人會說「我信得過你」。 */
 {n:'有人要把錢交給你',stg:'pro',minNav:600,trustMin:50,
@@ -662,6 +701,7 @@ function newGame(seed,opts){
     blowups:0, taxPaid:0, divTotal:0, realized:0, trades:0,
     inflow:0, benchSh:0,
     trust:50, fame:0, honors:[],           /* 事件卡寫得進來的三個外部狀態 */
+    love:{st:'single',dyrs:0,kids:0,exes:0}, /* 感情線：狀態轉移全部由事件卡觸發 */
     seenEv:{}, yearEv:{}, pendEv:null, eventsLeft:0, evLog:[], riskChecked:false, riskResult:null,
     hist:[], log:[], over:false, ending:null, notes:[]
   };
@@ -782,6 +822,7 @@ function autoAllocate(g){
 /* ================= 年循環 ================= */
 /* 1. 開年：收入、題材、訊號、行動點、手癢 */
 function openYear(g){
+  if(g.love&&g.love.st==='dating') g.love.dyrs++;   /* 交往年數：求婚卡的門檻 */
   if(g.over) return null;
   g.age=16+g.year;
   const m=g.market[g.year];
@@ -1078,6 +1119,18 @@ function applyFx(g,fx,flow){
   }
   if(fx.life!=null){ g.life=clamp(g.life+fx.life,0,100); out.push({k:'life', v:fx.life, t:'生活 '+(fx.life>0?'+':'')+fx.life}); }
   if(fx.trust!=null){ g.trust=clamp(g.trust+fx.trust,0,100); out.push({k:'trust', v:fx.trust, t:'別人對你的信任 '+(fx.trust>0?'+':'')+fx.trust}); }
+  /* 感情狀態轉移。條件不符就靜默跳過——卡片已經被閘門擋住，這裡是保險 */
+  if(fx.love&&g.love){
+    const L=g.love;
+    if(fx.love==='dating'&&L.st==='single'){ L.st='dating'; L.dyrs=0;
+      out.push({k:'love',v:1,t:'你們在一起了'}); }
+    else if(fx.love==='married'&&L.st==='dating'){ L.st='married';
+      out.push({k:'love',v:1,t:'你們結婚了'}); }
+    else if(fx.love==='baby'&&L.st==='married'){ L.kids++;
+      out.push({k:'love',v:1,t:'第 '+L.kids+' 個孩子出生了'}); }
+    else if(fx.love==='break'&&L.st==='dating'){ L.st='single'; L.dyrs=0; L.exes++;
+      out.push({k:'love',v:-1,t:'這段感情結束了'}); }
+  }
   if(fx.hab) for(const k in fx.hab){
     const r=evHabit(g,k,fx.hab[k]);
     if(!r) continue;
@@ -1103,6 +1156,13 @@ function drawEvent(g){
     if(e.need_job && g.career!=='job') return false;
     /* 信任閘門：敗過信用的人，某些事就不會發生在他身上 */
     if(e.trustMin!=null && g.trust<e.trustMin) return false;
+    /* 感情閘門：單身的人不會被問「岳家的錢」。attached＝交往或已婚 */
+    if(e.loveSt){
+      const st=g.love?g.love.st:'single';
+      if(e.loveSt==='attached'){ if(st==='single') return false; }
+      else if(st!==e.loveSt) return false;
+    }
+    if(e.dyrsMin!=null && (!g.love||g.love.dyrs<e.dyrsMin)) return false;
     return true;
   });
   if(!pool.length) return null;
@@ -1124,6 +1184,7 @@ function stakeText(g,fx){
   if(tv!=null) parts.push('衝動 '+(tv>0?'+':'')+tv);
   if(fx.life!=null) parts.push('生活 '+(fx.life>0?'+':'')+fx.life);
   if(fx.trust!=null) parts.push('信任 '+(fx.trust>0?'+':'')+fx.trust);
+  if(fx.love) parts.push({dating:'在一起',married:'結婚',baby:'孩子出生','break':'分手'}[fx.love]||'感情變化');
   if(fx.hab) parts.push('習慣進退');
   return parts.join('・');
 }
@@ -1925,6 +1986,7 @@ function finish(g,reason){
   const e=ENDINGS.find(function(E){return E.c(x);});
   const bench=benchNav(g);
   g.ending={id:e.id, t:e.t, nav:n, cagr:cagr, life:g.life, tilt:g.tilt, trust:g.trust,
+            love:{st:g.love.st,kids:g.love.kids,exes:g.love.exes},
             blowups:g.blowups, tax:g.taxPaid, div:g.divTotal, trades:g.trades, years:yrs,
             age:g.age, endYear:2026+g.year-1,
             inflow:g.inflow, bench:bench, edge:(n/Math.max(bench,0.01)-1)*100,
@@ -1983,7 +2045,7 @@ function wrap(g){
 
 /* 頁面用這個數字確認自己拿到的不是快取裡的舊內核。
    改了對外介面就 +1，並同步改 play.html 的 ?v= 與 NEED_VERSION。 */
-const VERSION=39;
+const VERSION=40;
 
 return {newGame:newGame, VERSION:VERSION, EVENTS:EVENTS, slip:slip, SIG_FLOOR:SIG_FLOOR, INST:INST, BY_ID:BY_ID, HABITS:HABITS, SIGNALS:SIGNALS,
         THEMES:THEMES, REGIME:REGIME, ENDINGS:ENDINGS, TOTAL:TOTAL,
